@@ -4,7 +4,7 @@ use syntax::SourceFile;
 
 //test
 fn main() {
-    let contents = fs::read_to_string("./test.rs")
+    let contents = fs::read_to_string("./main.rs")
         .expect("This shouldnt be empty");
     let parse = SourceFile::parse(&contents);
     let rnode = parse.tree();
@@ -21,6 +21,7 @@ fn main() {
             Some(node) => { 
                 if Fn::can_cast(node.kind()) {
                     let tmp = Fn::cast(node.clone()).unwrap();
+                    
                     let name = tmp.name().unwrap();
                     println!("{name} at {lino}");
                 }
