@@ -3,15 +3,15 @@ use syntax::SyntaxNode;
 
 pub struct dummy{}
 pub struct token_info{
-    tline_start: usize, tline_end: usize,
-    left_offset: usize, right_offset: usize
+    tline_start: u32, tline_end: u32,
+    left_offset: u32, right_offset: u32
 }
 pub struct position_info{
-    line_start: usize, line_end: usize,
-    logical_start: usize, logical_end: usize,
-    column: usize, offset: usize
+    line_start: u32, line_end: u32,
+    logical_start: u32, logical_end: u32,
+    column: u32, offset: u32
 }  
-pub enum mcodekind<'a>{
+pub enum mcodekind<'a>{//TODO
     MINUS(&'a (dummy, token_info)),
     PLUS(),
     CONTEXT(),
@@ -20,7 +20,7 @@ pub enum mcodekind<'a>{
 }
 pub struct bef_aft{}
 
-pub struct Info<'a>{
+pub struct info<'a>{
     pos_info: position_info,
     attachable_start: bool, attachable_end: bool,
     mcode_start: Vec<mcodekind<'a>>, mcode_end: Vec<mcodekind<'a>>,
@@ -29,9 +29,9 @@ pub struct Info<'a>{
     isSymbolIdent: bool
 }
 
-pub struct Wrap<'a>{
+pub struct wrap<'a>{
     node: &'a SyntaxNode,
-    info: Info<'a>,
+    info: info<'a>,
     index: u32,
     mcodekind: mcodekind<'a>,
     exp_ty: Option<Type>,

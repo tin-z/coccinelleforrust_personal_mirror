@@ -1,53 +1,74 @@
 mod ast0;
 
-use ast0::{Wrap, Info, position_info, token_info};
+use std::ptr::null;
+
+use ast0::{position_info, token_info, info, wrap};
+use ide_db::line_index::LineCol;
+use ide_db::line_index::LineIndex;
+use syntax;
+use syntax::SyntaxNode;
 use syntax::ast::*;
 use syntax::SourceFile;
 
-fn parse(contents:&str){
+use self::ast0::bef_aft;
+use self::ast0::dummy;
+
+fn parse_aux(lindex: LineIndex, node: AstNode) {//notcomplete
+    for item in node.children() {
+        let sindex: LineCol = lindex.line_col(item.text_range().start());
+        let eindex: LineCol = lindex.line_col(item.text_range().end());
+        let pos_info = position_info {
+            line_start: sindex.line,
+            line_end: eindex.line,
+            logical_start: 0,
+            logical_end: 0,
+            column: sindex.col,
+            offset: item.text_range().start().into(), //what is the offset?
+        };
+    }
+}
+
+fn parse(contents: &str) {
     let root = SourceFile::parse(contents).tree();
-    let mut lino = 1;//linenumber
-    let mut cono = 1;//column number
-    let wrap:Wrap;
-    let info:Info;
-    let position_info:position_info;
-    let token_info:token_info;
+    let mut upto: &str;
+    let mut lino = 1; //linenumber
+    let mut cono = 1; //column number
 
-    for item in root.syntax().children_with_tokens(){
-        
-        match item.as_node(){
-            
-            Some(node) => { 
-                position_info = position_info{
-                    line_start: lino,
-                    line_end: lino + node.to_string().matches('\n').count(),
-                    logical_start: 0,
-                    logical_end: 0,
-                    column: cono,
-                    offset: 0//what is the offset?
-                };
+    for item in root.items() {//for now skips Attributes
+        let lindex: LineIndex = LineIndex::new(&item.to_string()[..]);
 
-                info = Info{
-                    pos_info: position_info,
-                    attachable_start: false, attachable_end: false,
-                    mcode_start: vec![], mcode_end: vec![],
-                };
+        let sindex: LineCol = lindex.line_col(item.syntax().text_range().start());
+        let eindex: LineCol = lindex.line_col(item.syntax().text_range().end());
+        let pos_info = position_info {
+            line_start: sindex.line,
+            line_end: eindex.line,
+            logical_start: 0,//TODO
+            logical_end: 0,
+            column: sindex.col,
+            offset: item.syntax().text_range().start().into()
+        };
 
-                wrap = Wrap{
-                    node: node,
-                };
-                
-         },
-            None => {},
-        }
-        match item.as_token()
-        {
-            Some(token) => {
-                lino += token.to_string().matches('\n').count(); 
-                cono += token.to_string().len();
-            },
-            None => {}
-        }
-        
+        let info = info {
+            pos_info: pos_info,
+            attachable_start: false, attachable_end: false,
+            mcode_start: vec![], mcode_end: vec![],
+            strings_before: vec![], strings_after: vec![],
+            isSymbolIdent: false
+        };
+
+        let wrap = wrap { 
+            node: &item.syntax(),
+            info: info,
+            index: 0,
+            mcodekind: ast0::mcodekind::MIXED(),
+            exp_ty: Type::cast(item.syntax().to_owned()),
+            bef_aft: bef_aft{},//TODO
+            true_if_arg: AnyHasArgList::can_cast(item.syntax().kind()),
+            true_if_test: false,//inquire
+            true_if_test_exp: false,//inquire
+            iso_info: vec![],
+        };
+
+        parse_aux(lindex, item);//function not complete
     }
 }

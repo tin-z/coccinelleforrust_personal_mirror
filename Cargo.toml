@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 syntax = { path = "src/rust-analyzer/crates/syntax" }
 parser = { path = "src/rust-analyzer/crates/parser" }
+ide-db = { path = "src/rust-analyzer/crates/ide-db" }
