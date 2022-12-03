@@ -3,16 +3,23 @@ use std::ops::Index;
 use syntax::ast::{Type, MacroDef};
 use syntax::SyntaxNode;
 
+#[derive(Clone)]
 pub struct dummy{}
+
+#[derive(Clone)]
 pub struct token_info{
     tline_start: u32, tline_end: u32,
     left_offset: u32, right_offset: u32
 }
+
+#[derive(Clone)]
 pub struct position_info{
     pub line_start: u32, pub line_end: u32,
     pub logical_start: u32, pub logical_end: u32,
     pub column: u32, pub offset: u32
 }  
+
+#[derive(Clone)]
 pub enum mcodekind<'a>{//TODO
     MINUS(&'a (dummy, token_info)),
     PLUS(),
@@ -20,8 +27,11 @@ pub enum mcodekind<'a>{//TODO
     MIXED()
     
 }
+
+#[derive(Clone)]
 pub struct bef_aft{}
 
+#[derive(Clone)]
 pub struct info<'a>{
     pos_info: position_info,
     attachable_start: bool, attachable_end: bool,
@@ -47,8 +57,9 @@ impl<'a> info<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct wrap<'a>{
-    node: &'a SyntaxNode,
+    pub node: SyntaxNode,
     info: info<'a>,
     index: u32,
     mcodekind: mcodekind<'a>,
@@ -61,7 +72,7 @@ pub struct wrap<'a>{
 }
 
 impl<'a> wrap<'a> {
-    pub fn new(node: &'a SyntaxNode, info: info<'a>, index: u32,
+    pub fn new(node: SyntaxNode, info: info<'a>, index: u32,
     mcodekind: mcodekind<'a>, exp_ty: Option<Type>, bef_aft: bef_aft, 
     true_if_arg: bool, 
     true_if_test: bool, true_if_test_exp: bool,
@@ -75,3 +86,4 @@ impl<'a> wrap<'a> {
 
     }
 }
+
