@@ -58,7 +58,7 @@ impl<'a> info<'a> {
 }
 
 #[derive(PartialEq, Eq, Clone, Hash)]
-pub enum Syntax {
+pub enum Syntax {//TODO: Make this support attributes, visibbility, Generic Params
     Node(SyntaxNode),
     Token(SyntaxToken)
 }

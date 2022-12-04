@@ -13,6 +13,7 @@ use syntax::SyntaxToken;
 use syntax::ast::Const;
 use syntax::ast::Expr;
 use syntax::ast::HasName;
+use syntax::ast::ParamList;
 use syntax::ast::RecordFieldList;
 use syntax::ast::TupleFieldList;
 use syntax::ast::{Item, SourceFile, Type, AnyHasArgList, AstNode, HasModuleItem};
@@ -91,7 +92,6 @@ fn wrap_token_aux<K:AstToken>(infonode: &mut HashMap<Syntax, wrap>, lindex: &Lin
     
 }
 
-
 ///
 /// Next two functions for wrapping nodes
 /* fn rewrap_node<'a, K: AstNode>(infonode: &mut HashMap<Syntax, wrap>, //This function has been made to rewrap Option<AstNode> to Option<&AstNode>
@@ -136,7 +136,6 @@ fn wrap_node_aux<K: AstNode>(infonode: &mut HashMap<Syntax, wrap>, lindex: &Line
     
 }
 
-
 fn wrap_expr(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Expr){
     match node{
         ArrayExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) },
@@ -174,7 +173,26 @@ fn wrap_expr(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: synt
     }
 }
 
-fn wrap_aux(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Item) {//notcomplete
+fn wrap_params(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, plist: Option<ParamList>){
+    match plist{
+        Some(plist) => {
+            wrap_keyword_aux(infonode, lindex, plist.l_paren_token());
+            wrap_keyword_aux(infonode, lindex, plist.comma_token());
+            for param in plist.params(){
+                wrap_pat(infonode, lindex, param.pat());
+                wrap_keyword_aux(infonode, lindex, param.colon_token());
+                wrap_node_aux(infonode, lindex, param.ty(), false);
+                wrap_keyword_aux(infonode, lindex, param.dotdotdot_token());
+            }
+            wrap_keyword_aux(infonode, lindex, plist.r_paren_token());
+            wrap_keyword_aux(infonode, lindex, plist.pipe_token());
+            wrap_node_aux(infonode, lindex, Some(plist), false);
+        }
+        None => {}
+    }
+}
+
+fn wrap_item(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Item) {//notcomplete
     match node {
         syntax::ast::Item::Const(node)=> { 
             wrap_node_aux(infonode, &lindex, node.name(), true);
@@ -230,6 +248,12 @@ fn wrap_aux(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: synta
         syntax::ast::Item::ExternBlock(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
         syntax::ast::Item::ExternCrate(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
         syntax::ast::Item::Fn(node)=> { 
+            wrap_keyword_aux(infonode, &lindex, node.default_token());
+            wrap_keyword_aux(infonode, &lindex, node.const_token());
+            wrap_keyword_aux(infonode, &lindex, node.async_token());
+            wrap_keyword_aux(infonode, &lindex, node.unsafe_token());
+            wrap_keyword_aux(infonode, &lindex, node.fn_token());
+            wrap_node_aux(infonode, &lindex, node.name(), true);
             wrap_node_aux(infonode, &lindex, Some(node), false);
 
         }
@@ -282,6 +306,6 @@ fn wraproot(contents: &str) {
                             );
         
         infonode.insert(Node(item.syntax().clone()), wrap);
-        wrap_aux(&mut infonode, lindex, item);
+        wrap_item(&mut infonode, lindex, item);
     }
 }
