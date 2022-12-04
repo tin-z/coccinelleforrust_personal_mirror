@@ -1,7 +1,7 @@
 use std::ops::Index;
 
 use syntax::ast::{Type, MacroDef};
-use syntax::SyntaxNode;
+use syntax::{SyntaxNode, SyntaxToken};
 
 #[derive(Clone)]
 pub struct dummy{}
@@ -57,9 +57,15 @@ impl<'a> info<'a> {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Hash)]
+pub enum Syntax {
+    Node(SyntaxNode),
+    Token(SyntaxToken)
+}
+
 #[derive(Clone)]
 pub struct wrap<'a>{
-    pub node: SyntaxNode,
+    pub syntax: Syntax,
     info: info<'a>,
     index: u32,
     mcodekind: mcodekind<'a>,
@@ -71,13 +77,13 @@ pub struct wrap<'a>{
     iso_info: Vec<(String, dummy)>
 }
 
-impl<'a> wrap<'a> {
-    pub fn new(node: SyntaxNode, info: info<'a>, index: u32,
+impl<'a> wrap<'a> {//Since we are hashing this with Syntax eventually, do we really need the node f
+    pub fn new(syntax: Syntax, info: info<'a>, index: u32,
     mcodekind: mcodekind<'a>, exp_ty: Option<Type>, bef_aft: bef_aft, 
     true_if_arg: bool, 
     true_if_test: bool, true_if_test_exp: bool,
     iso_info: Vec<(String, dummy)>) -> wrap<'a>{
-        wrap { node: node, 
+        wrap { syntax: syntax, 
             info: info,
             index: index, mcodekind: mcodekind, 
             exp_ty: exp_ty, bef_aft: bef_aft, true_if_arg: true_if_arg, 
