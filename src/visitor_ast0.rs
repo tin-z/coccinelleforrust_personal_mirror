@@ -2,6 +2,7 @@ mod ast0;
 
 use std::cell::Ref;
 use std::collections::HashMap;
+use std::process::Child;
 use std::rc::Rc;
 use ast0::{position_info, token_info, info, wrap};
 use ide_db::line_index::LineCol;
@@ -10,6 +11,7 @@ use syntax;
 use syntax::AstToken;
 use syntax::SyntaxNode;
 use syntax::SyntaxToken;
+use syntax::ast::AstChildren;
 use syntax::ast::Const;
 use syntax::ast::Expr;
 use syntax::ast::HasName;
@@ -19,12 +21,13 @@ use syntax::ast::TupleFieldList;
 use syntax::ast::{Item, SourceFile, Type, AnyHasArgList, AstNode, HasModuleItem};
 use syntax::ast::Expr::*;
 
+use self::ast0::Rnode;
 use self::ast0::bef_aft;
 use self::ast0::dummy;
 use self::ast0::Syntax;
 use self::ast0::Syntax::{Node, Token};
 
-fn wrap_keyword_aux(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, aexpr: Option<SyntaxToken>){//significance of dyn
+fn wrap_keyword_aux<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<Rnode<'a>>{//significance of dyn
     
     match aexpr{
         Some(aexpr) => {
@@ -51,14 +54,16 @@ fn wrap_keyword_aux(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, ae
                                         false, false, 
                                         vec![]);
 
-            infonode.insert(Token(aexpr.clone()), wrap);
+            Some(
+                Rnode { wrapper: wrap, astnode: Token(aexpr), children: vec![] }
+            )
         }
-        None => {}
+        None => { None }
     }
     
 }
 
-fn wrap_token_aux<K:AstToken>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, aexpr: Option<K>){//significance of dyn
+fn wrap_token_aux<'a, K:AstToken>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, aexpr: Option<K>) -> Option<Rnode<'a>>{//significance of dyn
     
     match aexpr{
         Some(aexpr) => {
@@ -85,9 +90,12 @@ fn wrap_token_aux<K:AstToken>(infonode: &mut HashMap<Syntax, wrap>, lindex: &Lin
                                         false, false, 
                                         vec![]);
 
-            infonode.insert(Token(aexpr.syntax().clone()), wrap);
+            Some(
+                Rnode { wrapper: wrap, astnode: Token(aexpr.syntax().clone()), children: vec![] }//cloning is cheap as astnode is 
+                                                                                                 //cheap as mentioned in rowan documentation
+            )
         }
-        None => {}
+        None => { None }
     }
     
 }
@@ -102,8 +110,8 @@ fn wrap_token_aux<K:AstToken>(infonode: &mut HashMap<Syntax, wrap>, lindex: &Lin
     }
 }
  */
-fn wrap_node_aux<K: AstNode>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex,
-    aexpr: Option<K>, isSymbolIdent: bool){
+fn wrap_node_aux<'a, K: AstNode>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex,
+    aexpr: Option<K>, isSymbolIdent: bool) -> Option<Rnode<'a>>{
     match aexpr{
         Some(aexpr) => {
             let sindex: LineCol = lindex.line_col(aexpr.syntax().text_range().start());
@@ -128,10 +136,12 @@ fn wrap_node_aux<K: AstNode>(infonode: &mut HashMap<Syntax, wrap>, lindex: &Line
                                         AnyHasArgList::can_cast(aexpr.syntax().kind()), 
                                         false, false, 
                                         vec![]);
-
-            infonode.insert(Node(aexpr.syntax().clone()), wrap);
+            Some(
+                Rnode { wrapper: wrap, astnode: Node(aexpr.syntax().clone()), children: vec![] }
+            )
+            
         }
-        None => {}
+        None => { None }
     }
     
 }
@@ -192,28 +202,27 @@ fn wrap_params(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, plist: 
     }
 }
 
-fn wrap_item(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Item) {//notcomplete
+fn wrap_item<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Item) ->  Option<Rnode>{//notcomplete
     match node {
-        syntax::ast::Item::Const(node)=> { 
-            wrap_node_aux(infonode, &lindex, node.name(), true);
-            wrap_keyword_aux(infonode, &lindex, node.default_token());
-            wrap_keyword_aux(infonode, &lindex, node.const_token());
-            wrap_keyword_aux(infonode, &lindex, node.underscore_token());
-            wrap_keyword_aux(infonode, &lindex, node.colon_token());
-            wrap_node_aux(infonode, &lindex, node.name(), true);
-            match node.ty(){
-                Some(ty) => { wrap_node_aux(infonode, &lindex, Some(ty), false) }
-                None => {}
-            }
-            wrap_keyword_aux(infonode, &lindex, node.eq_token());
-            match node.body(){
-                Some(expr) => { wrap_node_aux(infonode, &lindex, Some(expr), false); }
-                None => { }
-            }
-            wrap_keyword_aux(infonode, &lindex, node.semicolon_token());
+        syntax::ast::Item::Const(node)=> {
+            let children:Vec<Option<Rnode>> = vec![];
+            /// If a child is not present None is pushed
+            children.push(wrap_node_aux(infonode, &lindex, node.name(), true));
+            children.push(wrap_keyword_aux(infonode, &lindex, node.default_token()));
+            children.push(wrap_keyword_aux(infonode, &lindex, node.const_token()));
+            children.push(wrap_keyword_aux(infonode, &lindex, node.underscore_token()));
+            children.push(wrap_keyword_aux(infonode, &lindex, node.colon_token()));
+            children.push(wrap_node_aux(infonode, &lindex, node.name(), true));
+            children.push(wrap_node_aux(infonode, &lindex, node.ty(), false));
+            children.push(wrap_keyword_aux(infonode, &lindex, node.eq_token()));
+            children.push(wrap_node_aux(infonode, &lindex, node.body(), false));
+            children.push(wrap_keyword_aux(infonode, &lindex, node.semicolon_token()));
 
-            wrap_node_aux(infonode, &lindex, Some(node), false);//Adding this at the end so as to avoid 
-                                                                                     //moving value until the end
+            //Adding this at the end so as to avoid 
+            //moving value until the end
+            let wrappeditem = wrap_node_aux(infonode, &lindex, Some(node), false).unwrap();
+            wrappeditem.children = children;
+            Some(wrappeditem)
         }
         syntax::ast::Item::Enum(node)=> { 
             wrap_node_aux(infonode, &lindex, node.name(), true);//enum name can never be missing
@@ -272,9 +281,10 @@ fn wrap_item(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: synt
 }
 
 
-fn wraproot(contents: &str) {
+fn wraproot(contents: &str) -> Rnode{
     let root = SourceFile::parse(contents).tree();
     let mut infonode: HashMap<Syntax, wrap> = HashMap::new();
+    let children:Vec<Option<Rnode>> = vec![];
     let items = root.items();
     for item in items {//for now skips Attributes
         let lindex: LineIndex = LineIndex::new(&item.to_string()[..]);
@@ -305,7 +315,8 @@ fn wraproot(contents: &str) {
                                     vec![]
                             );
         
-        infonode.insert(Node(item.syntax().clone()), wrap);
-        wrap_item(&mut infonode, lindex, item);
+        children.push(wrap_item(&mut infonode, lindex, item.clone()));
     }
+    wrap_node_aux(infonode, lindex, root, false)
+    Rnode::new_root(wrap, Some(root), children)
 }

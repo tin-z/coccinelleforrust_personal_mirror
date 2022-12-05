@@ -1,25 +1,44 @@
+use std::cell::RefCell;
 use std::ops::Index;
+use std::rc::Rc;
+
+#[derive(PartialEq)]
+pub struct Rnode<'a> {
+  pub wrapper: wrap<'a>,
+  pub astnode: Syntax,
+  pub children: Vec<Option<Rnode<'a>>>,
+}
+
+impl<'a> Rnode<'a>{
+    pub fn new_root(wrapper: wrap, syntax: Syntax, children: Vec<Option<Rnode<'a>>>) -> Rnode<'a>{
+        Rnode{
+            wrapper: wrapper,
+            astnode: syntax,
+            children: children,
+        }
+    }
+}
 
 use syntax::ast::{Type, MacroDef};
 use syntax::{SyntaxNode, SyntaxToken};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct dummy{}
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct token_info{
     tline_start: u32, tline_end: u32,
     left_offset: u32, right_offset: u32
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct position_info{
     pub line_start: u32, pub line_end: u32,
     pub logical_start: u32, pub logical_end: u32,
     pub column: u32, pub offset: u32
 }  
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum mcodekind<'a>{//TODO
     MINUS(&'a (dummy, token_info)),
     PLUS(),
@@ -28,10 +47,10 @@ pub enum mcodekind<'a>{//TODO
     
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct bef_aft{}
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct info<'a>{
     pos_info: position_info,
     attachable_start: bool, attachable_end: bool,
@@ -58,12 +77,12 @@ impl<'a> info<'a> {
 }
 
 #[derive(PartialEq, Eq, Clone, Hash)]
-pub enum Syntax {//TODO: Make this support attributes, visibbility, Generic Params
+pub enum Syntax{//TODO: Make this support attributes, visibbility, Generic Params
     Node(SyntaxNode),
     Token(SyntaxToken)
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct wrap<'a>{
     pub syntax: Syntax,
     info: info<'a>,
@@ -92,4 +111,3 @@ impl<'a> wrap<'a> {//Since we are hashing this with Syntax eventually, do we rea
 
     }
 }
-
