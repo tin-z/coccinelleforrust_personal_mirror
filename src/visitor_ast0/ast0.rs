@@ -10,12 +10,16 @@ pub struct Rnode<'a> {
 }
 
 impl<'a> Rnode<'a>{
-    pub fn new_root(wrapper: wrap, syntax: Syntax, children: Vec<Option<Rnode<'a>>>) -> Rnode<'a>{
+    pub fn new_root(wrapper: wrap<'a>, syntax: Syntax, children: Vec<Option<Rnode<'a>>>) -> Rnode<'a>{
         Rnode{
             wrapper: wrapper,
             astnode: syntax,
             children: children,
         }
+    }
+
+    pub fn set_children(&mut self, children: Vec<Option<Rnode<'a>>>){
+        self.children = children
     }
 }
 
@@ -108,6 +112,9 @@ impl<'a> wrap<'a> {//Since we are hashing this with Syntax eventually, do we rea
             exp_ty: exp_ty, bef_aft: bef_aft, true_if_arg: true_if_arg, 
             true_if_test: true_if_test, true_if_test_exp: true_if_test_exp,
             iso_info: iso_info }
+    }
 
+    pub fn getlineno(&self) -> u32{
+        self.info.pos_info.line_start
     }
 }

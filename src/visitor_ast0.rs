@@ -25,7 +25,7 @@ use self::ast0::Rnode;
 use self::ast0::bef_aft;
 use self::ast0::dummy;
 use self::ast0::Syntax;
-use self::ast0::Syntax::{Node, Token};
+pub use self::ast0::Syntax::{Node, Token};
 
 fn wrap_keyword_aux<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<Rnode<'a>>{//significance of dyn
     
@@ -147,7 +147,7 @@ fn wrap_node_aux<'a, K: AstNode>(infonode: &mut HashMap<Syntax, wrap>, lindex: &
 }
 
 fn wrap_expr(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Expr){
-    match node{
+    /* match node{
         ArrayExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) },
         AwaitExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) },
         BinExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) },
@@ -180,7 +180,7 @@ fn wrap_expr(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: synt
         YieldExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) },
         LetExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) },
         UnderscoreExpr(aexpr)=> { wrap_node_aux(infonode, &lindex, Some(aexpr), false) }
-    }
+    } */
 }
 
 fn wrap_params(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, plist: Option<ParamList>){
@@ -189,7 +189,7 @@ fn wrap_params(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, plist: 
             wrap_keyword_aux(infonode, lindex, plist.l_paren_token());
             wrap_keyword_aux(infonode, lindex, plist.comma_token());
             for param in plist.params(){
-                wrap_pat(infonode, lindex, param.pat());
+                //wrap_pat(infonode, lindex, param.pat());
                 wrap_keyword_aux(infonode, lindex, param.colon_token());
                 wrap_node_aux(infonode, lindex, param.ty(), false);
                 wrap_keyword_aux(infonode, lindex, param.dotdotdot_token());
@@ -202,10 +202,10 @@ fn wrap_params(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, plist: 
     }
 }
 
-fn wrap_item<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: syntax::ast::Item) ->  Option<Rnode>{//notcomplete
+fn wrap_item<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: &LineIndex, node: syntax::ast::Item) ->  Option<Rnode<'a>> {//notcomplete
     match node {
         syntax::ast::Item::Const(node)=> {
-            let children:Vec<Option<Rnode>> = vec![];
+            let mut children:Vec<Option<Rnode>> = vec![];
             /// If a child is not present None is pushed
             children.push(wrap_node_aux(infonode, &lindex, node.name(), true));
             children.push(wrap_keyword_aux(infonode, &lindex, node.default_token()));
@@ -220,11 +220,16 @@ fn wrap_item<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: 
 
             //Adding this at the end so as to avoid 
             //moving value until the end
-            let wrappeditem = wrap_node_aux(infonode, &lindex, Some(node), false).unwrap();
-            wrappeditem.children = children;
+            let mut wrappeditem = wrap_node_aux(infonode, &lindex, Some(node), false).unwrap();
+            wrappeditem.set_children(children);
             Some(wrappeditem)
         }
-        syntax::ast::Item::Enum(node)=> { 
+        syntax::ast::Item::Fn(node)=> { 
+            let mut wrappeditem = wrap_node_aux(infonode, &lindex, Some(node), false).unwrap();
+            Some(wrappeditem)
+        }
+        _ => { None }
+        /*syntax::ast::Item::Enum(node)=> { 
             wrap_node_aux(infonode, &lindex, node.name(), true);//enum name can never be missing
             let variants = node.variant_list();
             match variants{
@@ -264,7 +269,7 @@ fn wrap_item<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: 
             wrap_keyword_aux(infonode, &lindex, node.fn_token());
             wrap_node_aux(infonode, &lindex, node.name(), true);
             wrap_node_aux(infonode, &lindex, Some(node), false);
-
+ 
         }
         syntax::ast::Item::Impl(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
         syntax::ast::Item::MacroCall(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
@@ -277,46 +282,42 @@ fn wrap_item<'a>(infonode: &mut HashMap<Syntax, wrap>, lindex: LineIndex, node: 
         syntax::ast::Item::TypeAlias(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
         syntax::ast::Item::Union(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
         syntax::ast::Item::Use(node)=> { wrap_node_aux(infonode, &lindex, Some(node), false);  }
-        }
+        }*/
+    }
 }
 
 
-fn wraproot(contents: &str) -> Rnode{
+pub fn wraproot(contents: &str) -> Option<Rnode>{
     let root = SourceFile::parse(contents).tree();
     let mut infonode: HashMap<Syntax, wrap> = HashMap::new();
-    let children:Vec<Option<Rnode>> = vec![];
+    let mut children:Vec<Option<Rnode>> = vec![];
     let items = root.items();
+    let lindex: LineIndex = LineIndex::new(&root.to_string()[..]);
     for item in items {//for now skips Attributes
-        let lindex: LineIndex = LineIndex::new(&item.to_string()[..]);
-        let sindex: LineCol = lindex.line_col(item.syntax().text_range().start());
-        let eindex: LineCol = lindex.line_col(item.syntax().text_range().end());
-
-        let pos_info = position_info {
-            line_start: sindex.line,
-            line_end: eindex.line,
-            logical_start: 0,//TODO
-            logical_end: 0,
-            column: sindex.col,
-            offset: item.syntax().text_range().start().into()
-        };
-
-        let info = info::new(pos_info,
-                            false, false,
-                            vec![], vec![],
-                            vec![], vec![],
-                            false
-                        );
-
-        let wrap: wrap = wrap::new(Node(item.syntax().clone()), info, 0,
-                                    ast0::mcodekind::MIXED(), Type::cast(item.syntax().to_owned()),
-                                    bef_aft{},//TODO
-                                    AnyHasArgList::can_cast(item.syntax().kind()),
-                                    false, false, 
-                                    vec![]
-                            );
-        
-        children.push(wrap_item(&mut infonode, lindex, item.clone()));
+        children.push(wrap_item(&mut infonode, &lindex, item.clone()));
     }
-    wrap_node_aux(infonode, lindex, root, false)
-    Rnode::new_root(wrap, Some(root), children)
+
+    let sindex: LineCol = lindex.line_col(root.syntax().text_range().start());
+    let eindex: LineCol = lindex.line_col(root.syntax().text_range().end());
+
+    let pos_info: position_info = position_info{
+        line_start: sindex.line,
+        line_end: eindex.line,
+        logical_start: 0,//TODO
+        logical_end: 0,
+        column: sindex.col,
+        offset: root.syntax().text_range().start().into()
+    };
+    let info = info::new(pos_info, 
+                                false, false, 
+                                vec![], vec![],
+                                vec![], vec![],
+                                false);
+    let wrap: wrap = wrap::new(Node(root.syntax().clone()), info,
+                                0, ast0::mcodekind::MIXED(), 
+                                Type::cast(root.syntax().to_owned()), bef_aft{}, 
+                                AnyHasArgList::can_cast(root.syntax().kind()), 
+                                false, false, 
+                                vec![]);
+    Some(Rnode::new_root(wrap, Node(root.syntax().clone()), children))
 }
