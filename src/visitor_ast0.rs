@@ -37,7 +37,7 @@ pub use self::ast0::Rnode;
 pub use self::ast0::Syntax;
 pub use self::ast0::Syntax::{Node, Token};
 
-fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<Rnode<'a>> {
+pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<Rnode<'a>> {
     //significance of dyn
 
     match aexpr {
@@ -86,7 +86,7 @@ fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Optio
     }
 }
 
-fn wrap_token_aux<'a, K: AstToken>(lindex: &LineIndex, aexpr: Option<K>) -> Option<Rnode<'a>> {
+pub fn wrap_token_aux<'a, K: AstToken>(lindex: &LineIndex, aexpr: Option<K>) -> Option<Rnode<'a>> {
     //significance of dyn
 
     match aexpr {
@@ -149,7 +149,7 @@ fn wrap_token_aux<'a, K: AstToken>(lindex: &LineIndex, aexpr: Option<K>) -> Opti
     }
 }
 */
-fn wrap_node_aux<'a, K: AstNode>(
+pub fn wrap_node_aux<'a, K: AstNode>(
     lindex: &LineIndex,
     aexpr: Option<K>,
     isSymbolIdent: bool,
@@ -200,7 +200,7 @@ fn wrap_node_aux<'a, K: AstNode>(
     }
 }
 
-fn wrap_node_ref_aux<'a, K: AstNode>(
+pub fn wrap_node_ref_aux<'a, K: AstNode>(
     lindex: &LineIndex,
     aexpr: Option<&K>,
     isSymbolIdent: bool,
@@ -254,8 +254,11 @@ fn wrap_node_ref_aux<'a, K: AstNode>(
 fn wrap_path_type<'a>(lindex: &LineIndex, aexpr: Option<PathType>) -> Option<Rnode<'a>>{
     match aexpr{
         Some(aexpr) => {
-            let children = vec![aexpr.path()];
+            let children = vec![wrap_path(lindex,
+                (aexpr.path()).as_ref()
+                )];
             let mut wrappedp = wrap_node_aux(lindex, Some(aexpr), false).unwrap();
+            wrappedp.set_children(children);
             Some(wrappedp)
         }
         None => { None }
@@ -266,9 +269,11 @@ fn wrap_path_segnment<'a>(lindex: &LineIndex, aexpr: Option<PathSegment>) -> Opt
     let mut children: Vec<Option<Rnode>> = vec![];
     match aexpr{
         Some(aexpr) => {
+            children.push(wrap_keyword_aux(lindex, aexpr.coloncolon_token()));
             children.push(wrap_node_aux(lindex, aexpr.name_ref(), true));
             children.push(wrap_path_type(lindex, aexpr.path_type()));
             let mut wrappedp = wrap_node_aux(lindex, Some(aexpr), false).unwrap();
+            wrappedp.set_children(children);
             Some(wrappedp)
         }
         None => { None }
@@ -280,16 +285,17 @@ fn wrap_path<'a>(lindex: &LineIndex, aexpr: Option<&Path>) -> Option<Rnode<'a>> 
     let mut children: Vec<Option<Rnode>> = vec![];
     match aexpr{
         Some(aexpr) => {
-            let qualifier = Path::qualifier(aexpr);
+            let qualifier = aexpr.qualifier();
             match qualifier{
                 Some(q) => {
                     children.push(wrap_path(lindex, Some(&q)));
                 }
-                None => {}
+                None => { children.push(None); }
             }
-            let segment = Path::segment(aexpr);
+            let segment = aexpr.segment();
             children.push(wrap_path_segnment(lindex, segment));
             let mut wrappedp = wrap_node_ref_aux(lindex, Some(aexpr), false).unwrap();
+            wrappedp.set_children(children);
             Some(wrappedp)
         }
         None => { None }
@@ -379,13 +385,19 @@ fn wrap_expr<'a>(lindex: &LineIndex, node: Option<syntax::ast::Expr>) -> Option<
                 MethodCallExpr(aexpr) => {
                     println!("HAOUEODENO");
                     children.push(wrap_expr(&lindex, aexpr.receiver()));
+                    children.push(wrap_keyword_aux(lindex, aexpr.dot_token()));
                     children.push(wrap_node_aux(&lindex, aexpr.name_ref(), true));
                 }
                 ParenExpr(aexpr) => {
                     children.push(wrap_expr(lindex, aexpr.expr()));
                 }
                 PathExpr(aexpr) => {
-
+                    children.push(wrap_path(lindex, 
+                        match &aexpr.path(){
+                            Some(aexpr) => { Some(aexpr) }
+                            None => None
+                        }
+                    ));
                 },
                 PrefixExpr(aexpr) => {
                     children.push(wrap_expr(lindex, aexpr.expr()));

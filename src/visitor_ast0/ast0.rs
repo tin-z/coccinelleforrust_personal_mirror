@@ -119,6 +119,19 @@ pub enum Syntax {
     Token(SyntaxToken),
 }
 
+impl Syntax {
+    pub fn to_string(&self) -> String{
+        match self{
+            Syntax::Node(node) => {
+                node.to_string()
+            }
+            Syntax::Token(token) => {
+                token.to_string()
+            }
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct wrap<'a> {
     pub syntax: Syntax,
