@@ -51,6 +51,19 @@ pub struct position_info {
     pub offset: u32,
 }
 
+impl position_info {
+    pub fn new(line_start:u32, line_end:u32, logical_start:u32, logical_end:u32, column:u32, offset:u32) -> position_info{
+        position_info{
+            line_start: line_start,
+            line_end: line_end,
+            logical_start: logical_start,
+            logical_end: logical_end,
+            column: column,
+            offset: offset
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub enum mcodekind<'a> {
     //TODO
@@ -149,6 +162,11 @@ impl<'a> wrap<'a> {
     }
 
     pub fn getlineno(&self) -> u32 {
-        self.info.pos_info.line_start
+        self.info.pos_info.line_start + 1
     }
+
+    pub fn is_ident(&self) -> bool{
+        self.info.isSymbolIdent
+    }
+
 }
