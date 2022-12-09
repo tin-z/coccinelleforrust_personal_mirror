@@ -329,7 +329,7 @@ fn wrap_stmts<'a>(lindex: &LineIndex, node: Option<StmtList>) -> Option<Rnode<'a
                     }
                 }
             }
-            let mut wrappedstmts = wrap_node_aux(&lindex, Some(node), false).unwrap();
+            let mut wrappedstmts = wrap_node_aux(lindex, Some(node), false).unwrap();
             wrappedstmts.set_children(children);
             Some(wrappedstmts)
         }
@@ -384,7 +384,7 @@ fn wrap_expr<'a>(lindex: &LineIndex, node: Option<syntax::ast::Expr>) -> Option<
                 }
                 MethodCallExpr(aexpr) => {
                     println!("HAOUEODENO");
-                    children.push(wrap_expr(&lindex, aexpr.receiver()));
+                    children.push(wrap_expr(lindex, aexpr.receiver()));
                     children.push(wrap_keyword_aux(lindex, aexpr.dot_token()));
                     children.push(wrap_node_aux(&lindex, aexpr.name_ref(), true));
                 }
@@ -469,22 +469,22 @@ fn wrap_item<'a>(lindex: &LineIndex, node: syntax::ast::Item) -> Option<Rnode<'a
     let mut children: Vec<Option<Rnode>> = vec![];
     match &node {
         syntax::ast::Item::Const(node) => {
-            children.push(wrap_node_aux(&lindex, node.name(), true));
-            children.push(wrap_keyword_aux(&lindex, node.default_token()));
-            children.push(wrap_keyword_aux(&lindex, node.const_token()));
-            children.push(wrap_keyword_aux(&lindex, node.underscore_token()));
-            children.push(wrap_keyword_aux(&lindex, node.colon_token()));
-            children.push(wrap_node_aux(&lindex, node.ty(), false));//This can have generic arguments
-            children.push(wrap_keyword_aux(&lindex, node.eq_token()));
-            children.push(wrap_node_aux(&lindex, node.body(), false));
-            children.push(wrap_keyword_aux(&lindex, node.semicolon_token()));
+            children.push(wrap_node_aux(lindex, node.name(), true));
+            children.push(wrap_keyword_aux(lindex, node.default_token()));
+            children.push(wrap_keyword_aux(lindex, node.const_token()));
+            children.push(wrap_keyword_aux(lindex, node.underscore_token()));
+            children.push(wrap_keyword_aux(lindex, node.colon_token()));
+            children.push(wrap_node_aux(lindex, node.ty(), false));//This can have generic arguments
+            children.push(wrap_keyword_aux(lindex, node.eq_token()));
+            children.push(wrap_node_aux(lindex, node.body(), false));
+            children.push(wrap_keyword_aux(lindex, node.semicolon_token()));
 
             //Adding this at the end so as to avoid
             //moving value until the end
         }
         syntax::ast::Item::Fn(node) => {
             children.push(wrap_expr(
-                &lindex,
+                lindex,
                 match node.body() {
                     Some(body) => { Some(syntax::ast::Expr::BlockExpr(body)) }
                     None => { None }
@@ -519,14 +519,13 @@ fn wrap_item<'a>(lindex: &LineIndex, node: syntax::ast::Item) -> Option<Rnode<'a
         }
         _ => {}
     }
-    let mut wrappeditem = wrap_node_aux(&lindex, Some(node), false).unwrap();
+    let mut wrappeditem = wrap_node_aux(lindex, Some(node), false).unwrap();
     wrappeditem.set_children(children);
     Some(wrappeditem)
 }
 
 pub fn wraproot(contents: &str) -> Option<Rnode> {
     let root = SourceFile::parse(contents).tree();
-    let mut infonode: HashMap<Syntax, wrap> = HashMap::new();
     let mut children: Vec<Option<Rnode>> = vec![];
     let items = root.items();
     let lindex: LineIndex = LineIndex::new(&root.to_string()[..]);
