@@ -134,7 +134,6 @@ impl Syntax {
 
 #[derive(Clone, PartialEq)]
 pub struct wrap<'a> {
-    pub syntax: Syntax,
     info: info<'a>,
     index: u32,
     mcodekind: mcodekind<'a>,
@@ -149,7 +148,6 @@ pub struct wrap<'a> {
 impl<'a> wrap<'a> {
     //Since we are hashing this with Syntax eventually, do we really need the node f
     pub fn new(
-        syntax: Syntax,
         info: info<'a>,
         index: u32,
         mcodekind: mcodekind<'a>,
@@ -161,7 +159,6 @@ impl<'a> wrap<'a> {
         iso_info: Vec<(String, dummy)>,
     ) -> wrap<'a> {
         wrap {
-            syntax: syntax,
             info: info,
             index: index,
             mcodekind: mcodekind,

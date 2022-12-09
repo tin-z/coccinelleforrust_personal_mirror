@@ -63,14 +63,14 @@ pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> O
                 vec![],
                 false,
             );
+            let kind = aexpr.kind();
             let wrap: wrap = wrap::new(
-                Token(aexpr.clone()),
                 info,
                 0,
                 ast0::mcodekind::MIXED(),
                 None,
                 bef_aft {},
-                AnyHasArgList::can_cast(aexpr.kind()),
+                AnyHasArgList::can_cast(kind),
                 false,
                 false,
                 vec![],
@@ -114,7 +114,6 @@ pub fn wrap_token_aux<'a, K: AstToken>(lindex: &LineIndex, aexpr: Option<K>) -> 
                 false,
             );
             let wrap: wrap = wrap::new(
-                Token(aexpr.syntax().clone()),
                 info,
                 0,
                 ast0::mcodekind::MIXED(),
@@ -179,7 +178,6 @@ pub fn wrap_node_aux<'a, K: AstNode>(
                 isSymbolIdent,
             );
             let wrap: wrap = wrap::new(
-                Node(aexpr.syntax().clone()),
                 info,
                 0,
                 ast0::mcodekind::MIXED(),
@@ -230,7 +228,6 @@ pub fn wrap_node_ref_aux<'a, K: AstNode>(
                 isSymbolIdent,
             );
             let wrap: wrap = wrap::new(
-                Node(aexpr.syntax().clone()),
                 info,
                 0,
                 ast0::mcodekind::MIXED(),
@@ -243,7 +240,9 @@ pub fn wrap_node_ref_aux<'a, K: AstNode>(
             );
             Some(Rnode {
                 wrapper: wrap,
-                astnode: Node(aexpr.syntax().clone()),
+                astnode: Node(aexpr.syntax().clone()),/// clone is used because
+                                                      /// even thuogh we own aexpr, it has no methods which can transfer
+                                                      /// the ownership of the syntax object inside it.
                 children: vec![],
             })
         }
@@ -375,7 +374,6 @@ fn wrap_expr<'a>(lindex: &LineIndex, node: Option<syntax::ast::Expr>) -> Option<
                 }
                 ForExpr(aexpr) => {}
                 IfExpr(aexpr) => {
-                    aexpr.else_branch()
                 }
                 IndexExpr(aexpr) => {}
                 Literal(aexpr) => {}
@@ -534,7 +532,7 @@ pub fn wraproot(contents: &str) -> Option<Rnode> {
     let lindex: LineIndex = LineIndex::new(&root.to_string()[..]);
     for item in items {
         //for now skips Attributes
-        children.push(wrap_item(&mut &lindex, item.clone()));
+        children.push(wrap_item(&mut &lindex, item.to_owned()));
     }
 
     let sindex: LineCol = lindex.line_col(root.syntax().text_range().start());
@@ -559,7 +557,6 @@ pub fn wraproot(contents: &str) -> Option<Rnode> {
         false,
     );
     let wrap: wrap = wrap::new(
-        Node(root.syntax().clone()),
         info,
         0,
         ast0::mcodekind::MIXED(),
