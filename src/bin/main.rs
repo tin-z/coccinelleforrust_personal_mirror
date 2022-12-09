@@ -8,7 +8,6 @@ fn printpathname(path: &Rnode){
     //TODO: take care of segments() scenario
     match &path.children[1] {
         Some(segment) => {
-
             let nameref = segment.children[1].as_ref().unwrap();//Path segment MUST have name
             match &nameref.astnode{
                 Node(name) => {
@@ -33,25 +32,15 @@ fn printmethodname(item : &Rnode)//MethodCallExpr
 fn printiffunc<'a>(item: &Rnode<'a>){
     match &item.astnode{
         Node(node) => {
-            match (node.kind(), &item.children.get(0)){//0 is the path expression
-                (CALL_EXPR, Some(Some(expr))) => {//ask madam about Some(Some())
+            match (node.kind(), [&item.children.get(0), &item.children.get(2)]){//0 is the path expression
+                (CALL_EXPR, [Some(Some(expr)), _]) => {//ask madam about Some(Some())
                     printiffunc(expr);
                 }
-                (METHOD_CALL_EXPR, _) => {
-                    match &item.children[0]{
-                        Some(receiver) => {
-                            printiffunc(receiver);
-                        }
-                        None => {}
-                    };
-                    match &item.children[2]{
-                        Some(name_ref) => {
-                            printmethodname(name_ref);
-                        }
-                        None => {}
-                    }
+                (METHOD_CALL_EXPR, [ Some(Some(receiver)), Some(Some(name_ref)) ] ) => {
+                    printiffunc(receiver);
+                    printmethodname(name_ref);
                 }
-                (PATH_EXPR, Some(Some(path)))=> {
+                (PATH_EXPR, [Some(Some(path)), _])=> {
                     printpathname(path)
                 }
                 _ => { 

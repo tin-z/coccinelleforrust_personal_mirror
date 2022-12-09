@@ -130,6 +130,28 @@ impl Syntax {
             }
         }
     }
+
+    pub fn to_node(&self) -> Option<&Syntax>{
+        match self{
+            Syntax::Node(node) => {
+                Some(self)
+            }
+
+            Syntax::Token(_) => { None }
+        }
+    }
+
+    pub fn to_token(&self) -> Option<&Syntax>{
+        match self{
+            Syntax::Node(_) => {
+                None
+            }
+
+            Syntax::Token(token) => { 
+                Some(self)
+            }
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
