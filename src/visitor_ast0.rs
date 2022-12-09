@@ -374,7 +374,9 @@ fn wrap_expr<'a>(lindex: &LineIndex, node: Option<syntax::ast::Expr>) -> Option<
                     children.push(wrap_expr(lindex, aexpr.expr()));
                 }
                 ForExpr(aexpr) => {}
-                IfExpr(aexpr) => {}
+                IfExpr(aexpr) => {
+                    aexpr.else_branch()
+                }
                 IndexExpr(aexpr) => {}
                 Literal(aexpr) => {}
                 LoopExpr(aexpr) => {}
