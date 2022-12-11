@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::ops::Index;
 use std::rc::Rc;
+use parser::SyntaxKind;
+use either::Either;
 
 #[derive(PartialEq)]
 pub struct Rnode<'a> {
@@ -27,8 +29,11 @@ impl<'a> Rnode<'a> {
     }
 }
 
+use ide_db::LineIndexDatabase;
+use ide_db::line_index::LineIndex;
+use syntax::ast::edit::AstNodeEdit;
 use syntax::ast::{MacroDef, Type};
-use syntax::{SyntaxNode, SyntaxToken};
+use syntax::{SyntaxNode, SyntaxToken, AstNode, AstToken};
 
 #[derive(Clone, PartialEq)]
 pub struct dummy {}
@@ -201,4 +206,34 @@ impl<'a> wrap<'a> {
         self.info.isSymbolIdent
     }
 
+}
+
+pub struct worker<D>{//D here is a struct where we can define the data we need to track
+    pub(self) children: Vec<D>,
+    pub(self) lindex: LineIndex,
+    pub(self) func_node: fn(Option<Box<&dyn AstNode>>) -> D,
+    pub(self) func_token: fn(Option<SyntaxToken>) -> D
+}
+
+impl<D> worker<D> {
+    pub fn new(lindex: LineIndex, f_n: fn(Option<Box<&dyn AstNode>>) -> D, f_t: fn(Option<SyntaxToken>) -> D){
+        let worker = worker{
+            children: vec![],
+            lindex: lindex,
+            func_node: f_n,
+            func_token: f_t
+        };
+    }
+
+    pub fn work_on_node(&self, node: Option<Box<&dyn AstNode>>){
+        let func = self.func_node;
+        let d = func(node);
+        self.children.push(d);
+    }
+
+    pub fn work_on_token(&self, token: Option<SyntaxToken>){
+        let func = self.func_token;
+        let d = func(token);
+        self.children.push(d);
+    }
 }

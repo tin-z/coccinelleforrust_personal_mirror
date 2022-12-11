@@ -5,9 +5,11 @@ use ide_db::defs::OperatorClass;
 use ide_db::line_index::LineCol;
 use ide_db::line_index::LineIndex;
 use syntax::ast::HasArgList;
+use syntax::ast::HasLoopBody;
 use syntax::ast::Path;
 use syntax::ast::PathSegment;
 use syntax::ast::PathType;
+use syntax::ast::edit_in_place::Indent;
 use std::cell::Ref;
 use std::collections::HashMap;
 use std::ops::Index;
@@ -26,6 +28,7 @@ use syntax::ast::RecordFieldList;
 use syntax::ast::StmtList;
 use syntax::ast::TupleFieldList;
 use syntax::ast::{AnyHasArgList, AstNode, HasModuleItem, Item, SourceFile, Type};
+use syntax::ast::{*};
 use syntax::AstToken;
 use syntax::SyntaxNode;
 use syntax::SyntaxToken;
@@ -36,6 +39,7 @@ use self::ast0::dummy;
 pub use self::ast0::Rnode;
 pub use self::ast0::Syntax;
 pub use self::ast0::Syntax::{Node, Token};
+use self::ast0::worker;
 
 pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<Rnode<'a>> {
     //significance of dyn
@@ -148,9 +152,10 @@ pub fn wrap_token_aux<'a, K: AstToken>(lindex: &LineIndex, aexpr: Option<K>) -> 
     }
 }
 */
-pub fn wrap_node_aux<'a, K: AstNode>(
+
+pub fn wrap_node_aux<'a>(
     lindex: &LineIndex,
-    aexpr: Option<K>,
+    aexpr: Option<&dyn AstNode>,
     isSymbolIdent: bool,
 ) -> Option<Rnode<'a>> {
     match aexpr {
@@ -200,7 +205,7 @@ pub fn wrap_node_aux<'a, K: AstNode>(
 
 pub fn wrap_node_ref_aux<'a, K: AstNode>(
     lindex: &LineIndex,
-    aexpr: Option<&K>,
+    aexpr: Option<&dyn AstNode>,
     isSymbolIdent: bool,
 ) -> Option<Rnode<'a>> {
     match aexpr {
@@ -250,268 +255,364 @@ pub fn wrap_node_ref_aux<'a, K: AstNode>(
     }
 }
 
-fn wrap_path_type<'a>(lindex: &LineIndex, aexpr: Option<PathType>) -> Option<Rnode<'a>>{
+fn visit_path_type<'a, AstNode, L: AstToken>(worker: worker<wrap>, aexpr: Option<syntax::ast::PathType>){   
     match aexpr{
         Some(aexpr) => {
-            let children = vec![wrap_path(lindex,
-                (aexpr.path()).as_ref()
-                )];
-            let mut wrappedp = wrap_node_aux(lindex, Some(aexpr), false).unwrap();
-            wrappedp.set_children(children);
-            Some(wrappedp)
+            worker.work_on_node(Some(Box::new(&aexpr)));
+            visit_path(worker, aexpr.path());
         }
-        None => { None }
+        None => { }
     }
 }
 
-fn wrap_path_segnment<'a>(lindex: &LineIndex, aexpr: Option<PathSegment>) -> Option<Rnode<'a>>{
-    let mut children: Vec<Option<Rnode>> = vec![];
+fn visit_path_segment<'a>(worker: worker<wrap>, aexpr: Option<syntax::ast::PathSegment>){
+    worker.work_on_node(aexpr);
     match aexpr{
         Some(aexpr) => {
-            children.push(wrap_keyword_aux(lindex, aexpr.coloncolon_token()));
-            children.push(wrap_node_aux(lindex, aexpr.name_ref(), true));
-            children.push(wrap_path_type(lindex, aexpr.path_type()));
-            let mut wrappedp = wrap_node_aux(lindex, Some(aexpr), false).unwrap();
-            wrappedp.set_children(children);
-            Some(wrappedp)
+            worker.work_on_token(aexpr.coloncolon_token());
+            worker.work_on_node(aexpr.name_ref());
+            visit_path_type(worker, aexpr.path_type());
         }
-        None => { None }
+        None => { }
     }
     
 }
 
-fn wrap_path<'a>(lindex: &LineIndex, aexpr: Option<&Path>) -> Option<Rnode<'a>> {
-    let mut children: Vec<Option<Rnode>> = vec![];
+fn visit_path<'a>(worker: worker<wrap>, aexpr: Option<syntax::ast::Path>){
+    worker.work_on_node(aexpr);
     match aexpr{
         Some(aexpr) => {
-            let qualifier = aexpr.qualifier();
-            match qualifier{
-                Some(q) => {
-                    children.push(wrap_path(lindex, Some(&q)));
-                }
-                None => { children.push(None); }
-            }
-            let segment = aexpr.segment();
-            children.push(wrap_path_segnment(lindex, segment));
-            let mut wrappedp = wrap_node_ref_aux(lindex, Some(aexpr), false).unwrap();
-            wrappedp.set_children(children);
-            Some(wrappedp)
+            visit_path(worker, aexpr.qualifier());
+            worker.work_on_token(aexpr.coloncolon_token());
+            visit_path_segment(worker, aexpr.segment());
         }
-        None => { None }
+        None => { }
     }
 }
-
-fn wrap_stmts<'a>(lindex: &LineIndex, node: Option<StmtList>) -> Option<Rnode<'a>> {
-    let mut children: Vec<Option<Rnode>> = vec![];
+fn visit_stmts<'a>(worker: worker<wrap>, node: Option<syntax::ast::StmtList>){
+    worker.work_on_node(node);
     match node {
         Some(node) => {
             for stmt in node.statements() {
                 match stmt {
                     syntax::ast::Stmt::ExprStmt(estmt) => {
-                        children.push(wrap_expr(lindex, estmt.expr()));
+                        visit_expr(worker, estmt.expr());
                     }
-                    syntax::ast::Stmt::Item(istmt) => children.push(wrap_item(lindex, istmt)),
+                    syntax::ast::Stmt::Item(istmt) => { visit_item(worker, istmt); }
                     syntax::ast::Stmt::LetStmt(lstmt) => {
-                        //TODO
-                        //let name = lstmt.to_string();
-                        //println!("{name}");
-                        children.push(wrap_expr(lindex, lstmt.initializer()));
-                        match lstmt.let_else() {
-                            Some(le) => children.push(wrap_expr(
-                                lindex,
-                                match le.block_expr(){
-                                    Some(bexpr) => { Some(syntax::ast::Expr::BlockExpr(bexpr)) }
-                                    None => { None }
-                                }
-                            )),
+                        visit_expr(worker, lstmt.initializer());
+                        match lstmt.let_else(){
+                            
+                            Some(le) => {
+                                    match le.block_expr(){
+                                        Some(bexpr) => {
+                                            visit_expr(worker, Some(BlockExpr(bexpr)))
+                                        }
+                                        None => { }
+                                    }
+                            }
                             None => {}
                         }
                     }
                 }
             }
-            let mut wrappedstmts = wrap_node_aux(lindex, Some(node), false).unwrap();
-            wrappedstmts.set_children(children);
-            Some(wrappedstmts)
+            visit_expr(worker, node.tail_expr());
         }
-        None => None,
+        None => {},
     }
 }
 
-fn wrap_expr<'a>(lindex: &LineIndex, node: Option<syntax::ast::Expr>) -> Option<Rnode<'a>> {
+fn visit_expr<'a>(worker: worker<wrap>, node: Option<syntax::ast::Expr>){
     let mut children: Vec<Option<Rnode>> = vec![];
     match node {
         Some(node) => {
             match &node {
                 ArrayExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
                     for ex in aexpr.exprs() {
-                        children.push(wrap_expr(lindex, Some(ex)));
+                        visit_expr(worker, Some(ex));
                     }
-                    children.push(wrap_expr(lindex, aexpr.expr()));
                 }
                 AwaitExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
-                BinExpr(aexpr) => {}
+                BinExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.lhs());
+                    visit_expr(worker, aexpr.rhs());
+                }
                 BoxExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 BreakExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 CallExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 ClosureExpr(aexpr) => {
-                    //todo param
-                    children.push(wrap_expr(lindex, aexpr.body()));
+                    worker.work_on_node(aexpr);
+                    visit_param_list(worker, aexpr.param_list());
+                    visit_expr(worker, aexpr.body());
                 }
                 CastExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
-                ContinueExpr(aexpr) => {}
+                ContinueExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    //TODO
+                }
                 FieldExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
-                ForExpr(aexpr) => {}
+                ForExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.iterable());
+                    match aexpr.loop_body(){
+                        Some(bexpr) => { 
+                            visit_expr(worker, Some(BlockExpr(bexpr)));
+                        }
+                        None => { }
+                    }
+                }
                 IfExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.condition());
+                    match aexpr.then_branch(){
+                        Some(branch) => {
+                            visit_expr(worker, Some(BlockExpr(branch)));
+                        }
+                        None => {}
+                    }
+                    match aexpr.else_branch(){
+                        Some(syntax::ast::ElseBranch::Block(block)) => {
+                            visit_expr(worker, Some(BlockExpr(block)));
+                        }
+                        Some(syntax::ast::ElseBranch::IfExpr(ifexpr)) => {
+                            visit_expr(worker, Some(IfExpr(ifexpr)));
+                        }
+                        None => {}
+                    }
                 }
-                IndexExpr(aexpr) => {}
-                Literal(aexpr) => {}
-                LoopExpr(aexpr) => {}
-                MacroExpr(aexpr) => { /*TODO*/ }
+                IndexExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    //TODO
+                }
+                Literal(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    //TODO
+                }
+                LoopExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    //TODO
+                }
+                MacroExpr(aexpr) => { 
+                    worker.work_on_node(aexpr);
+                    /*TODO*/
+                 }
                 MatchExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 MethodCallExpr(aexpr) => {
-                    println!("HAOUEODENO");
-                    children.push(wrap_expr(lindex, aexpr.receiver()));
-                    children.push(wrap_keyword_aux(lindex, aexpr.dot_token()));
-                    children.push(wrap_node_aux(&lindex, aexpr.name_ref(), true));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.receiver());
+                    worker.work_on_token(aexpr.dot_token());
+                    worker.work_on_node(aexpr.name_ref());
                 }
                 ParenExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 PathExpr(aexpr) => {
-                    children.push(wrap_path(lindex, 
-                        match &aexpr.path(){
-                            Some(aexpr) => { Some(aexpr) }
-                            None => None
-                        }
-                    ));
+                    worker.work_on_node(aexpr);
+                    visit_path(worker, aexpr.path());
                 },
                 PrefixExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
-                RangeExpr(aexpr) => {}
-                RecordExpr(aexpr) => match aexpr.record_expr_field_list() {
+                RangeExpr(aexpr) => {
+                    worker.work_on_node(aexpr); 
+                }
+                RecordExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                    match aexpr.record_expr_field_list() {
                     Some(al) => {
-                        children.push(wrap_expr(lindex, al.spread()));
+                        visit_expr(worker, al.spread());
                     }
                     None => {}
-                },
+                }},
                 RefExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 ReturnExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 TryExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 TupleExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
                     for child in aexpr.fields() {
-                        children.push(wrap_expr(lindex, Some(child)))
+                        visit_expr(worker, Some(child));
                     }
                 }
-                WhileExpr(aexpr) => {}
+                WhileExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                }
                 YieldExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
                 BlockExpr(aexpr) => {
-                    //let name = aexpr.to_string();
-                    //println!("{name}");
-                    children.push(wrap_stmts(lindex, aexpr.stmt_list()));
+                    worker.work_on_node(aexpr);
+                    visit_stmts(worker, aexpr.stmt_list());
                 }
                 LetExpr(aexpr) => {
-                    children.push(wrap_expr(lindex, aexpr.expr()));
+                    worker.work_on_node(aexpr);
+                    visit_expr(worker, aexpr.expr());
                 }
-                UnderscoreExpr(aexpr) => {}
+                UnderscoreExpr(aexpr) => {
+                    worker.work_on_node(aexpr);
+                }
             }
-            let mut wrappedbody = wrap_node_aux(&lindex, Some(node), false).unwrap();
-            wrappedbody.set_children(children);
-            Some(wrappedbody)
         }
         None => None,
     }
 }
 
-fn wrap_params(lindex: &LineIndex, plist: Option<ParamList>) {
-    match plist {
+fn visit_param_list<'a>(worker: worker<wrap>, node: Option<syntax::ast::ParamList>){
+    match node {
         Some(plist) => {
-            wrap_keyword_aux(lindex, plist.l_paren_token());
-            wrap_keyword_aux(lindex, plist.comma_token());
+            worker.work_on_node(plist);
+            worker.work_on_token(plist.l_paren_token());
+            worker.work_on_token(plist.comma_token());
             for param in plist.params() {
                 //wrap_pat(lindex, param.pat());
-                wrap_keyword_aux(lindex, param.colon_token());
-                wrap_node_aux(lindex, param.ty(), false);
-                wrap_keyword_aux(lindex, param.dotdotdot_token());
+                worker.work_on_token(param.colon_token());
+                visit_type(worker, param.ty());
+                worker.work_on_token(param.dotdotdot_token());
             }
-            wrap_keyword_aux(lindex, plist.r_paren_token());
-            wrap_keyword_aux(lindex, plist.pipe_token());
-            wrap_node_aux(lindex, Some(plist), false);
+            worker.work_on_token(plist.r_paren_token());
+            worker.work_on_token(plist.pipe_token());
         }
         None => {}
     }
 }
 
-fn wrap_item<'a>(lindex: &LineIndex, node: syntax::ast::Item) -> Option<Rnode<'a>> {
+fn visit_name<'a>(worker: worker<wrap>, node: Option<syntax::ast::Name>){
+    match node{
+        Some(node) => {
+            worker.work_on_node(node);
+            worker.work_on_token(node.ident_token());
+            worker.work_on_token(node.self_token());
+        }
+        None => {}
+    }
+}
+
+fn visit_type<'a>(worker: worker<wrap>, node: Option<syntax::ast::Type>){
+    match node{
+        Some(node) => {
+            worker.work_on_node(node);
+            //need to work on the other types TODO
+        }
+        None => {}
+    }
+}
+
+fn visit_abi<'a>(worker: worker<wrap>, node: Option<syntax::ast::Abi>){
+    match node{
+        Some(node) => {
+            worker.work_on_node(node);
+            //need to work TODO
+        }
+        None => {}
+    }
+}
+
+fn visit_ret_type<'a>(worker: worker<wrap>, node: Option<syntax::ast::RetType>){
+    match node{
+        Some(node) => {
+            worker.work_on_node(node);
+            //need to work TODO
+        }
+        None => {}
+    }
+}
+
+fn visit_item<'a>(worker: worker<wrap>, node: syntax::ast::Item){
     //notcomplete
-    let mut children: Vec<Option<Rnode>> = vec![];
     match &node {
         syntax::ast::Item::Const(node) => {
-            children.push(wrap_node_aux(lindex, node.name(), true));
-            children.push(wrap_keyword_aux(lindex, node.default_token()));
-            children.push(wrap_keyword_aux(lindex, node.const_token()));
-            children.push(wrap_keyword_aux(lindex, node.underscore_token()));
-            children.push(wrap_keyword_aux(lindex, node.colon_token()));
-            children.push(wrap_node_aux(lindex, node.ty(), false));//This can have generic arguments
-            children.push(wrap_keyword_aux(lindex, node.eq_token()));
-            children.push(wrap_node_aux(lindex, node.body(), false));
-            children.push(wrap_keyword_aux(lindex, node.semicolon_token()));
-
-            //Adding this at the end so as to avoid
-            //moving value until the end
+            worker.work_on_node(node);
+            visit_name(worker, node.name());// for each visit worker will keep track of the ast and children
+            worker.work_on_token(node.default_token());
+            worker.work_on_token(node.const_token());
+            worker.work_on_token(node.underscore_token());
+            worker.work_on_token(node.colon_token());
+            visit_type(worker, node.ty());
+            worker.work_on_token(node.eq_token());
+            visit_expr(worker, node.body());
+            worker.work_on_token(node.semicolon_token());
         }
         syntax::ast::Item::Fn(node) => {
-            children.push(wrap_expr(
-                lindex,
-                match node.body() {
-                    Some(body) => { Some(syntax::ast::Expr::BlockExpr(body)) }
+            worker.work_on_node(node);
+            visit_name(worker, node.name());// for each visit worker will keep track of the ast and children
+            worker.work_on_token(node.default_token());
+            worker.work_on_token(node.const_token());
+            worker.work_on_token(node.async_token());
+            worker.work_on_token(node.unsafe_token());
+            visit_abi(worker, node.abi());
+            worker.work_on_token(node.fn_token());
+            visit_param_list(worker, node.param_list());
+            visit_ret_type(worker, node.ret_type());
+            visit_expr(worker, 
+                match node.body(){
+                    Some(body) => { Some(BlockExpr(body)) }
                     None => { None }
                 }
-            ));
+            );
+            worker.work_on_token(node.semicolon_token());
         }
         syntax::ast::Item::Impl(node) => {
-            println!("Actually enters here");
+            worker.work_on_token(node.default_token());
+            worker.work_on_token(node.unsafe_token());
+            worker.work_on_token(node.impl_token());
+            worker.work_on_token(node.const_token());
+            worker.work_on_token(node.excl_token());
+            worker.work_on_token(node.for_token());
             match node.assoc_item_list(){
                 Some(item) => {
+                    worker.work_on_token(item.l_curly_token());
                     for item in item.assoc_items(){
                         match item{
                             syntax::ast::AssocItem::Const(cnt) => {
-                                children.push(wrap_item(lindex, syntax::ast::Item::Const(cnt)));
+                                visit_item(worker, syntax::ast::Item::Const(cnt));
                             }
                             syntax::ast::AssocItem::Fn(f) => {
-                                children.push(wrap_item(lindex, syntax::ast::Item::Fn(f)));
+                                visit_item(worker, syntax::ast::Item::Fn(f));
                             }
                             syntax::ast::AssocItem::MacroCall(mc) => {
-                                children.push(wrap_item(lindex, syntax::ast::Item::MacroCall(mc)));
+                                visit_item(worker, syntax::ast::Item::MacroCall(mc));
                             }
                             syntax::ast::AssocItem::TypeAlias(ta) => {
-                                children.push(wrap_item(lindex, syntax::ast::Item::TypeAlias(ta)));
+                                visit_item(worker, syntax::ast::Item::TypeAlias(ta));
                             }
                         }
                         
                     }
+                    worker.work_on_token(item.r_curly_token());
                 }
                 None => {}
             }
@@ -519,19 +620,21 @@ fn wrap_item<'a>(lindex: &LineIndex, node: syntax::ast::Item) -> Option<Rnode<'a
         }
         _ => {}
     }
-    let mut wrappeditem = wrap_node_aux(lindex, Some(node), false).unwrap();
-    wrappeditem.set_children(children);
-    Some(wrappeditem)
 }
+
 
 pub fn wraproot(contents: &str) -> Option<Rnode> {
     let root = SourceFile::parse(contents).tree();
     let mut children: Vec<Option<Rnode>> = vec![];
     let items = root.items();
     let lindex: LineIndex = LineIndex::new(&root.to_string()[..]);
-    for item in items {
+
+    let worker = worker::new(lindex, wrap_node_aux, wrap_token_aux);
+
+    for item in items.into_iter() {
         //for now skips Attributes
-        children.push(wrap_item(&mut &lindex, item.to_owned()));
+        //visit(worker, item)
+        visit_item(worker, item);
     }
 
     let sindex: LineCol = lindex.line_col(root.syntax().text_range().start());
