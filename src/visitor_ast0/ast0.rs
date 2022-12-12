@@ -208,32 +208,39 @@ impl<'a> wrap<'a> {
 
 }
 
-pub struct worker<D>{//D here is a struct where we can define the data we need to track
+pub struct worker<'a, D>{//D here is a struct where we can define the data we need to track
     pub(self) children: Vec<D>,
-    pub(self) lindex: LineIndex,
-    pub(self) func_node: fn(Option<Box<&dyn AstNode>>) -> D,
-    pub(self) func_token: fn(Option<SyntaxToken>) -> D
+    pub(self) lindex: &'a LineIndex,
+    pub(self) func_node: fn(&'a LineIndex, Box<&dyn AstNode>, bool) -> Option<D>,
+    pub(self) func_token: fn(&'a LineIndex, Option<SyntaxToken>) -> Option<D>
 }
 
-impl<D> worker<D> {
-    pub fn new(lindex: LineIndex, f_n: fn(Option<Box<&dyn AstNode>>) -> D, f_t: fn(Option<SyntaxToken>) -> D){
-        let worker = worker{
+impl<'a, D> worker<'a, D> {
+    pub fn new(lindex: &'a LineIndex, f_n: fn(&'a LineIndex, Box<&dyn AstNode>, bool) -> Option<D>, f_t: fn(&'a LineIndex, Option<SyntaxToken>) -> Option<D>)
+    -> worker<'a, D>{
+        worker{
             children: vec![],
             lindex: lindex,
             func_node: f_n,
             func_token: f_t
-        };
+        }
     }
 
-    pub fn work_on_node(&self, node: Option<Box<&dyn AstNode>>){
+    pub fn work_on_node(&mut self, node: Box<&dyn AstNode>){
         let func = self.func_node;
-        let d = func(node);
-        self.children.push(d);
+        let d = func(self.lindex, node, false);//false needs to be changed
+        match d {
+            Some(d) => { self.children.push(d); }
+            None => {}
+        }
     }
 
-    pub fn work_on_token(&self, token: Option<SyntaxToken>){
+    pub fn work_on_token(&mut self, token: Option<SyntaxToken>){
         let func = self.func_token;
-        let d = func(token);
-        self.children.push(d);
+        let d = func(self.lindex, token);
+        match d {
+            Some(d) => { self.children.push(d); }
+            None => {}
+        }
     }
 }
