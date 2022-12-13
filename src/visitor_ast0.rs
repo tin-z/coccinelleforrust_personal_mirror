@@ -3,10 +3,10 @@ mod ast0;
 use ast0::{info, position_info, wrap};
 use ide_db::line_index::LineCol;
 use ide_db::line_index::LineIndex;
-use syntax::ast::ForExpr;
 use std::vec;
 use syntax;
 use syntax::ast::Expr::*;
+use syntax::ast::ForExpr;
 use syntax::ast::HasLoopBody;
 use syntax::ast::HasName;
 use syntax::ast::{AnyHasArgList, AstNode, HasModuleItem, SourceFile, Type};
@@ -19,7 +19,7 @@ pub use self::ast0::Rnode;
 pub use self::ast0::Syntax;
 pub use self::ast0::Syntax::{Node, Token};
 
-pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<()> {
+pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> Option<Rnode> {
     match aexpr {
         Some(aexpr) => {
             let sindex: LineCol = lindex.line_col(aexpr.text_range().start());
@@ -60,8 +60,7 @@ pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> O
                 wrapper: wrap,
                 astnode: Token(aexpr),
                 children: vec![],
-            });
-            None
+            })
         }
         None => None,
     }
@@ -70,8 +69,8 @@ pub fn wrap_keyword_aux<'a>(lindex: &LineIndex, aexpr: Option<SyntaxToken>) -> O
 pub fn wrap_node_aux<'a>(
     lindex: &LineIndex,
     aexpr: Box<&dyn AstNode>,
-    df: &dyn FnMut(&mut worker<()>),
-) -> Option<()> {
+    df: &dyn FnMut(&mut worker<Rnode<'a>>),
+) -> Option<Rnode<'a>> {
     let sindex: LineCol = lindex.line_col(aexpr.syntax().text_range().start());
     let eindex: LineCol = lindex.line_col(aexpr.syntax().text_range().end());
 
@@ -109,11 +108,10 @@ pub fn wrap_node_aux<'a>(
         wrapper: wrap,
         astnode: Node(aexpr.syntax().clone()),
         children: vec![],
-    });
-    None
+    })
 }
 
-fn visit_path_type<D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::PathType>){
+fn visit_path_type<D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::PathType>) {
     match aexpr {
         Some(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &|worker| {
@@ -124,7 +122,7 @@ fn visit_path_type<D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::PathTyp
     }
 }
 
-fn visit_path_segment<'a, D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::PathSegment>){
+fn visit_path_segment<'a, D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::PathSegment>) {
     match aexpr {
         Some(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &|worker| {
@@ -142,7 +140,7 @@ fn visit_path_segment<'a, D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::
     }
 }
 
-fn visit_path<'a, D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::Path>){
+fn visit_path<'a, D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::Path>) {
     match aexpr {
         Some(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &|worker| {
@@ -154,7 +152,7 @@ fn visit_path<'a, D>(worker: &mut worker<D>, aexpr: Option<syntax::ast::Path>){
         None => {}
     }
 }
-fn visit_stmts<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::StmtList>){
+fn visit_stmts<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::StmtList>) {
     match node {
         Some(node) => {
             worker.work_on_node(Box::new(&node), &|worker| {
@@ -185,213 +183,208 @@ fn visit_stmts<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::StmtList
     }
 }
 
-fn dummydyn(aexpr: Box<dyn AstNode>){
+fn dummydyn(aexpr: Box<dyn AstNode>) {
     aexpr.as_ref();
 }
 
-fn visit_expr<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::Expr>){
+fn visit_expr<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::Expr>) {
     match node {
-        Some(node) => {
-            match node {
-                ArrayExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        for ex in aexpr.exprs() {
-                            visit_expr(worker, Some(ex));
-                        }
-                    });
+        Some(ArrayExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                for ex in aexpr.exprs() {
+                    visit_expr(worker, Some(ex));
                 }
-                AwaitExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                BinExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                    visit_expr(worker, aexpr.lhs());
-                    visit_expr(worker, aexpr.rhs());
-                    });
-                }
-                BoxExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                BreakExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                CallExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                ClosureExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_param_list(worker, aexpr.param_list());
-                        visit_expr(worker, aexpr.body());
-                    });
-                }
-                CastExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                ContinueExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                    //TODO
-                }
-                FieldExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                ForExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.iterable());
-                        match aexpr.loop_body() {
-                            Some(bexpr) => {
-                                visit_expr(worker, Some(BlockExpr(bexpr)));
-                            }
-                            None => {}
-                        }
-                    });
-                }
-                IfExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.condition());
-                        match aexpr.then_branch() {
-                            Some(branch) => {
-                                visit_expr(worker, Some(BlockExpr(branch)));
-                            }
-                            None => {}
-                        }
-                        match aexpr.else_branch() {
-                            Some(syntax::ast::ElseBranch::Block(block)) => {
-                                visit_expr(worker, Some(BlockExpr(block)));
-                            }
-                            Some(syntax::ast::ElseBranch::IfExpr(ifexpr)) => {
-                                visit_expr(worker, Some(IfExpr(ifexpr)));
-                            }
-                            None => {}
-                        }
-                    });
-                }
-                IndexExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-
-                    });
-                    //TODO
-                }
-                Literal(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                    //TODO
-                }
-                LoopExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                    //TODO
-                }
-                MacroExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                    /*TODO*/
-                }
-                MatchExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                    visit_expr(worker, aexpr.expr());
-                }
-                MethodCallExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.receiver());
-                        worker.work_on_token(aexpr.dot_token());
-                        match aexpr.name_ref() {
-                            Some(node) => {
-                                worker.work_on_node(Box::new(&node), &|worker| {});
-                            }
-                            None => {}
-                        }
-                    } );
-                }
-                ParenExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                PathExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_path(worker, aexpr.path());
-                    });
-                }
-                PrefixExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                RangeExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| { () });
-                }
-                RecordExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                    match aexpr.record_expr_field_list() {
-                        Some(al) => {
-                            visit_expr(worker, al.spread());
-                        }
-                        None => {}
+            });
+        }
+        Some(AwaitExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(BinExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.lhs());
+                visit_expr(worker, aexpr.rhs());
+            });
+        }
+        Some(BoxExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(BreakExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(CallExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(ClosureExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_param_list(worker, aexpr.param_list());
+                visit_expr(worker, aexpr.body());
+            });
+        }
+        Some(CastExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(ContinueExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+            //TODO
+        }
+        Some(FieldExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(ForExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.iterable());
+                match aexpr.loop_body() {
+                    Some(bexpr) => {
+                        visit_expr(worker, Some(BlockExpr(bexpr)));
                     }
-                    });
+                    None => {}
                 }
-                RefExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
+            });
+        }
+        Some(IfExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.condition());
+                match aexpr.then_branch() {
+                    Some(branch) => {
+                        visit_expr(worker, Some(BlockExpr(branch)));
+                    }
+                    None => {}
                 }
-                ReturnExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
+                match aexpr.else_branch() {
+                    Some(syntax::ast::ElseBranch::Block(block)) => {
+                        visit_expr(worker, Some(BlockExpr(block)));
+                    }
+                    Some(syntax::ast::ElseBranch::IfExpr(ifexpr)) => {
+                        visit_expr(worker, Some(IfExpr(ifexpr)));
+                    }
+                    None => {}
                 }
-                TryExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
+            });
+        }
+        Some(IndexExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+            //TODO
+        }
+        Some(Literal(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+            //TODO
+        }
+        Some(LoopExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+            //TODO
+        }
+        Some(MacroExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+            /*TODO*/
+        }
+        Some(MatchExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+            visit_expr(worker, aexpr.expr());
+        }
+        Some(MethodCallExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.receiver());
+                worker.work_on_token(aexpr.dot_token());
+                match aexpr.name_ref() {
+                    Some(node) => {
+                        worker.work_on_node(Box::new(&node), &|worker| {});
+                    }
+                    None => {}
                 }
-                TupleExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        for child in aexpr.fields() {
-                            visit_expr(worker, Some(child));
-                        }
-                    });
+            });
+        }
+        Some(ParenExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(PathExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_path(worker, aexpr.path());
+            });
+        }
+        Some(PrefixExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(RangeExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| ());
+        }
+        Some(RecordExpr(aexpr)) => {
+            worker.work_on_node(
+                Box::new(&aexpr),
+                &|worker| match aexpr.record_expr_field_list() {
+                    Some(al) => {
+                        visit_expr(worker, al.spread());
+                    }
+                    None => {}
+                },
+            );
+        }
+        Some(RefExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(ReturnExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(TryExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(TupleExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                for child in aexpr.fields() {
+                    visit_expr(worker, Some(child));
                 }
-                WhileExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                }
-                YieldExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                BlockExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_stmts(worker, aexpr.stmt_list());
-                    });
-                }
-                LetExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {
-                        visit_expr(worker, aexpr.expr());
-                    });
-                }
-                UnderscoreExpr(aexpr) => {
-                    worker.work_on_node(Box::new(&aexpr), &|worker| {});
-                }
-            }
+            });
+        }
+        Some(WhileExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
+        }
+        Some(YieldExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(BlockExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_stmts(worker, aexpr.stmt_list());
+            });
+        }
+        Some(LetExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {
+                visit_expr(worker, aexpr.expr());
+            });
+        }
+        Some(UnderscoreExpr(aexpr)) => {
+            worker.work_on_node(Box::new(&aexpr), &|worker| {});
         }
         None => {}
     }
 }
 
-fn visit_param_list<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::ParamList>){
+fn visit_param_list<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::ParamList>) {
     match node {
         Some(plist) => {
-            worker.work_on_node(Box::new(&plist), &|worker|{
+                worker.work_on_node(Box::new(&plist), &|worker| {
                 worker.work_on_token(plist.l_paren_token());
                 worker.work_on_token(plist.comma_token());
                 for param in plist.params() {
@@ -408,7 +401,7 @@ fn visit_param_list<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::Par
     }
 }
 
-fn visit_name<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::Name>){
+fn visit_name<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::Name>) {
     match node {
         Some(node) => {
             worker.work_on_node(Box::new(&node), &|worker| {
@@ -440,7 +433,7 @@ fn visit_abi<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::Abi>) {
     }
 }
 
-fn visit_ret_type<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::RetType>){
+fn visit_ret_type<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::RetType>) {
     match node {
         Some(node) => {
             worker.work_on_node(Box::new(&node), &|worker| {});
@@ -450,7 +443,7 @@ fn visit_ret_type<'a, D>(worker: &mut worker<D>, node: Option<syntax::ast::RetTy
     }
 }
 
-fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item){
+fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item) {
     //notcomplete
     match node {
         syntax::ast::Item::Const(node) => {
@@ -467,7 +460,7 @@ fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item){
             });
         }
         syntax::ast::Item::Fn(node) => {
-            worker.work_on_node(Box::new(&node), &|worker|{
+            worker.work_on_node(Box::new(&node), &|worker| {
                 visit_name(worker, node.name()); // for each visit worker will keep track of the ast and children
                 worker.work_on_token(node.default_token());
                 worker.work_on_token(node.const_token());
@@ -487,44 +480,42 @@ fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item){
                 worker.work_on_token(node.semicolon_token());
             });
         }
-        syntax::ast::Item::Impl(node) => {
-            worker.work_on_node(Box::new(&node), &|worker| {
-                worker.work_on_token(node.default_token());
-                worker.work_on_token(node.unsafe_token());
-                worker.work_on_token(node.impl_token());
-                worker.work_on_token(node.const_token());
-                worker.work_on_token(node.excl_token());
-                worker.work_on_token(node.for_token());
-                match node.assoc_item_list() {
-                    Some(item) => {
-                        worker.work_on_token(item.l_curly_token());
-                        for item in item.assoc_items() {
-                            match item {
-                                syntax::ast::AssocItem::Const(cnt) => {
-                                    visit_item(worker, syntax::ast::Item::Const(cnt));
-                                }
-                                syntax::ast::AssocItem::Fn(f) => {
-                                    visit_item(worker, syntax::ast::Item::Fn(f));
-                                }
-                                syntax::ast::AssocItem::MacroCall(mc) => {
-                                    visit_item(worker, syntax::ast::Item::MacroCall(mc));
-                                }
-                                syntax::ast::AssocItem::TypeAlias(ta) => {
-                                    visit_item(worker, syntax::ast::Item::TypeAlias(ta));
-                                }
+        syntax::ast::Item::Impl(node) => worker.work_on_node(Box::new(&node), &|worker| {
+            worker.work_on_token(node.default_token());
+            worker.work_on_token(node.unsafe_token());
+            worker.work_on_token(node.impl_token());
+            worker.work_on_token(node.const_token());
+            worker.work_on_token(node.excl_token());
+            worker.work_on_token(node.for_token());
+            match node.assoc_item_list() {
+                Some(item) => {
+                    worker.work_on_token(item.l_curly_token());
+                    for item in item.assoc_items() {
+                        match item {
+                            syntax::ast::AssocItem::Const(cnt) => {
+                                visit_item(worker, syntax::ast::Item::Const(cnt));
+                            }
+                            syntax::ast::AssocItem::Fn(f) => {
+                                visit_item(worker, syntax::ast::Item::Fn(f));
+                            }
+                            syntax::ast::AssocItem::MacroCall(mc) => {
+                                visit_item(worker, syntax::ast::Item::MacroCall(mc));
+                            }
+                            syntax::ast::AssocItem::TypeAlias(ta) => {
+                                visit_item(worker, syntax::ast::Item::TypeAlias(ta));
                             }
                         }
-                        worker.work_on_token(item.r_curly_token());
                     }
-                    None => {}
+                    worker.work_on_token(item.r_curly_token());
                 }
-            })
-        }
+                None => {}
+            }
+        }),
         _ => {}
     }
 }
 
-pub fn wraproot(contents: &str){
+pub fn wraproot(contents: &str) {
     let root = SourceFile::parse(contents).tree();
     let items = root.items();
     let lindex: LineIndex = LineIndex::new(&root.to_string()[..]);
