@@ -1,9 +1,3 @@
-use std::cell::RefCell;
-use std::ops::Index;
-use std::rc::Rc;
-use parser::SyntaxKind;
-use either::Either;
-
 #[derive(PartialEq)]
 pub struct Rnode<'a> {
     pub wrapper: wrap<'a>,
@@ -29,11 +23,9 @@ impl<'a> Rnode<'a> {
     }
 }
 
-use ide_db::LineIndexDatabase;
 use ide_db::line_index::LineIndex;
-use syntax::ast::edit::AstNodeEdit;
-use syntax::ast::{MacroDef, Type};
-use syntax::{SyntaxNode, SyntaxToken, AstNode, AstToken};
+use syntax::ast::{Type};
+use syntax::{SyntaxNode, SyntaxToken, AstNode};
 
 #[derive(Clone, PartialEq)]
 pub struct dummy {}
@@ -135,28 +127,6 @@ impl Syntax {
             }
         }
     }
-
-    pub fn to_node(&self) -> Option<&Syntax>{
-        match self{
-            Syntax::Node(node) => {
-                Some(self)
-            }
-
-            Syntax::Token(_) => { None }
-        }
-    }
-
-    pub fn to_token(&self) -> Option<&Syntax>{
-        match self{
-            Syntax::Node(_) => {
-                None
-            }
-
-            Syntax::Token(token) => { 
-                Some(self)
-            }
-        }
-    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -208,16 +178,21 @@ impl<'a> wrap<'a> {
 
 }
 
-pub struct worker<'a, D>{//D here is a struct where we can define the data we need to track
+pub struct worker<'a, D> {//D here is a struct where we can define the data we need to track
     pub(self) children: Vec<D>,
     pub(self) lindex: &'a LineIndex,
-    pub(self) func_node: fn(&'a LineIndex, Box<&dyn AstNode>, bool) -> Option<D>,
+    pub(self) func_node: fn(&'a LineIndex,
+                            Box<&dyn AstNode>, 
+                            &dyn FnMut(&mut worker<D>)) -> 
+                            Option<D>,
     pub(self) func_token: fn(&'a LineIndex, Option<SyntaxToken>) -> Option<D>
 }
 
-impl<'a, D> worker<'a, D> {
-    pub fn new(lindex: &'a LineIndex, f_n: fn(&'a LineIndex, Box<&dyn AstNode>, bool) -> Option<D>, f_t: fn(&'a LineIndex, Option<SyntaxToken>) -> Option<D>)
-    -> worker<'a, D>{
+impl<'a, D> worker<'a, D>{
+    pub fn new(lindex: &'a LineIndex, 
+            f_n: fn(&'a LineIndex, Box<&dyn AstNode>, &dyn FnMut(&mut worker<D>)) -> Option<D>,
+            f_t: fn(&'a LineIndex, Option<SyntaxToken>) -> Option<D>)
+        -> worker<'a, D>{
         worker{
             children: vec![],
             lindex: lindex,
@@ -226,9 +201,9 @@ impl<'a, D> worker<'a, D> {
         }
     }
 
-    pub fn work_on_node(&mut self, node: Box<&dyn AstNode>){
+    pub fn work_on_node(&mut self, node: Box<&dyn AstNode>, df: &dyn FnMut(&mut worker<D>)){
         let func = self.func_node;
-        let d = func(self.lindex, node, false);//false needs to be changed
+        let d = func(self.lindex, node, df);//false needs to be changed
         match d {
             Some(d) => { self.children.push(d); }
             None => {}
