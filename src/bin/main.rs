@@ -60,23 +60,7 @@ fn printiffunc<'a>(item: &Rnode<'a>){
 fn main() {
     let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
         .expect("This shouldnt be empty");
-    let wrap = wraproot(&contents[..]).unwrap();
-    for item in wrap.children {
-        match item {
-            Some(item) => match &item.astnode {
-                Node(node) => {
-                    match node.kind(){
-                        FN => {
-                            printiffunc(&item);
-                        }
-                        _ => {}
-                    }
-                }
-                Token(token) => {}
-            },
-            None => {}
-        }
-    }
+    let wrap = wraproot(&contents[..]);
 
     //    let (gnodes, mut errors) =
 }
