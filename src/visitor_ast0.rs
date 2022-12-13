@@ -6,7 +6,6 @@ use ide_db::line_index::LineIndex;
 use std::vec;
 use syntax;
 use syntax::ast::Expr::*;
-use syntax::ast::ForExpr;
 use syntax::ast::HasLoopBody;
 use syntax::ast::HasName;
 use syntax::ast::{AnyHasArgList, AstNode, HasModuleItem, SourceFile, Type};
