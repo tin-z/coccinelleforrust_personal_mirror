@@ -511,7 +511,7 @@ fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item) {
 
 pub fn wraproot<'a, D>(contents: &str, 
         wrap_node_aux: fn(&mut worker<D>, LineIndex, Box<&dyn AstNode>, &mut dyn FnMut(&mut worker<D>)) -> Option<D>,
-        wrap_keyword_aux: fn(LineIndex, Option<SyntaxToken>) -> Option<D>) where D: 'a{
+        wrap_keyword_aux: fn(LineIndex, Option<SyntaxToken>) -> Option<D>) -> Vec<D> where D: 'a{
     let root = SourceFile::parse(contents).tree();
     let items = root.items();
     let lindex: LineIndex = LineIndex::new(&root.to_string()[..]);
@@ -522,5 +522,6 @@ pub fn wraproot<'a, D>(contents: &str,
         //for now skips Attributes
         //visit(worker, item)
         visit_item(&mut worker, item);
-    }
+    };
+    worker.children
 }

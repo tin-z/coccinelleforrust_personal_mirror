@@ -3,7 +3,7 @@ use syntax::ast::{Type};
 use syntax::{SyntaxNode, SyntaxToken, AstNode};
 
 pub struct worker<D> {//D here is a struct where we can define the data we need to track
-    pub(self) children: Vec<D>,
+    pub children: Vec<D>,
     pub(self) lindex: LineIndex,
     pub(self) func_node: fn(&mut worker<D>,
                             LineIndex,
