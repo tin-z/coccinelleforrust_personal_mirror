@@ -275,6 +275,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 }
                 worker.pop_children()
             });
+            print!("in here");
         }
         IndexExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
@@ -324,9 +325,11 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
         }
         ParenExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(aexpr.l_paren_token());
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.work_on_token(aexpr.r_paren_token());
                 worker.pop_children()
             });
         }
@@ -401,6 +404,9 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
         }
         WhileExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                aexpr.condition().map_or((), |node|{
+                    visit_expr(worker, node);
+                });
                 worker.pop_children()
             });
         }

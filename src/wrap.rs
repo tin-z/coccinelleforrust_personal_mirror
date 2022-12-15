@@ -1,4 +1,5 @@
 use ide_db::line_index::{LineIndex, LineCol};
+use parser::SyntaxKind;
 use syntax::ast::{Type, AnyHasArgList};
 use syntax::AstNode;
 use syntax::{SyntaxNode, SyntaxToken, SyntaxText};
@@ -24,6 +25,24 @@ impl Syntax {
             Syntax::Token(token) => {
                 token.to_string()
             }
+        }
+    }
+
+    pub fn kind(&self) -> SyntaxKind{
+        match self{
+            Syntax::Node(node) => {
+                node.kind()
+            }
+            Syntax::Token(token) => {
+                token.kind()
+            }
+        }
+    }
+
+    pub fn to_node(&self) -> &SyntaxNode{//use this function only if sure
+        match self{
+            Syntax::Node(node) => node,
+            Syntax::Token(token) => panic!("NOT A NODE")
         }
     }
 }
@@ -308,15 +327,34 @@ fn fill_wrap(lindex: &LineIndex, node: &SyntaxNode) -> Rnode{
     }
 }
 
+pub fn process_exp(exp: &mut Rnode){
+    exp.wrapper.set_test_exps();
+    match exp.astnode.kind(){
+        SyntaxKind::PAREN_EXPR => {
+            process_exp(&mut exp.children[1]);
+        }
+        _ => {}
+    }
+}
+
 pub fn wrap_node_aux<'a>(
     worker: &mut worker<Rnode>,
     lindex: LineIndex,
     node: Box<&dyn AstNode>,
     df: &'a mut dyn FnMut(&mut worker<Rnode>) -> Vec<Rnode>,
 ) -> Option<Rnode> {
-
-    let children = df(worker);
+    let kk = node.syntax().to_string();
+    let mut children = df(worker);
     let mut wrap = fill_wrap(&lindex, node.syntax());
+    match node.syntax().kind(){
+        SyntaxKind::IF_EXPR => {
+            process_exp(&mut children[0]);
+        }
+        SyntaxKind::WHILE_EXPR => {
+            process_exp(&mut children[0]);
+        }
+        _ => { }
+    }
     wrap.set_children(children);
     Some(wrap)
 
