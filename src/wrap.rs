@@ -33,14 +33,14 @@ impl Syntax {
 pub struct Rnode{
     pub wrapper: wrap,
     pub astnode: Syntax,
-    pub children: Vec<Option<Rnode>>,
+    pub children: Vec<Rnode>,
 }
 
 impl Rnode{
     pub fn new_root(
         wrapper: wrap,
         syntax: Syntax,
-        children: Vec<Option<Rnode>>,
+        children: Vec<Rnode>,
     ) -> Rnode{
         Rnode {
             wrapper: wrapper,
@@ -49,7 +49,7 @@ impl Rnode{
         }
     }
 
-    pub fn set_children(&mut self, children: Vec<Option<Rnode>>) {
+    pub fn set_children(&mut self, children: Vec<Rnode>) {
         self.children = children
     }
 
@@ -312,24 +312,12 @@ pub fn wrap_node_aux<'a>(
     worker: &mut worker<Rnode>,
     lindex: LineIndex,
     node: Box<&dyn AstNode>,
-    df: &'a mut dyn FnMut(&mut worker<Rnode>),
+    df: &'a mut dyn FnMut(&mut worker<Rnode>) -> Vec<Rnode>,
 ) -> Option<Rnode> {
-    df(worker);
+
+    let children = df(worker);
     let mut wrap = fill_wrap(&lindex, node.syntax());
-    let mut vec = vec![wrap];
-    match node.syntax().kind(){
-        parser::SyntaxKind::IF_EXPR => {
-            let node = IfExpr::cast(node.syntax().clone());
-            let expr = node.unwrap();
-            let mut wrap = fill_wrap(&lindex, expr.condition());
-            wrap.set_test_exps(&mut vec, &lindex);
-            df(worker);
-            vec
-        }
-        _ => {
-            df(worker);
-            None
-        }
-    }
-    
+    wrap.set_children(children);
+    Some(wrap)
+
 }

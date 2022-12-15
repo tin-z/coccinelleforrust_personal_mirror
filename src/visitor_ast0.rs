@@ -21,6 +21,7 @@ fn visit_path_type<D>(worker: &mut worker<D>, aexpr: syntax::ast::PathType) {
         aexpr.path().map_or((), |node|{
             visit_path(worker, node);
         });
+        worker.pop_children()
     });
 }
 
@@ -29,7 +30,9 @@ fn visit_path_segment<'a, D>(worker: &mut worker<D>, aexpr: syntax::ast::PathSeg
         worker.work_on_token(aexpr.coloncolon_token());
         match aexpr.name_ref() {
             Some(node) => {
-                worker.work_on_node(Box::new(&node), &mut |worker| {});
+                worker.work_on_node(Box::new(&node), &mut |worker| {
+                    worker.pop_children()
+                });
             }
             None => {}
         }
@@ -48,6 +51,7 @@ fn visit_path_segment<'a, D>(worker: &mut worker<D>, aexpr: syntax::ast::PathSeg
         });
         worker.work_on_token(aexpr.as_token());
         worker.work_on_token(aexpr.r_angle_token());
+        worker.pop_children()
     });
 }
 
@@ -61,6 +65,8 @@ fn visit_path<'a, D>(worker: &mut worker<D>, aexpr: syntax::ast::Path) {
         aexpr.segment().map_or((), |node|{
             visit_path_segment(worker, node);
         });
+        worker.pop_children()
+
     });    
 }
 fn visit_stmts<'a, D>(worker: &mut worker<D>, node: syntax::ast::StmtList) {
@@ -94,19 +100,21 @@ fn visit_stmts<'a, D>(worker: &mut worker<D>, node: syntax::ast::StmtList) {
             visit_expr(worker, node);
         });
         worker.work_on_token(node.l_curly_token());
+        worker.pop_children()
     });
 }
 
 fn visit_lifetime<'a, D>(worker: &mut worker<D>, node: syntax::ast::Lifetime){
     worker.work_on_node(Box::new(&node), &mut |worker|{
         worker.work_on_token(node.lifetime_ident_token());
+        worker.pop_children()
     });
 }
 
 fn visit_generic_params<'a, D>(worker: &mut worker<D>, node: syntax::ast::GenericParamList){
     worker.work_on_node(Box::new(&node), &mut |worker|{
         worker.work_on_token(node.l_angle_token());
-
+        worker.pop_children()
     })
 }
 
@@ -123,6 +131,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 });
                 worker.work_on_token(aexpr.semicolon_token());
                 worker.work_on_token(aexpr.r_brack_token());
+                worker.pop_children()
             });
         }
         AwaitExpr(aexpr) => {
@@ -132,6 +141,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 });
                 worker.work_on_token(aexpr.dot_token());
                 worker.work_on_token(aexpr.await_token());
+                worker.pop_children()
             });
         }
         BinExpr(aexpr) => {
@@ -143,6 +153,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.rhs().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         BoxExpr(aexpr) => {
@@ -151,6 +162,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         BreakExpr(aexpr) => {
@@ -162,6 +174,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         CallExpr(aexpr) => {
@@ -169,6 +182,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         ClosureExpr(aexpr) => {
@@ -189,6 +203,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.body().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         CastExpr(aexpr) => {
@@ -200,6 +215,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.ty().map_or((), |node|{
                     visit_type(worker, node);
                 });
+                worker.pop_children()
             });
         }
         ContinueExpr(aexpr) => {
@@ -208,6 +224,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.lifetime().map_or((), |node|{
                     visit_lifetime(worker, node);
                 });
+                worker.pop_children()
             });
         }
         FieldExpr(aexpr) => {
@@ -217,8 +234,11 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 });
                 worker.work_on_token(aexpr.dot_token());
                 aexpr.name_ref().map_or((), |node|{
-                    worker.work_on_node(Box::new(&node), &mut |worker| {});
+                    worker.work_on_node(Box::new(&node), &mut |worker| {
+                        worker.pop_children()
+                    });
                 });
+                worker.pop_children()
             });
         }
         ForExpr(aexpr) => {
@@ -233,6 +253,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                     }
                     None => {}
                 }
+                worker.pop_children()
             });
         }
         IfExpr(aexpr) => {
@@ -252,26 +273,37 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                     }
                     None => {}
                 }
+                worker.pop_children()
             });
         }
         IndexExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
             //TODO
         }
         Literal(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
             //TODO
         }
         LoopExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
             //TODO
         }
         MacroExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
             /*TODO*/
         }
         MatchExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
             aexpr.expr().map_or((), |node|{
                 visit_expr(worker, node);
             });
@@ -283,8 +315,11 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 });
                 worker.work_on_token(aexpr.dot_token());
                 aexpr.name_ref().map_or((), |node|{
-                    worker.work_on_node(Box::new(&node), &mut |worker| {});
-                }) 
+                    worker.work_on_node(Box::new(&node), &mut |worker| {
+                        worker.pop_children()
+                    });
+                });
+                worker.pop_children()
             });
         }
         ParenExpr(aexpr) => {
@@ -292,6 +327,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         PathExpr(aexpr) => {
@@ -299,6 +335,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.path().map_or((), |node|{
                     visit_path(worker, node);
                 });
+                worker.pop_children()
             });
         }
         PrefixExpr(aexpr) => {
@@ -306,29 +343,36 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         RangeExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| ());
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
         }
         RecordExpr(aexpr) => {
             worker.work_on_node(
                 Box::new(&aexpr),
-                &mut |worker| match aexpr.record_expr_field_list() {
+                &mut |worker| {
+                match aexpr.record_expr_field_list() {
                     Some(al) => {
                         al.spread().map_or((), |node|{
                             visit_expr(worker, node);
                         });
                     }
                     None => {}
-                },
-            );
+                    
+                }
+                worker.pop_children()
+            });
         }
         RefExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         ReturnExpr(aexpr) => {
@@ -336,6 +380,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
        TryExpr(aexpr) => {
@@ -343,6 +388,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         TupleExpr(aexpr) => {
@@ -350,16 +396,20 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 for child in aexpr.fields() {
                     visit_expr(worker, child);
                 }
+                worker.pop_children()
             });
         }
         WhileExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
         }
         YieldExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         BlockExpr(aexpr) => {
@@ -367,6 +417,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.stmt_list().map_or((), |node| {
                     visit_stmts(worker, node);
                 });
+                worker.pop_children()
             });
         }
         LetExpr(aexpr) => {
@@ -374,10 +425,13 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 aexpr.expr().map_or((), |node|{
                     visit_expr(worker, node);
                 });
+                worker.pop_children()
             });
         }
         UnderscoreExpr(aexpr) => {
-            worker.work_on_node(Box::new(&aexpr), &mut |worker| {});
+            worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.pop_children()
+            });
         }
     }
 }
@@ -397,6 +451,7 @@ fn visit_param_list<'a, D>(worker: &mut worker<D>, plist: syntax::ast::ParamList
     }
     worker.work_on_token(plist.r_paren_token());
     worker.work_on_token(plist.pipe_token());
+    worker.pop_children()
     });
 
 }
@@ -406,26 +461,33 @@ fn visit_name<'a, D>(worker: &mut worker<D>, node: syntax::ast::Name) {
     worker.work_on_node(Box::new(&node), &mut |worker| {
         worker.work_on_token(node.ident_token());
         worker.work_on_token(node.self_token());
+        worker.pop_children()
     });
 }
 
 fn visit_type<'a, D>(worker: &mut worker<D>, node: syntax::ast::Type) {
 
-    worker.work_on_node(Box::new(&node), &mut |worker| {});
+    worker.work_on_node(Box::new(&node), &mut |worker| {
+        worker.pop_children()
+    });
     //need to work on the other types TODO
 
 }
 
 fn visit_abi<'a, D>(worker: &mut worker<D>, node: syntax::ast::Abi) {
 
-    worker.work_on_node(Box::new(&node), &mut |worker| {});
+    worker.work_on_node(Box::new(&node), &mut |worker| {
+        worker.pop_children()
+    });
     //need to work TODO
 
 }
 
 fn visit_ret_type<'a, D>(worker: &mut worker<D>, node: syntax::ast::RetType) {
 
-    worker.work_on_node(Box::new(&node), &mut |worker| {});
+    worker.work_on_node(Box::new(&node), &mut |worker| {
+        worker.pop_children()
+    });
     //need to work TODO
 
 }
@@ -449,6 +511,7 @@ fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item) {
                     visit_expr(worker, node);
                 });
                 worker.work_on_token(node.semicolon_token());
+                worker.pop_children()
             });
         }
         syntax::ast::Item::Fn(node) => {
@@ -472,6 +535,7 @@ fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item) {
                     visit_expr(worker, BlockExpr(node));
                 });
                 worker.work_on_token(node.semicolon_token());
+                worker.pop_children()
             });
         }
         syntax::ast::Item::Impl(node) => worker.work_on_node(Box::new(&node), &mut |worker| {
@@ -504,13 +568,14 @@ fn visit_item<'a, D>(worker: &mut worker<D>, node: syntax::ast::Item) {
                 }
                 None => {}
             }
+            worker.pop_children()
         }),
         _ => {}
     }
 }
 
 pub fn wraproot<'a, D>(contents: &str, 
-        wrap_node_aux: fn(&mut worker<D>, LineIndex, Box<&dyn AstNode>, &mut dyn FnMut(&mut worker<D>)) -> Option<D>,
+        wrap_node_aux: fn(&mut worker<D>, LineIndex, Box<&dyn AstNode>, &mut dyn FnMut(&mut worker<D>) -> Vec<D>) -> Option<D>,
         wrap_keyword_aux: fn(LineIndex, Option<SyntaxToken>) -> Option<D>)where D: 'a{
     let root = SourceFile::parse(contents).tree();
     let items = root.items();
