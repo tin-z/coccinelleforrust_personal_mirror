@@ -35,9 +35,9 @@ pub fn visit_node<'a>(
     let mut wrap = fill_wrap(&lindex, node.syntax());//wraps the current node
     match node.syntax().kind(){
         SyntaxKind::IF_EXPR => {
-            let children = &mut children[..3];
+            let children = &mut children[..2];
             match children{
-                [_if, cond, then] => {
+                [_if, cond] => {
                     process_exp(cond);
                 }
                 _ => {}
