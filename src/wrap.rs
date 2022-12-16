@@ -165,8 +165,8 @@ pub struct wrap{
     exp_ty: Option<Type>,
     bef_aft: bef_aft,
     true_if_arg: bool,
-    true_if_test: bool,
-    true_if_test_exp: bool,
+    pub true_if_test: bool,
+    pub true_if_test_exp: bool,
     iso_info: Vec<(String, dummy)>,
 }
 
@@ -204,9 +204,103 @@ impl wrap{
         self.info.isSymbolIdent
     }
 
-    pub fn set_test_exps(&mut self){
-        self.true_if_test = true;
-        self.true_if_test_exp = true;
+}
+
+
+pub fn wrap_keyword_aux(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
+    match node {
+        Some(node) => {
+            let sindex: LineCol = lindex.line_col(node.text_range().start());
+            let eindex: LineCol = lindex.line_col(node.text_range().end());
+
+            let pos_info: position_info = position_info::new(
+                sindex.line,
+                eindex.line,
+                0,
+                0,
+                sindex.col,
+                node.text_range().start().into(),
+            );
+            let info = info::new(
+                pos_info,
+                false,
+                false,
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                false,
+            );
+            let kind = node.kind();
+            let wrap: wrap = wrap::new(
+                info,
+                0,
+                mcodekind::MIXED(),
+                None,
+                bef_aft {},
+                AnyHasArgList::can_cast(kind),
+                false,
+                false,
+                vec![],
+            );
+
+            Some(Rnode {
+                wrapper: wrap,
+                astnode: Syntax::Token(node),
+                children: vec![],
+            }); None
+        }
+        None => None,
     }
 }
 
+pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxNode) -> Rnode{
+
+    let sindex: LineCol = lindex.line_col(node.text_range().start());
+    let eindex: LineCol = lindex.line_col(node.text_range().end());
+    let mut nl: usize = 0;
+    for s in  node.children_with_tokens(){
+        s.as_token().map(
+            |token|{
+                if token.kind()==syntax::SyntaxKind::WHITESPACE {
+                    nl+=token.to_string().matches('\n').count();
+                }
+            }
+        ); 
+    };
+    let pos_info: position_info = position_info::new(
+        sindex.line,
+        eindex.line,
+        sindex.line,
+        eindex.line-(nl as u32),
+        sindex.col,
+        node.text_range().start().into(),
+    );
+
+    let info = info::new(
+        pos_info,
+        false,
+        false,
+        vec![],
+        vec![],
+        vec![],
+        vec![],
+        false,
+    );
+    let wrap: wrap = wrap::new(
+        info,
+        0,
+        mcodekind::MIXED(),
+        Type::cast(node.to_owned()),
+        bef_aft {},
+        false,
+        false,
+        false,
+        vec![],
+    );
+    Rnode {
+        wrapper: wrap,
+        astnode: Syntax::Node(node.clone()),
+        children: vec![],
+    }
+}

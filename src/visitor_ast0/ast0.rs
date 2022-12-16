@@ -31,14 +31,17 @@ impl<'a, D> worker<D>{
     pub fn work_on_node(&mut self, node: Box<&dyn AstNode>, df: &mut dyn FnMut(&mut worker<D>) -> Vec<D>)
     {
         let children: Vec<D> = vec![];//this is the vecctor of children for this node
+        self.children.push(children);//pushed away for later use
         let func = self.func_node;
         let d = func(self, self.lindex.clone(), node, df);
         let pchildren = self.children.last_mut().unwrap();//should always have one atleast
         match d {
-            Some(d) => { pchildren.push(d); }//pushing this node into the children of its parents
+            Some(d) => { 
+                
+                pchildren.push(d); 
+            }//pushing this node into the children of its parents
             None => {}
         }
-        self.children.push(children);//pushed away for later use
 
     }
 
