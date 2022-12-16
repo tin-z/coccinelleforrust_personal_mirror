@@ -277,7 +277,6 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                 }
                 worker.pop_children()
             });
-            print!("in here");
         }
         IndexExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {

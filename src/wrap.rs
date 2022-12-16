@@ -210,7 +210,7 @@ pub fn visit_keyword(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rno
         Some(node) => {
             let sindex: LineCol = lindex.line_col(node.text_range().start());
             let eindex: LineCol = lindex.line_col(node.text_range().end());
-
+            
             let pos_info: position_info = position_info::new(
                 sindex.line,
                 eindex.line,
@@ -246,7 +246,7 @@ pub fn visit_keyword(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rno
                 wrapper: wrap,
                 astnode: Syntax::Token(node),
                 children: vec![],
-            }); None
+            })
         }
         None => None,
     }

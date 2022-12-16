@@ -46,7 +46,7 @@ impl<'a, D> worker<D>{
     }
 
     pub fn work_on_token(&mut self, token: Option<SyntaxToken>){
-        let mut pchildren = self.children.last_mut().unwrap();//should always have one atleast
+        let pchildren = self.children.last_mut().unwrap();//should always have one atleast
         let func = self.func_token;
         let d = func(self.lindex.clone(), token);
         match d {

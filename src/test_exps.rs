@@ -18,7 +18,12 @@ pub fn process_exp(exp: &mut Rnode){
     exp.wrapper.set_test_exps();
     match exp.astnode.kind(){
         SyntaxKind::PAREN_EXPR => {
-            process_exp(&mut exp.children[1]);
+            match &mut exp.children[..3]{
+                [_lp, exp, _rp] => {
+                    process_exp(exp);
+                }
+                _ => {}
+            }
         }
         _ => {}
     }
@@ -32,20 +37,19 @@ pub fn visit_node<'a>(
     df: &'a mut dyn FnMut(&mut worker<Rnode>) -> Vec<Rnode>,
 ) -> Option<Rnode> {
     let mut children = df(worker);//gets its children by calling befault function
+
     let mut wrap = fill_wrap(&lindex, node.syntax());//wraps the current node
     match node.syntax().kind(){
         SyntaxKind::IF_EXPR => {
-            let children = &mut children[..2];
-            match children{
-                [_if, cond] => {
+            match &mut children[..3]{
+                [_if, cond, _block] => {
                     process_exp(cond);
                 }
                 _ => {}
             }
         }
         SyntaxKind::WHILE_EXPR => {
-            let children = &mut children[..2];
-            match children{
+            match &mut children[..2]{
                 [_while, cond] => {
                     process_exp(cond);
                 }
