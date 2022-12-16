@@ -111,12 +111,96 @@ fn visit_lifetime<'a, D>(worker: &mut worker<D>, node: syntax::ast::Lifetime){
     });
 }
 
-fn visit_generic_params<'a, D>(worker: &mut worker<D>, node: syntax::ast::GenericParamList){
+fn visit_generic_args<'a, D>(worker: &mut worker<D>, node: syntax::ast::GenericArg){
+    //TODO
+}
+
+fn visit_generic_args_list<'a, D>(worker: &mut worker<D>, node: syntax::ast::GenericArgList){
     worker.work_on_node(Box::new(&node), &mut |worker|{
+        worker.work_on_token(node.coloncolon_token());
         worker.work_on_token(node.l_angle_token());
+        for garg in node.generic_args(){
+            visit_generic_args(worker, garg);
+        }
+        worker.work_on_token(node.r_angle_token());
         worker.pop_children()
     })
 }
+
+fn visit_generic_params<'a, D>(worker: &mut worker<D>, node: syntax::ast::GenericParamList){
+    worker.work_on_node(Box::new(&node), &mut |worker|{
+        worker.work_on_token(node.l_angle_token());
+        //TODO
+        worker.work_on_token(node.r_angle_token());
+        worker.pop_children()
+    })
+}
+
+fn visit_label<'a, D>(worker: &mut worker<D>, node: syntax::ast::Label){
+    worker.work_on_node(Box::new(&node), &mut |worker|{
+        node.lifetime().map_or((), |node|{
+            visit_lifetime(worker, node);
+        });
+        worker.work_on_token(node.colon_token());
+        worker.pop_children()
+    });
+}
+
+fn visit_pat<'a, D>(worker: &mut worker<D>, node: syntax::ast::Pat){
+    worker.work_on_node(Box::new(&node), &mut |worker|{
+        //TODO
+        worker.pop_children()
+    });
+}
+
+fn visit_match_guard<'a, D>(worker: &mut worker<D>, node: syntax::ast::MatchGuard){
+    worker.work_on_node(Box::new(&node), &mut |worker|{
+        worker.work_on_token(node.if_token());
+        node.condition().map_or((), |node|{
+            visit_expr(worker, node);
+        });
+        worker.pop_children()
+    });
+}
+
+fn visit_arm<'a, D>(worker: &mut worker<D>, node: syntax::ast::MatchArm){
+    worker.work_on_node(Box::new(&node), &mut |worker|{
+        node.pat().map_or((), |node| {
+            visit_pat(worker, node);});
+        node.guard().map_or((), |node|{
+            visit_match_guard(worker, node);
+        });
+        worker.work_on_token(node.fat_arrow_token());
+        node.expr().map_or((), |node|{
+            visit_expr(worker, node);
+        });
+        worker.work_on_token(node.comma_token());
+        worker.pop_children()
+    });
+}
+
+fn visit_name_ref<'a, D>(worker: &mut worker<D>, node: syntax::ast::NameRef){
+    worker.work_on_node(Box::new(&node), &mut |worker| {
+        worker.work_on_token(node.ident_token());
+        worker.work_on_token(node.self_token());
+        worker.work_on_token(node.super_token());
+        worker.work_on_token(node.super_token());
+        worker.work_on_token(node.Self_token());
+        worker.pop_children()
+    });
+}
+
+fn visit_match_arm_list<'a, D>(worker: &mut worker<D>, node: syntax::ast::MatchArmList){
+    worker.work_on_node(Box::new(&node), &mut |worker|{
+        worker.work_on_token(node.l_curly_token());
+        for arm in node.arms(){
+            visit_arm(worker, arm);
+        }
+        worker.work_on_token(node.r_curly_token());
+        worker.pop_children()
+    });
+}
+
 
 fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
     match node {
@@ -280,21 +364,34 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
         }
         IndexExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(aexpr.l_brack_token());
+                aexpr.base().map_or((),  |node|{
+                    visit_expr(worker, node);
+                });
+                aexpr.index().map_or((),  |node|{
+                    visit_expr(worker, node);
+                });
+                worker.work_on_token(aexpr.r_brack_token());
                 worker.pop_children()
             });
-            //TODO
         }
         Literal(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(Some(aexpr.token()));//Some here because a literal must have a token
                 worker.pop_children()
             });
-            //TODO
         }
         LoopExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(aexpr.loop_token());
+                aexpr.loop_body().map_or((), |node|{
+                    visit_expr(worker, BlockExpr(node));
+                });
+                aexpr.label().map_or((), |node|{
+                    visit_label(worker, node);
+                });
                 worker.pop_children()
             });
-            //TODO
         }
         MacroExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
@@ -304,10 +401,14 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
         }
         MatchExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(aexpr.match_token());
+                aexpr.expr().map_or((), |node|{
+                    visit_expr(worker, node);
+                });
+                aexpr.match_arm_list().map_or((), |node|{
+                    visit_match_arm_list(worker, node);
+                });
                 worker.pop_children()
-            });
-            aexpr.expr().map_or((), |node|{
-                visit_expr(worker, node);
             });
         }
         MethodCallExpr(aexpr) => {
@@ -316,10 +417,9 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
                     visit_expr(worker, node);
                 });
                 worker.work_on_token(aexpr.dot_token());
-                aexpr.name_ref().map_or((), |node|{
-                    worker.work_on_node(Box::new(&node), &mut |worker| {
-                        worker.pop_children()
-                    });
+                aexpr.name_ref().map_or((), |node|{ visit_name_ref(worker, node) });
+                aexpr.generic_arg_list().map_or((), |node|{
+                    visit_generic_args_list(worker, node);
                 });
                 worker.pop_children()
             });
