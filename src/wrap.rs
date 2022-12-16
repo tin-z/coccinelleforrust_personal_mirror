@@ -3,8 +3,6 @@ use parser::SyntaxKind;
 use syntax::ast::{Type, AnyHasArgList};
 use syntax::AstNode;
 use syntax::{SyntaxNode, SyntaxToken, SyntaxText};
-use syntax::SyntaxKind::WHITESPACE;
-use syntax::ast::IfExpr;
 
 
 use crate::visitor_ast0::ast0::{worker, self};

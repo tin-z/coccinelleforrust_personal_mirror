@@ -3,6 +3,7 @@ use parser::SyntaxKind;
 use syntax::{AstNode};
 use crate::wrap::{Rnode, Syntax, fill_wrap, wrap};
 use crate::visitor_ast0::ast0::worker;
+pub use crate::wrap::wrap_keyword_aux;
 
 impl wrap{
     pub fn set_test_exps(&mut self){
