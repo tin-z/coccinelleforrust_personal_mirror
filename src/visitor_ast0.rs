@@ -258,12 +258,14 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
         }
         IfExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(aexpr.if_token());
                 aexpr.condition().map_or((), |node|{
                     visit_expr(worker, node);
                 });
                 aexpr.then_branch().map_or((), |branch| {
                     visit_expr(worker, BlockExpr(branch));
                 });
+                worker.work_on_token(aexpr.else_token());
                 match aexpr.else_branch() {
                     Some(syntax::ast::ElseBranch::Block(block)) => {
                         visit_expr(worker, BlockExpr(block));

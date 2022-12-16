@@ -1,9 +1,11 @@
+use std::process::Child;
+
 use ide_db::line_index::{LineIndex};
 use parser::SyntaxKind;
 use syntax::{AstNode};
 use crate::wrap::{Rnode, Syntax, fill_wrap, wrap};
 use crate::visitor_ast0::ast0::worker;
-pub use crate::wrap::wrap_keyword_aux;
+pub use crate::wrap::visit_keyword;
 
 impl wrap{
     pub fn set_test_exps(&mut self){
@@ -23,7 +25,7 @@ pub fn process_exp(exp: &mut Rnode){
 }
 
 
-pub fn wrap_node_aux<'a>(
+pub fn visit_node<'a>(
     worker: &mut worker<Rnode>,
     lindex: LineIndex,
     node: Box<&dyn AstNode>,
@@ -33,7 +35,13 @@ pub fn wrap_node_aux<'a>(
     let mut wrap = fill_wrap(&lindex, node.syntax());//wraps the current node
     match node.syntax().kind(){
         SyntaxKind::IF_EXPR => {
-            process_exp(&mut children[0]);
+            let children = &mut children[..3];
+            match children{
+                [_if, cond, _else] => {
+                    process_exp(cond);
+                }
+                _ => {}
+            }
         }
         SyntaxKind::WHILE_EXPR => {
             process_exp(&mut children[0]);

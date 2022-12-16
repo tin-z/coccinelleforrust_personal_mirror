@@ -205,7 +205,7 @@ impl wrap{
 }
 
 
-pub fn wrap_keyword_aux(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
+pub fn visit_keyword(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
     match node {
         Some(node) => {
             let sindex: LineCol = lindex.line_col(node.text_range().start());
