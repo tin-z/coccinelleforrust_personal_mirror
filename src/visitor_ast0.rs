@@ -406,6 +406,7 @@ fn visit_expr<'a, D>(worker: &mut worker<D>, node: syntax::ast::Expr) {
         }
         WhileExpr(aexpr) => {
             worker.work_on_node(Box::new(&aexpr), &mut |worker| {
+                worker.work_on_token(aexpr.while_token());
                 aexpr.condition().map_or((), |node|{
                     visit_expr(worker, node);
                 });

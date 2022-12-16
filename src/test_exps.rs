@@ -37,14 +37,20 @@ pub fn visit_node<'a>(
         SyntaxKind::IF_EXPR => {
             let children = &mut children[..3];
             match children{
-                [_if, cond, _else] => {
+                [_if, cond, then] => {
                     process_exp(cond);
                 }
                 _ => {}
             }
         }
         SyntaxKind::WHILE_EXPR => {
-            process_exp(&mut children[0]);
+            let children = &mut children[..2];
+            match children{
+                [_while, cond] => {
+                    process_exp(cond);
+                }
+                _ => {}
+            }
         }//making necessary changed in the children
         _ => { }
     }
