@@ -204,13 +204,60 @@ impl wrap{
 
 }
 
+pub fn visit_modifier(lindex: &LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
+    match node {
+        Some(node) => {
+            let sindex: LineCol = lindex.line_col(node.text_range().start());
+            let eindex: LineCol = lindex.line_col(node.text_range().end());
+
+            let pos_info: position_info = position_info::new(
+                sindex.line,
+                eindex.line,
+                0,
+                0,
+                sindex.col,
+                node.text_range().start().into(),
+            );
+            let info = info::new(
+                pos_info,
+                false,
+                false,
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                false,
+            );
+            let kind = node.kind();
+            let wrap: wrap = wrap::new(
+                info,
+                0,
+                mcodekind::MIXED(),
+                None,
+                bef_aft {},
+                AnyHasArgList::can_cast(kind),
+                false,
+                false,
+                vec![],
+            );
+
+            Some(Rnode {
+                wrapper: wrap,
+                astnode: Syntax::Token(node),
+                children: vec![],
+            })
+        }
+        None => None,
+    }
+}
+
 
 pub fn visit_keyword(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
     match node {
         Some(node) => {
             let sindex: LineCol = lindex.line_col(node.text_range().start());
             let eindex: LineCol = lindex.line_col(node.text_range().end());
-            
+
             let pos_info: position_info = position_info::new(
                 sindex.line,
                 eindex.line,
