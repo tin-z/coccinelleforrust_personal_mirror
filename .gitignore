@@ -1,7 +1,7 @@
 /target
 **/target
 
-
+/src/bin/test.rs
 /Cargo.lock
 
 
