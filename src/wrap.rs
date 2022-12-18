@@ -204,7 +204,7 @@ impl wrap{
 
 }
 
-pub fn visit_modifier(lindex: &LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
+pub fn visit_modifier(lindex: &LineIndex, node: Option<SyntaxToken>, ) -> Option<Rnode> {
     match node {
         Some(node) => {
             let sindex: LineCol = lindex.line_col(node.text_range().start());
@@ -348,4 +348,18 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxNode) -> Rnode{
         astnode: Syntax::Node(node.clone()),
         children: vec![],
     }
+}
+
+
+pub fn visit_node<'a>(
+    worker: &mut worker<Rnode>,
+    lindex: LineIndex,
+    node: Box<&dyn AstNode>,
+    df: &'a mut dyn FnMut(&mut worker<Rnode>) -> Vec<Rnode>,
+) -> Option<Rnode> {
+    let mut children = df(worker);//gets node's children by calling befault function
+
+    let mut wrap = fill_wrap(&lindex, node.syntax());//wraps the current node
+    wrap.set_children(children);//connecting the children to the wrapper
+    Some(wrap)
 }

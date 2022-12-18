@@ -36,7 +36,7 @@ pub fn visit_node<'a>(
     node: Box<&dyn AstNode>,
     df: &'a mut dyn FnMut(&mut worker<Rnode>) -> Vec<Rnode>,
 ) -> Option<Rnode> {
-    let mut children = df(worker);//gets its children by calling befault function
+    let mut children = df(worker);//gets node's children by calling befault function
 
     let mut wrap = fill_wrap(&lindex, node.syntax());//wraps the current node
     match node.syntax().kind(){
@@ -60,4 +60,30 @@ pub fn visit_node<'a>(
     }
     wrap.set_children(children);//connecting the children to the wrapper
     Some(wrap)
+}
+
+pub fn set_test_exps(node: &mut Rnode){
+    let children = &mut node.children;
+    match node.astnode.kind(){
+        SyntaxKind::IF_EXPR => {
+            match &mut children[..2]{
+                [_if, cond] => {
+                    process_exp(cond);
+                }
+                _ => {}
+            }
+        }
+        SyntaxKind::WHILE_EXPR => {
+            match &mut children[..2]{
+                [_while, cond] => {
+                    process_exp(cond);
+                }
+                _ => {}
+            }
+        }//making necessary changed in the children
+        _ => { }
+    }
+    for node in children{
+        set_test_exps(node);
+    }
 }
