@@ -43,6 +43,13 @@ impl Syntax {
             Syntax::Token(token) => panic!("NOT A NODE")
         }
     }
+
+    pub fn is_relational(&self) -> bool{
+        match self.kind(){
+            SyntaxKind::AMP2 | SyntaxKind::PIPE2 | SyntaxKind::BANG => { true }//&& || !
+            _ => false
+        }
+    }
 }
 
 

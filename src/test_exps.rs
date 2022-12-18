@@ -47,7 +47,24 @@ pub fn set_test_exps(node: &mut Rnode){
                 }
                 _ => {}
             }
-        }//making necessary changed in the children
+        }
+        SyntaxKind::BIN_EXPR => {
+            match &mut children[..3]{
+                [lhs, op, rhs] => {
+                    if op.astnode.is_relational() { process_exp(lhs); process_exp(rhs); }
+                }
+                _ => {}
+            }
+        }
+        SyntaxKind::PREFIX_EXPR//Have to be sure of this identity TODO
+            => {
+                match &mut children[..2]{
+                    [op, exp] => {
+                        if op.astnode.is_relational() { process_exp(exp); };
+                    }
+                    _ => {}
+                }
+            }
         _ => { }
     }
     for node in children{
