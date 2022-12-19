@@ -4,16 +4,18 @@ use ide_db::line_index::LineIndex;
 use syntax::ast::{Type};
 use syntax::{SyntaxNode, SyntaxToken, AstNode};
 
+
 pub struct worker<D> {//D here is a struct where we can define the data we need to track
     pub children: Vec<Vec<D>>,
-    pub(self) lindex: LineIndex,
-    pub(self) func_node: fn(&mut worker<D>,
+    lindex: LineIndex,
+    func_node: fn(&mut worker<D>,
                             LineIndex,
                             Box<&dyn AstNode>, 
                             &mut dyn FnMut(&mut worker<D>) -> Vec<D>) -> 
                             Option<D>,
-    pub(self) func_token: fn(LineIndex, Option<SyntaxToken>) -> Option<D>
+    func_token: fn(LineIndex, Option<SyntaxToken>) -> Option<D>
 }
+
 
 impl<'a, D> worker<D>{ 
     pub fn new<'b>(lindex: LineIndex, 
@@ -42,7 +44,6 @@ impl<'a, D> worker<D>{
             }//pushing this node into the children of its parents
             None => {}
         }
-
     }
 
     pub fn work_on_token(&mut self, token: Option<SyntaxToken>){

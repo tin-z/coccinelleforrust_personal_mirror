@@ -1,11 +1,13 @@
 use ide_db::line_index::{LineIndex, LineCol};
 use parser::SyntaxKind;
 use syntax::ast::{Type, AnyHasArgList};
-use syntax::AstNode;
+use syntax::ted::Element;
+use syntax::{AstNode, SyntaxElement, SourceFile};
 use syntax::{SyntaxNode, SyntaxToken, SyntaxText};
 
 
 use crate::visitor_ast0::ast0::{worker, self};
+use crate::visitor_ast0::work_node;
 
 #[derive(PartialEq, Eq, Clone, Hash)]
 pub enum Syntax {
@@ -56,14 +58,14 @@ impl Syntax {
 #[derive(PartialEq, Clone)]
 pub struct Rnode{
     pub wrapper: wrap,
-    pub astnode: Syntax,
+    pub astnode: SyntaxElement,
     pub children: Vec<Rnode>,
 }
 
 impl Rnode{
     pub fn new_root(
         wrapper: wrap,
-        syntax: Syntax,
+        syntax: SyntaxElement,
         children: Vec<Rnode>,
     ) -> Rnode{
         Rnode {
@@ -211,115 +213,26 @@ impl wrap{
 
 }
 
-pub fn visit_modifier(lindex: &LineIndex, node: Option<SyntaxToken>, ) -> Option<Rnode> {
-    match node {
-        Some(node) => {
-            let sindex: LineCol = lindex.line_col(node.text_range().start());
-            let eindex: LineCol = lindex.line_col(node.text_range().end());
 
-            let pos_info: position_info = position_info::new(
-                sindex.line,
-                eindex.line,
-                0,
-                0,
-                sindex.col,
-                node.text_range().start().into(),
-            );
-            let info = info::new(
-                pos_info,
-                false,
-                false,
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                false,
-            );
-            let kind = node.kind();
-            let wrap: wrap = wrap::new(
-                info,
-                0,
-                mcodekind::MIXED(),
-                None,
-                bef_aft {},
-                AnyHasArgList::can_cast(kind),
-                false,
-                false,
-                vec![],
-            );
-
-            Some(Rnode {
-                wrapper: wrap,
-                astnode: Syntax::Token(node),
-                children: vec![],
-            })
-        }
-        None => None,
-    }
-}
-
-
-pub fn visit_keyword(lindex: LineIndex, node: Option<SyntaxToken>) -> Option<Rnode> {
-    match node {
-        Some(node) => {
-            let sindex: LineCol = lindex.line_col(node.text_range().start());
-            let eindex: LineCol = lindex.line_col(node.text_range().end());
-
-            let pos_info: position_info = position_info::new(
-                sindex.line,
-                eindex.line,
-                0,
-                0,
-                sindex.col,
-                node.text_range().start().into(),
-            );
-            let info = info::new(
-                pos_info,
-                false,
-                false,
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                false,
-            );
-            let kind = node.kind();
-            let wrap: wrap = wrap::new(
-                info,
-                0,
-                mcodekind::MIXED(),
-                None,
-                bef_aft {},
-                AnyHasArgList::can_cast(kind),
-                false,
-                false,
-                vec![],
-            );
-
-            Some(Rnode {
-                wrapper: wrap,
-                astnode: Syntax::Token(node),
-                children: vec![],
-            })
-        }
-        None => None,
-    }
-}
-
-pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxNode) -> Rnode{
+pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap{
 
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
     let mut nl: usize = 0;
-    for s in  node.children_with_tokens(){
-        s.as_token().map(
-            |token|{
-                if token.kind()==syntax::SyntaxKind::WHITESPACE {
-                    nl+=token.to_string().matches('\n').count();
-                }
-            }
-        ); 
-    };
+    match node{
+        SyntaxElement::Node(node) => {
+            for s in  node.children_with_tokens(){
+                s.as_token().map(
+                    |token|{
+                        if token.kind()==syntax::SyntaxKind::WHITESPACE {
+                            nl+=token.to_string().matches('\n').count();
+                        }
+                    }
+                ); 
+            };
+        }
+        _ => {}
+    }
     let pos_info: position_info = position_info::new(
         sindex.line,
         eindex.line,
@@ -343,30 +256,32 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxNode) -> Rnode{
         info,
         0,
         mcodekind::MIXED(),
-        Type::cast(node.to_owned()),
+        None,//will be filled later with type inference
         bef_aft {},
         false,
         false,
         false,
         vec![],
     );
-    Rnode {
-        wrapper: wrap,
-        astnode: Syntax::Node(node.clone()),
-        children: vec![],
-    }
+    wrap
 }
 
 
-pub fn visit_node<'a>(
-    worker: &mut worker<Rnode>,
-    lindex: LineIndex,
-    node: Box<&dyn AstNode>,
-    df: &'a mut dyn FnMut(&mut worker<Rnode>) -> Vec<Rnode>,
-) -> Option<Rnode> {
-    let mut children = df(worker);//gets node's children by calling befault function
+//for wrapping
+fn wrap_root(contents: &str) -> Rnode{
+    let lindex = LineIndex::new(contents);
+    let root = SourceFile::parse(contents).tree();
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn() -> Vec<Rnode>| -> Rnode {
 
-    let mut wrap = fill_wrap(&lindex, node.syntax());//wraps the current node
-    wrap.set_children(children);//connecting the children to the wrapper
-    Some(wrap)
+        let wrapped = fill_wrap(&lindex, &node);
+        let children = df();
+        let rnode = Rnode{
+            wrapper: wrapped,
+            astnode: node,//Change this to SyntaxElement
+            children : children
+        };
+        rnode
+        
+    };
+    work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
 }
