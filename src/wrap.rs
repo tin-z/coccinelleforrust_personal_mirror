@@ -1,73 +1,17 @@
-use ide_db::line_index::{LineIndex, LineCol};
-use parser::SyntaxKind;
-use syntax::ast::{Type, AnyHasArgList};
-use syntax::ted::Element;
-use syntax::{AstNode, SyntaxElement, SourceFile};
-use syntax::{SyntaxNode, SyntaxToken, SyntaxText};
-
-
-use crate::visitor_ast0::ast0::{worker, self};
+use ide_db::line_index::{LineCol, LineIndex};
+use syntax::ast::{ Type};
+use syntax::{AstNode, SourceFile, SyntaxElement};
 use crate::visitor_ast0::work_node;
 
-#[derive(PartialEq, Eq, Clone, Hash)]
-pub enum Syntax {
-    //TODO: Make this support attributes, visibbility, Generic Params
-    Node(SyntaxNode),
-    Token(SyntaxToken),
-}
-
-impl Syntax {
-    pub fn to_string(&self) -> String{
-        match self{
-            Syntax::Node(node) => {
-                node.to_string()
-            }
-            Syntax::Token(token) => {
-                token.to_string()
-            }
-        }
-    }
-
-    pub fn kind(&self) -> SyntaxKind{
-        match self{
-            Syntax::Node(node) => {
-                node.kind()
-            }
-            Syntax::Token(token) => {
-                token.kind()
-            }
-        }
-    }
-
-    pub fn to_node(&self) -> &SyntaxNode{//use this function only if sure
-        match self{
-            Syntax::Node(node) => node,
-            Syntax::Token(token) => panic!("NOT A NODE")
-        }
-    }
-
-    pub fn is_relational(&self) -> bool{
-        match self.kind(){
-            SyntaxKind::AMP2 | SyntaxKind::PIPE2 | SyntaxKind::BANG => { true }//&& || !
-            _ => false
-        }
-    }
-}
-
-
 #[derive(PartialEq, Clone)]
-pub struct Rnode{
+pub struct Rnode {
     pub wrapper: wrap,
     pub astnode: SyntaxElement,
     pub children: Vec<Rnode>,
 }
 
-impl Rnode{
-    pub fn new_root(
-        wrapper: wrap,
-        syntax: SyntaxElement,
-        children: Vec<Rnode>,
-    ) -> Rnode{
+impl Rnode {
+    pub fn new_root(wrapper: wrap, syntax: SyntaxElement, children: Vec<Rnode>) -> Rnode {
         Rnode {
             wrapper: wrapper,
             astnode: syntax,
@@ -79,7 +23,6 @@ impl Rnode{
         self.children = children
     }
 }
-
 
 #[derive(Clone, PartialEq)]
 pub struct dummy {}
@@ -103,20 +46,27 @@ pub struct position_info {
 }
 
 impl position_info {
-    pub fn new(line_start:u32, line_end:u32, logical_start:u32, logical_end:u32, column:u32, offset:u32) -> position_info{
-        position_info{
+    pub fn new(
+        line_start: u32,
+        line_end: u32,
+        logical_start: u32,
+        logical_end: u32,
+        column: u32,
+        offset: u32,
+    ) -> position_info {
+        position_info {
             line_start: line_start,
             line_end: line_end,
             logical_start: logical_start,
             logical_end: logical_end,
             column: column,
-            offset: offset
+            offset: offset,
         }
     }
 }
 
 #[derive(Clone, PartialEq)]
-pub enum mcodekind{
+pub enum mcodekind {
     //TODO
     MINUS(),
     PLUS(),
@@ -128,7 +78,7 @@ pub enum mcodekind{
 pub struct bef_aft {}
 
 #[derive(Clone, PartialEq)]
-pub struct info{
+pub struct info {
     pos_info: position_info,
     attachable_start: bool,
     attachable_end: bool,
@@ -163,9 +113,8 @@ impl info {
     }
 }
 
-
 #[derive(Clone, PartialEq)]
-pub struct wrap{
+pub struct wrap {
     info: info,
     index: u32,
     mcodekind: mcodekind,
@@ -177,7 +126,7 @@ pub struct wrap{
     iso_info: Vec<(String, dummy)>,
 }
 
-impl wrap{
+impl wrap {
     //Since we are hashing this with Syntax eventually, do we really need the node f
     pub fn new(
         info: info,
@@ -189,7 +138,7 @@ impl wrap{
         true_if_test: bool,
         true_if_test_exp: bool,
         iso_info: Vec<(String, dummy)>,
-    ) -> wrap{
+    ) -> wrap {
         wrap {
             info: info,
             index: index,
@@ -207,29 +156,24 @@ impl wrap{
         self.info.pos_info.line_start + 1
     }
 
-    pub fn is_ident(&self) -> bool{
+    pub fn is_ident(&self) -> bool {
         self.info.isSymbolIdent
     }
-
 }
 
-
-pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap{
-
+pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
     let mut nl: usize = 0;
-    match node{
+    match node {
         SyntaxElement::Node(node) => {
-            for s in  node.children_with_tokens(){
-                s.as_token().map(
-                    |token|{
-                        if token.kind()==syntax::SyntaxKind::WHITESPACE {
-                            nl+=token.to_string().matches('\n').count();
-                        }
+            for s in node.children_with_tokens() {
+                s.as_token().map(|token| {
+                    if token.kind() == syntax::SyntaxKind::WHITESPACE {
+                        nl += token.to_string().matches('\n').count();
                     }
-                ); 
-            };
+                });
+            }
         }
         _ => {}
     }
@@ -237,7 +181,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap{
         sindex.line,
         eindex.line,
         sindex.line,
-        eindex.line-(nl as u32),
+        eindex.line - (nl as u32),
         sindex.col,
         node.text_range().start().into(),
     );
@@ -256,7 +200,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap{
         info,
         0,
         mcodekind::MIXED(),
-        None,//will be filled later with type inference
+        None, //will be filled later with type inference
         bef_aft {},
         false,
         false,
@@ -266,22 +210,19 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap{
     wrap
 }
 
-
 //for wrapping
-pub fn wrap_root(contents: &str) -> Rnode{
+pub fn wrap_root(contents: &str) -> Rnode {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
-
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
-        let rnode = Rnode{
+        let rnode = Rnode {
             wrapper: wrapped,
-            astnode: node,//Change this to SyntaxElement
-            children : children
+            astnode: node, //Change this to SyntaxElement
+            children: children,
         };
         rnode
-        
     };
     work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
 }

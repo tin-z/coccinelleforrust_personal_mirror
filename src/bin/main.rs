@@ -1,7 +1,5 @@
 use coccinelleforrust::{wrap::wrap_root, test_exps::set_test_exps};
-use std::{fs, path};
-use syntax::{ast::{*, make::name}, ted::Element};
-use coccinelleforrust::make_parsable::make_parsable;
+use std::{fs};
 
 fn main() {
     let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
