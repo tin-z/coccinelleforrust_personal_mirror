@@ -1,16 +1,23 @@
 use std::process::Child;
 
 use crate::util::{tuple_of_2, tuple_of_3};
-pub use crate::wrap::visit_keyword;
 use crate::wrap::{fill_wrap, wrap, Rnode, Syntax};
 use ide_db::line_index::LineIndex;
 use parser::SyntaxKind;
+use syntax::SyntaxElement;
 use syntax::{ast::AstChildren, AstNode};
 
 impl wrap {
     pub fn set_test_exps(&mut self) {
         self.true_if_test = true;
         self.true_if_test_exp = true;
+    }
+}
+
+pub fn is_relational(node: &SyntaxElement) -> bool{
+    match node.kind(){
+        SyntaxKind::AMP2 | SyntaxKind::PIPE2 | SyntaxKind::BANG => { true }//&& || !
+        _ => false
     }
 }
 
@@ -28,8 +35,8 @@ pub fn process_exp(exp: &mut Rnode) {
 pub fn set_test_exps(node: &mut Rnode) {
     match node.astnode.kind() {
         SyntaxKind::IF_EXPR => {
-            let [_if, cond] = tuple_of_2(&mut node.children);
-            process_exp(cond);
+            let n = node.astnode.to_string();
+            println!("{n}");
         }
         SyntaxKind::WHILE_EXPR => {
             let [_while, cond] = tuple_of_2(&mut node.children);
@@ -37,13 +44,13 @@ pub fn set_test_exps(node: &mut Rnode) {
         }
         SyntaxKind::BIN_EXPR => {
             let [lhs, op, rhs] = tuple_of_3(&mut node.children);
-            if op.astnode.is_relational() { 
+            if is_relational(&op.astnode) { 
                 process_exp(lhs); process_exp(rhs); 
             }
         }
         SyntaxKind::PREFIX_EXPR => {//Have to be sure of this identity TODO
             let [op, exp] = tuple_of_2(&mut node.children);
-            if op.astnode.is_relational() {
+            if is_relational(&op.astnode) {
                 process_exp(exp); 
             };
         }
@@ -52,4 +59,5 @@ pub fn set_test_exps(node: &mut Rnode) {
     for node in &mut node.children {
         set_test_exps(node);
     }
+    external_query = external_query.exclude_import_kind(ImportKind::AssociatedItem)
 }
