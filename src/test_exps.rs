@@ -59,5 +59,4 @@ pub fn set_test_exps(node: &mut Rnode) {
     for node in &mut node.children {
         set_test_exps(node);
     }
-    external_query = external_query.exclude_import_kind(ImportKind::AssociatedItem)
 }
