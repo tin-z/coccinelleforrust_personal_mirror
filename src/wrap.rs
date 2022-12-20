@@ -1,7 +1,7 @@
-use ide_db::line_index::{LineCol, LineIndex};
-use syntax::ast::{ Type};
-use syntax::{AstNode, SourceFile, SyntaxElement};
 use crate::visitor_ast0::work_node;
+use ide_db::line_index::{LineCol, LineIndex};
+use syntax::ast::Type;
+use syntax::{AstNode, SourceFile, SyntaxElement};
 
 #[derive(PartialEq, Clone)]
 pub struct Rnode {

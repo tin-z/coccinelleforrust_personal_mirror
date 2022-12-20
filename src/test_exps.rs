@@ -12,10 +12,10 @@ impl wrap {
     }
 }
 
-    fn is_relational(node: &SyntaxElement) -> bool{
-    match node.kind(){
-        Tag::AMP2 | Tag::PIPE2 | Tag::BANG => { true }//&& || !
-        _ => false
+fn is_relational(node: &SyntaxElement) -> bool {
+    match node.kind() {
+        Tag::AMP2 | Tag::PIPE2 | Tag::BANG => true, //&& || !
+        _ => false,
     }
 }
 
@@ -42,17 +42,19 @@ pub fn set_test_exps(node: &mut Rnode) {
         }
         Tag::BIN_EXPR => {
             let [lhs, op, rhs] = tuple_of_3(&mut node.children);
-            if is_relational(&op.astnode) { 
-                process_exp(lhs); process_exp(rhs); 
+            if is_relational(&op.astnode) {
+                process_exp(lhs);
+                process_exp(rhs);
             }
         }
-        Tag::PREFIX_EXPR => {//Have to be sure of this identity TODO
+        Tag::PREFIX_EXPR => {
+            //Have to be sure of this identity TODO
             let [op, exp] = tuple_of_2(&mut node.children);
             if is_relational(&op.astnode) {
-                process_exp(exp); 
+                process_exp(exp);
             };
         }
-        _ => { }
+        _ => {}
     }
     for node in &mut node.children {
         set_test_exps(node);
