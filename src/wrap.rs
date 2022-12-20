@@ -268,13 +268,13 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap{
 
 
 //for wrapping
-fn wrap_root(contents: &str) -> Rnode{
+pub fn wrap_root(contents: &str) -> Rnode{
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn() -> Vec<Rnode>| -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
 
         let wrapped = fill_wrap(&lindex, &node);
-        let children = df();
+        let children = df(&node);
         let rnode = Rnode{
             wrapper: wrapped,
             astnode: node,//Change this to SyntaxElement

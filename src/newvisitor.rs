@@ -23,10 +23,3 @@ fn do_stuff<Rnode>(node: SyntaxElement, df: &dyn Fn() -> Vec<Rnode>) -> Rnode{
     let rnode = Rnode::new(wrapped, node.syntax(), children);
     rnode
 }
-
-//for collecting the number of something
-fn calc_stuff<u32>(node: SyntaxElement, df: Vec<u32>) -> u32{
-    n = numberoftihngs(node);
-    let children = df();
-    n + addallelems(children)
-}
