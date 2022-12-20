@@ -1,6 +1,3 @@
-use std::fs;
-use syntax::SourceFile;
-
 pub(crate) const PREFIX: &str = "//@cocci@: ";
 
 fn append(s: &mut String, line: &str, pre: &str) {

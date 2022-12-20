@@ -1,4 +1,4 @@
-use coccinelleforrust::{test_exps::set_test_exps, wrap::wrap_root};
+use coccinelleforrust::{wrap::wrap_root};
 use std::fs;
 
 fn main() {
@@ -6,5 +6,4 @@ fn main() {
         .expect("This shouldnt be empty");
 
     let mut node = wrap_root(&contents[..]);
-    set_test_exps(&mut node);
 }

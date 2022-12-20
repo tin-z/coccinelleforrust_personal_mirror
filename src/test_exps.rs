@@ -30,11 +30,11 @@ fn process_exp(exp: &mut Rnode) {
     }
 }
 
-pub fn set_test_exps(node: &mut Rnode) {
+fn set_test_exps(node: &mut Rnode) {
     match node.astnode.kind() {
         Tag::IF_EXPR => {
-            let n = node.astnode.to_string();
-            println!("{n}");
+            let [_if, cond] = tuple_of_2(&mut node.children);
+            process_exp(cond);
         }
         Tag::WHILE_EXPR => {
             let [_while, cond] = tuple_of_2(&mut node.children);
