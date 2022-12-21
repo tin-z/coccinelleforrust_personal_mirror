@@ -38,17 +38,17 @@ pub fn parse_cocci(contents: &str) {
             }
             (Some('+'), _, false) => {
                 plusstmts.push_str(line.as_str());
-                plusstmts.push('\n');
+                plusstmts.push_str("//{lino}\n");
             }
             (Some('-'), _, false) => {
                 minusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
+                minusstmts.push_str("//{lino}\n");
             }
             (_, _, false) => {
                 plusstmts.push_str(line.as_str());
-                plusstmts.push('\n');
+                plusstmts.push_str("//{lino}\n");
                 minusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
+                minusstmts.push_str("//{lino}\n");
             }
             _ => {}
         }
