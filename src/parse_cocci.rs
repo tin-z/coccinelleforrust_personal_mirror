@@ -19,7 +19,9 @@ pub fn parse_cocci(contents: &str) {
     let mut minusstmts = String::from("");
     for line in lines {
         let mut chars = line.chars();
-        match (chars.next(), chars.next(), inmetadec) {
+        let firstchar = chars.next();
+        let secondchar = chars.next();
+        match (firstchar, secondchar, inmetadec) {
             (Some('@'), Some('@'), false) => {
                 //starting of @@ block
                 let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);
@@ -42,20 +44,6 @@ pub fn parse_cocci(contents: &str) {
             (Some('-'), _, false) => {
                 minusstmts.push_str(line.as_str());
                 minusstmts.push('\n');
-            }
-            (Some('+'), _, true) => {
-                panic!(
-                    "Modifiers should not be present in metavariable \
-                    declarations at line:{}",
-                    lino
-                );
-            }
-            (Some('-'), _, true) => {
-                panic!(
-                    "Modifiers should not be present in metavariable \
-                    declarations at line:{}",
-                    lino
-                );
             }
             _ => {
                 plusstmts.push_str(line.as_str());
