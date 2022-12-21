@@ -1,6 +1,6 @@
 use crate::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
-use syntax::ast::{Type, Stmt};
+use syntax::ast::Type;
 use syntax::{AstNode, SourceFile, SyntaxElement};
 
 #[derive(PartialEq, Clone)]
@@ -147,7 +147,7 @@ impl wrap {
             mcodekind: mcodekind,
             exp_ty: exp_ty,
             bef_aft: bef_aft,
-            true_if_meta:true_if_meta,
+            true_if_meta: true_if_meta,
             true_if_arg: true_if_arg,
             true_if_test: true_if_test,
             true_if_test_exp: true_if_test_exp,
