@@ -1,3 +1,5 @@
+use std::vec;
+
 use syntax::{
     ast::{BlockExpr, Fn},
     AstNode, SourceFile,
@@ -17,6 +19,8 @@ pub fn parse_cocci(contents: &str) {
 
     let mut plusstmts = String::from("");
     let mut minusstmts = String::from("");
+
+    let mut metavars: Vec<String> = vec![];
     for line in lines {
         let mut chars = line.chars();
         let firstchar = chars.next();
@@ -24,8 +28,8 @@ pub fn parse_cocci(contents: &str) {
         match (firstchar, secondchar, inmetadec) {
             (Some('@'), Some('@'), false) => {
                 //starting of @@ block
-                let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);
-                let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", minusstmts);
+                let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts); //wrapping the collective statements
+                let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", minusstmts); //into two functions
                 (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
                 inmetadec = true;
             }
@@ -50,7 +54,34 @@ pub fn parse_cocci(contents: &str) {
                 minusstmts.push_str(line.as_str());
                 minusstmts.push_str("//{lino}\n");
             }
-            _ => {}
+            (_, _, true) => {
+                let mut tokens = line.split(&[',', ' ', ';'][..]);
+                match tokens.next().unwrap().trim() {
+                    //unwrap because there must atleast be a "" in a line
+                    "expression" => {
+                        for var in tokens {
+                            //does not check for ; at the end of the line
+                            //TODO
+                            if var != "" {
+                                metavars.push(var.trim().to_string());
+                            }
+                        }
+                    }
+                    "identifier" => {
+                        //can expressions have the same name as identifiers?
+                        //Would it not be better to create two seperate lists
+                        //for ident and exp metavariables?
+                        for var in tokens {
+                            //does not check for ; at the end of the line
+                            //TODO
+                            if var != "" {
+                                metavars.push(var.trim().to_string());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
         lino += 1;
     }
