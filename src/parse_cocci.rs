@@ -1,18 +1,7 @@
-use crate::{
-    make_parsable::make_parsable,
-    wrap::{mcodekind, wrap_root, Rnode},
-};
-use parser::SyntaxKind;
 use syntax::{
-    ast::{BlockExpr, Fn, HasModuleItem},
-    AstNode, SourceFile, SyntaxNode,
+    ast::{BlockExpr, Fn},
+    AstNode, SourceFile,
 };
-
-type Tag = SyntaxKind;
-
-fn set_plus(node: &mut Rnode) {
-    node.wrapper.mcodekind = mcodekind::PLUS();
-}
 
 fn get_blxpr(contents: &str) -> BlockExpr {
     let node = SourceFile::parse(contents).tree();
@@ -20,66 +9,75 @@ fn get_blxpr(contents: &str) -> BlockExpr {
     Fn::cast(fnode).unwrap().body().unwrap()
 }
 
-fn parsestmts(contents: &str, stmtnos: Vec<usize>, mut fname: String) -> (BlockExpr, BlockExpr) {
-    //BlockExprs here should always be two block expressions containing the plus and minus statements respectively
-    //Should this be replaces with SyntaxNodes?
-    if fname == "" {
-        fname = String::from("coccifn");
-    }
-    let mut plusstmts = String::from("");
-    let mut minusstmts = String::from("");
-    let lines: Vec<String> = contents.lines().map(String::from).collect();
-    for lineno in stmtnos {
-        let line = &lines[lineno];
-        match line.chars().nth(0) {//same as .next()
-            Some('+') => {
-                plusstmts.push_str(line.as_str());
-                plusstmts.push('\n');
-            }
-            Some('-') => {
-                minusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
-            }
-            _ => {}
+struct ParseStmts{
+    plusstmts: String,
+    minusstmts: String
+}
+
+impl ParseStmts{
+
+    pub fn new() -> ParseStmts{
+        ParseStmts{
+            plusstmts: String::from(""),
+            minusstmts: String::from("")
         }
     }
 
-    println!("{:?}", plusstmts);
-    let mut plusfn = format!("fn {}_plus {{ {} }}", fname, plusstmts);
-    let mut minusfn = format!("fn {}_plus {{ {} }}", fname, minusstmts);
+    fn pushplus(&mut self, s: &str){
+        self.plusstmts.push_str(s);
+        self.plusstmts.push('\n');
+    }
 
-    (get_blxpr(&plusfn[..]), get_blxpr(&minusfn[..]))
+    fn pushminus(&mut self, s: &str){
+        self.minusstmts.push_str(s);
+        self.minusstmts.push('\n');
+    }
+
+    fn getfuncs(&self) -> (BlockExpr, BlockExpr){
+        let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", self.plusstmts);
+        let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", self.minusstmts);
+        
+        (get_blxpr(&plusfn[..]), get_blxpr(&minusfn[..]))
+    }
 }
 
 pub fn parse_cocci(contents: &str) {
-    let mut lines: Vec<String> = contents.lines().map(String::from).collect();
-    let (_, linenos) = make_parsable(contents);
-    let mut anos = 0; //used to keep track of rule
-
-    //will temporarily store all statements 
-    //in a rule before passing them off for processing
-    let mut stmtnos: Vec<usize> = vec![];
-    for lineno in linenos {
-        //should never fail because line nos calculated in make_parsable
-        let line = &lines[lineno]; 
-        match line.chars().nth(0) {
-            Some('@') => {
-                if anos == 2 {
-                    let (plusnodes, minusnodes) = parsestmts(contents, stmtnos, String::from(""));
-                    stmtnos = vec![];
-                    anos = 1;
-                } else {
-                    anos += 1;
-                }
+    let lines: Vec<String> = contents.lines().map(String::from).collect();
+    let mut inmetadec = false;//checks if in metavar declaration
+    let mut lino = 0;//stored line numbers
+    let mut parser: ParseStmts = ParseStmts::new();//mutable because I supply it with modifier statements
+    for line in lines{
+        let mut chars = line.chars();
+        match (chars.next(), chars.next(), inmetadec){
+            (Some('@'), Some('@'), false) => {
+                //starting of @@ block
+                let (pfunc, mfunc) = parser.getfuncs();
+                inmetadec = true;
+            },
+            (Some('@'), Some('@'), true) => {
+                //end of @@ block
+                //TODO: Handle meta variables
+                parser = ParseStmts::new();
+                inmetadec = false;
+            },
+            (Some('+'), _, false) => {
+                parser.pushplus(line.as_str());
+            },
+            (Some('-'), _, false) => {
+                parser.pushminus(line.as_str());
+            },
+            (Some('+'), _, true) => {
+                panic!("Modifiers should not be present in metavariable declarations at line:{}", lino);
+            },
+            (Some('-'), _, true) => {
+                panic!("Modifiers should not be present in metavariable declarations at line:{}", lino);
+            },
+            _ => {
+                parser.pushplus(line.as_str());
+                parser.pushminus(line.as_str());
             }
-            Some('+') => {
-                stmtnos.push(lineno);
-            }
-            Some('-') => {
-                stmtnos.push(lineno);
-            }
-            _ => { }
         }
+        lino += 1;
     }
-    let (plusnodes, minusnodes) = parsestmts(contents, stmtnos, String::from(""));//to take care of the last rule
+    let (pfunc, mfunc) = parser.getfuncs();//getting the last rule
 }

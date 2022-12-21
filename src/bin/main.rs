@@ -1,6 +1,5 @@
 use coccinelleforrust::{
     wrap::wrap_root,
-    make_parsable::make_parsable,
     parse_cocci::parse_cocci
 };
 use std::fs;
