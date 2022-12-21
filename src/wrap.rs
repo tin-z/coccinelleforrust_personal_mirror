@@ -1,6 +1,6 @@
 use crate::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
-use syntax::ast::Type;
+use syntax::ast::{Type, Stmt};
 use syntax::{AstNode, SourceFile, SyntaxElement};
 
 #[derive(PartialEq, Clone)]
@@ -75,7 +75,7 @@ pub enum mcodekind {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct bef_aft {}
+pub struct dots_bef_aft {}
 
 #[derive(Clone, PartialEq)]
 pub struct info {
@@ -117,9 +117,9 @@ impl info {
 pub struct wrap {
     info: info,
     index: u32,
-    mcodekind: mcodekind,
+    pub mcodekind: mcodekind,
     exp_ty: Option<Type>,
-    bef_aft: bef_aft,
+    bef_aft: dots_bef_aft,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
@@ -133,7 +133,7 @@ impl wrap {
         index: u32,
         mcodekind: mcodekind,
         exp_ty: Option<Type>,
-        bef_aft: bef_aft,
+        bef_aft: dots_bef_aft,
         true_if_arg: bool,
         true_if_test: bool,
         true_if_test_exp: bool,
@@ -201,7 +201,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         0,
         mcodekind::MIXED(),
         None, //will be filled later with type inference
-        bef_aft {},
+        dots_bef_aft {},
         false,
         false,
         false,

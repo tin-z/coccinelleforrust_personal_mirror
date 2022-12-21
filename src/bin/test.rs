@@ -1,7 +1,7 @@
-fn main(){
-    if 2>1 
-        {2;}
-    else {0;}
-}
+@@
+expression e;
+identifier fun;
+@@
 
-//test
+-fun(e);
++fun(e, e);
