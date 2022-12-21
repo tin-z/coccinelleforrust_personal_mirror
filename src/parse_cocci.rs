@@ -44,7 +44,8 @@ pub fn parse_cocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 0; //stored line numbers
-    let mut parser: ParseStmts = ParseStmts::new(); //mutable because I supply it with modifier statements
+                      //mutable because I supply it with modifier statements
+    let mut parser: ParseStmts = ParseStmts::new();
     for line in lines {
         let mut chars = line.chars();
         match (chars.next(), chars.next(), inmetadec) {
@@ -67,13 +68,15 @@ pub fn parse_cocci(contents: &str) {
             }
             (Some('+'), _, true) => {
                 panic!(
-                    "Modifiers should not be present in metavariable declarations at line:{}",
+                    "Modifiers should not be present in metavariable \
+                    declarations at line:{}",
                     lino
                 );
             }
             (Some('-'), _, true) => {
                 panic!(
-                    "Modifiers should not be present in metavariable declarations at line:{}",
+                    "Modifiers should not be present in metavariable \
+                    declarations at line:{}",
                     lino
                 );
             }
