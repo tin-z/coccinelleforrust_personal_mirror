@@ -14,8 +14,8 @@ pub fn parse_cocci(contents: &str) {
     let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 0; //stored line numbers
                       //mutable because I supply it with modifier statements
-    
-    let mut plusstmts =  String::from("");
+
+    let mut plusstmts = String::from("");
     let mut minusstmts = String::from("");
     for line in lines {
         let mut chars = line.chars();
@@ -26,18 +26,17 @@ pub fn parse_cocci(contents: &str) {
                 //starting of @@ block
                 let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);
                 let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", minusstmts);
-                (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str()));//will work on these nodes
+                (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
                 inmetadec = true;
             }
             (Some('@'), Some('@'), true) => {
                 //end of @@ block
                 //TODO: Handle meta variables
-                plusstmts =  String::from("");
+                plusstmts = String::from("");
                 minusstmts = String::from("");
                 inmetadec = false;
             }
             (Some('+'), _, false) => {
-
                 plusstmts.push_str(line.as_str());
                 plusstmts.push('\n');
             }
@@ -45,19 +44,21 @@ pub fn parse_cocci(contents: &str) {
                 minusstmts.push_str(line.as_str());
                 minusstmts.push('\n');
             }
-            _ => {
+            (_, _, false) => {
                 plusstmts.push_str(line.as_str());
                 plusstmts.push('\n');
                 minusstmts.push_str(line.as_str());
                 minusstmts.push('\n');
             }
+            _ => {}
         }
         lino += 1;
     }
-
+    if inmetadec {
+        panic!("Unclosed metavar declaration block at linenumber:{lino}")
+    }
     //takes care of the last block
     let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);
     let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", minusstmts);
-    (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str()));//will work on these functions
+    (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these functions
 }
-
