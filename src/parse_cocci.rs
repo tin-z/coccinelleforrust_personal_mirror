@@ -37,8 +37,7 @@ fn handlemetavars(rule: &mut rule, line: String) {
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var != "" &&
-                   !rule.metavars[..].contains(&String::from(var)) {
+                if var != "" && !rule.metavars[..].contains(&String::from(var)) {
                     rule.metavars.push(var.trim().to_string());
                 }
             }
@@ -50,8 +49,7 @@ fn handlemetavars(rule: &mut rule, line: String) {
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var != "" &&
-                   !rule.metavars[..].contains(&String::from(var)) {
+                if var != "" && !rule.metavars[..].contains(&String::from(var)) {
                     rule.metavars.push(var.trim().to_string());
                 }
             }
@@ -60,30 +58,29 @@ fn handlemetavars(rule: &mut rule, line: String) {
     }
 }
 
-fn performinheritanceofrule(rule1: &mut rule, rule2: &rule){
-    rule1.metavars = rule2.metavars.to_owned();//create a copy of meta variables
+fn performinheritanceofrule(rule1: &mut rule, rule2: &rule) {
+    rule1.metavars = rule2.metavars.to_owned(); //create a copy of meta variables
 }
 
-fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize){
-
+fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
     let mut tokens = decl.trim().split(" ");
-    let rulename = 
-    if let Some(rulename) = tokens.next() {
-            String::from(rulename)//converted &str to String,
-                                  //because rule should own its name
-    }
-    else { format!("rule{lino}") };//if rulename does not exist
+    let rulename = if let Some(rulename) = tokens.next() {
+        String::from(rulename) //converted &str to String,
+                               //because rule should own its name
+    } else {
+        format!("rule{lino}")
+    }; //if rulename does not exist
     let mut currrule = rule::new(rulename);
 
     let sword = tokens.next();
     let tword = tokens.next();
     let rulename = tokens.next();
 
-    match (sword, tword, rulename){
+    match (sword, tword, rulename) {
         (Some("depends"), Some("on"), Some(rulename)) => {
             let ruleno = rules.iter_mut().position(|rule| rule.name == rulename);
-            match ruleno{
+            match ruleno {
                 Some(ruleno) => {
                     let rule = &rules[ruleno];
                     performinheritanceofrule(&mut currrule, &rule);
@@ -100,7 +97,6 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize){
     }
 
     rules.push(currrule);
-
 }
 
 pub fn parse_cocci(contents: &str) {
@@ -156,7 +152,6 @@ pub fn parse_cocci(contents: &str) {
                 minusstmts.push_str(format!("/*{lino}*/").as_str());
                 minusstmts.push_str(line.as_str());
                 minusstmts.push('\n');
-                
             }
             (_, _, true) => {
                 //should not fail because inmetadec could not have been true without
