@@ -13,8 +13,8 @@ use crate::util::syntaxerror;
 
 enum dep {
     NoDep,
-    BinDep(Expr),
-    AntiDep(Expr),
+    FailDep,
+    Dep(Expr),
 }
 struct mvar {
     rulename: String,
@@ -58,7 +58,7 @@ impl rule {
                     .iter()
                     .any(|x| x.name == pexpr.expr().unwrap().to_string().trim())
                 {
-                    return dep::AntiDep(Expr::from(pexpr));
+                    return dep::Dep(Expr::from(pexpr));
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
@@ -73,7 +73,7 @@ impl rule {
                 {
                     //iterating over the rules two times here
                     //Can decrease to one
-                    return dep::BinDep(Expr::from(bexpr));
+                    return dep::Dep(Expr::from(bexpr));
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
