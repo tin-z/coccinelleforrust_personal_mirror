@@ -86,7 +86,7 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) {
                     performinheritanceofrule(&mut currrule, &rule);
                 }
                 None => {
-                    syntaxerror(lino, format!("{rulename} not defined at ").as_str());
+                    syntaxerror(lino, format!("{rulename} not defined").as_str());
                 }
             }
         }
@@ -144,7 +144,6 @@ pub fn parse_cocci(contents: &str) {
                 if line == "" {
                     continue;
                 }
-
                 plusstmts.push_str(format!("/*{lino}*/").as_str());
                 plusstmts.push_str(line.as_str());
                 minusstmts.push('\n');
@@ -154,15 +153,13 @@ pub fn parse_cocci(contents: &str) {
                 minusstmts.push('\n');
             }
             (_, _, true) => {
-                //should not fail because inmetadec could not have been true without
-                //entering the meta dec branch
                 handlemetavars(rules.last_mut().unwrap(), line);
             }
         }
         lino += 1;
     }
     if inmetadec {
-        panic!("Unclosed metavar declaration block at linenumber:{lino}")
+        syntaxerror(lino, "Unclosed metavariable declaration block");
     }
     //takes care of the last block
     let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);

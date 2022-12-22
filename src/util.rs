@@ -18,9 +18,9 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 
 pub fn syntaxerror(lino: usize, err: &str) {
     let errmsg = if err == "" {
-        "SyntaxError at line"
+        "SyntaxError"
     } else {
         err
     };
-    panic!("{errmsg} {lino}");
+    panic!("{errmsg} at line:{lino}");
 }
