@@ -1,4 +1,4 @@
-use std::{vec};
+use std::vec;
 
 use syntax::{
     ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp},
@@ -46,58 +46,61 @@ impl rule {
     pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = self.getdep(rules, get_binexpr(fnstr.as_str()), lino);
+        self.dependson = self.getdep(rules, lino, get_binexpr(fnstr.as_str()));
     }
 
-    fn getdep(&self, rules: &Vec<rule>, dep: Expr, lino: usize) -> dep {
+    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> dep {
         match dep {
             Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
-                    if let UnaryOp::Not = pexpr.op_kind().unwrap() {
+                match pexpr.op_kind().unwrap(){
+                    UnaryOp::Not => {
                         return dep::AntiDep(
-                            Box::new(self.getdep(rules, pexpr.expr().unwrap(), lino))
+                            Box::new(self.getdep(rules, lino, pexpr.expr().unwrap()))
                         );
                     }
-                    else {
+                    _ => {
                         syntaxerror(lino, "No such operator");
                         dep::NoDep
                     }
+                }
             }
             Expr::BinExpr(bexpr) => {
-                    return match bexpr.op_kind().unwrap() {
-                        BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
-                            self.getdep(rules, bexpr.lhs().unwrap(), lino),
-                            self.getdep(rules, bexpr.rhs().unwrap(), lino),
-                        ))),
-                        BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(Box::new((
-                            self.getdep(rules, bexpr.lhs().unwrap(), lino),
-                            self.getdep(rules, bexpr.rhs().unwrap(), lino),
-                        ))),
-                        _ => {
-                            syntaxerror(lino, "No such rule");
-                            dep::NoDep
-                        }
-                    };
+                return match bexpr.op_kind().unwrap() {
+                    BinaryOp::LogicOp(LogicOp::And) =>
+                    dep::AndDep(Box::new((
+                        self.getdep(rules, lino, bexpr.lhs().unwrap()),
+                        self.getdep(rules, lino, bexpr.rhs().unwrap()),
+                    ))),
+                    BinaryOp::LogicOp(LogicOp::Or) =>
+                    dep::OrDep(Box::new((
+                        self.getdep(rules, lino, bexpr.lhs().unwrap()),
+                        self.getdep(rules, lino, bexpr.rhs().unwrap()),
+                    ))),
+                    _ => {
+                        syntaxerror(lino, "No such rule");
+                        dep::NoDep
+                    }
+                };
             }
             Expr::PathExpr(pexpr) => {
-                let name = 
-                    pexpr.path().unwrap()//Path
-                    .segment().unwrap()//PathSegment
-                    .name_ref().unwrap()//NameRef
-                    .ident_token().unwrap()//Ident
+                let name = pexpr
+                    .path()
+                    .unwrap() //Path
+                    .segment()
+                    .unwrap() //PathSegment
+                    .name_ref()
+                    .unwrap() //NameRef
+                    .ident_token()
+                    .unwrap() //Ident
                     .to_string();
 
-                if rules
-                    .iter()
-                    .any(|x| x.name == name)
-                {
-                    return dep::Dep(name)
-                }
-                else {
+                if rules.iter().any(|x| x.name == name) {
+                    return dep::Dep(name);
+                } else {
                     syntaxerror(lino, "No such rule");
                     dep::NoDep
                 }
-                    
             }
             _ => {
                 syntaxerror(lino, "Malformed Boolean Expression");
