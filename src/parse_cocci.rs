@@ -47,12 +47,14 @@ impl rule {
 
     pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
         //rule is trimmed
-        self.dependson = self.getdep(rules, rule, lino);
+        let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
+        self.dependson = self.getdep(rules, 
+            get_binexpr(fnstr.as_str())
+            , lino);
     }
 
-    fn getdep(&self, rules: &Vec<rule>, dep: &str, lino: usize) -> dep {
-        let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", dep);
-        match get_binexpr(fnstr.as_str()) {
+    fn getdep(&self, rules: &Vec<rule>, dep: Expr, lino: usize) -> dep {
+        match dep {
             Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
                 if rules
@@ -75,14 +77,14 @@ impl rule {
                     return match bexpr.op_kind().unwrap() {
                         BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(
                             Box::new(
-                                (self.getdep(rules, bexpr.lhs().unwrap().to_string().as_str(), lino), 
-                                self.getdep(rules, bexpr.rhs().unwrap().to_string().as_str(), lino))
+                                (self.getdep(rules, bexpr.lhs().unwrap(), lino), 
+                                self.getdep(rules, bexpr.rhs().unwrap(), lino))
                             )
                         ),
                         BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(
                             Box::new(
-                                (self.getdep(rules, bexpr.lhs().unwrap().to_string().as_str(), lino),
-                                self.getdep(rules, bexpr.rhs().unwrap().to_string().as_str(), lino))
+                                (self.getdep(rules, bexpr.lhs().unwrap(), lino),
+                                self.getdep(rules, bexpr.rhs().unwrap(), lino))
                             )
                         ),
                         _ => {
