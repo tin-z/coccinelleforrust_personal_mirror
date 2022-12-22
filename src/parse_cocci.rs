@@ -53,27 +53,17 @@ impl rule {
         match dep {
             Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
-                if rules
-                    .iter()
-                    .any(|x| x.name == pexpr.expr().unwrap().to_string())
-                {
                     if let UnaryOp::Not = pexpr.op_kind().unwrap() {
                         return dep::AntiDep(
                             Box::new(self.getdep(rules, pexpr.expr().unwrap(), lino))
                         );
-                    };
-                }
-                syntaxerror(lino, "No such rule");
-                dep::NoDep
+                    }
+                    else {
+                        syntaxerror(lino, "No such operator");
+                        dep::NoDep
+                    }
             }
             Expr::BinExpr(bexpr) => {
-                if rules
-                    .iter()
-                    .any(|x| x.name == bexpr.lhs().unwrap().to_string())
-                    && rules
-                        .iter()
-                        .any(|x| x.name == bexpr.rhs().unwrap().to_string())
-                {
                     return match bexpr.op_kind().unwrap() {
                         BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
                             self.getdep(rules, bexpr.lhs().unwrap(), lino),
@@ -88,18 +78,26 @@ impl rule {
                             dep::NoDep
                         }
                     };
-                }
-                syntaxerror(lino, "No such rule");
-                dep::NoDep
             }
             Expr::PathExpr(pexpr) => {
-                dep::Dep(
-                pexpr.path().unwrap()//Path
-                .segment().unwrap()//PathSegment
-                .name_ref().unwrap()//NameRef
-                .ident_token().unwrap()//Ident
-                .to_string()
-                )
+                let name = 
+                    pexpr.path().unwrap()//Path
+                    .segment().unwrap()//PathSegment
+                    .name_ref().unwrap()//NameRef
+                    .ident_token().unwrap()//Ident
+                    .to_string();
+
+                if rules
+                    .iter()
+                    .any(|x| x.name == name)
+                {
+                    return dep::Dep(name)
+                }
+                else {
+                    syntaxerror(lino, "No such rule");
+                    dep::NoDep
+                }
+                    
             }
             _ => {
                 syntaxerror(lino, "Malformed Boolean Expression");
