@@ -1,4 +1,4 @@
-use std::vec;
+use std::{vec, process::id};
 
 use syntax::{
     ast::{BlockExpr, Fn},
@@ -7,17 +7,33 @@ use syntax::{
 
 use crate::util::syntaxerror;
 
-struct rule {
-    name: String,
-    metavars: Vec<String>,
+struct mvar{
+    rulename: String,
+    varname: String
 }
 
-impl rule {
+impl mvar{
+    pub fn new(rule: String, var: String) -> mvar{
+        mvar { rulename: rule, varname: var }
+    }
+}
+
+struct rule {
+    name: String,
+    dependson: String//We can only inherit one rule?
+}
+
+impl rule {//We may need to keep a track of rules?
     pub fn new(name: String) -> rule {
         rule {
             name: name,
-            metavars: vec![],
+            dependson : String::from(""),
         }
+    }
+    
+
+    pub fn setdependson(&mut self, rule: String){
+        self.dependson = rule;
     }
 }
 
@@ -27,7 +43,7 @@ fn get_blxpr(contents: &str) -> BlockExpr {
     Fn::cast(fnode).unwrap().body().unwrap()
 }
 
-fn handlemetavars(rule: &mut rule, line: String) {
+fn handlemetavars(rulename: &String, idmetavars: &mut Vec<mvar>, exmetavars: &mut Vec<mvar>, line: String) {
     //rule here is usize because this does not represent the
     //name of the rule but the index at which it was encountered
     let mut tokens = line.split(&[',', ' ', ';'][..]);
@@ -37,8 +53,8 @@ fn handlemetavars(rule: &mut rule, line: String) {
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var != "" && !rule.metavars[..].contains(&String::from(var)) {
-                    rule.metavars.push(var.trim().to_string());
+                if var.trim() != ""{
+                    exmetavars.push(mvar::new(String::from(rulename), var.trim().to_string()));
                 }
             }
         }
@@ -49,8 +65,8 @@ fn handlemetavars(rule: &mut rule, line: String) {
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var != "" && !rule.metavars[..].contains(&String::from(var)) {
-                    rule.metavars.push(var.trim().to_string());
+                if var.trim() != ""{
+                    idmetavars.push(mvar::new(String::from(rulename), var.trim().to_string()));
                 }
             }
         }
@@ -58,11 +74,8 @@ fn handlemetavars(rule: &mut rule, line: String) {
     }
 }
 
-fn performinheritanceofrule(rule1: &mut rule, rule2: &rule) {
-    rule1.metavars = rule2.metavars.to_owned(); //create a copy of meta variables
-}
 
-fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) {
+fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
     let mut tokens = decl.trim().split(" ");
     let rulename = if let Some(rulename) = tokens.next() {
@@ -79,16 +92,7 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) {
 
     match (sword, tword, rulename) {
         (Some("depends"), Some("on"), Some(rulename)) => {
-            let ruleno = rules.iter_mut().position(|rule| rule.name == rulename);
-            match ruleno {
-                Some(ruleno) => {
-                    let rule = &rules[ruleno];
-                    performinheritanceofrule(&mut currrule, &rule);
-                }
-                None => {
-                    syntaxerror(lino, format!("{rulename} not defined").as_str());
-                }
-            }
+            currrule.setdependson(String::from(rulename));
         }
         (None, None, None) => {}
         _ => {
@@ -96,7 +100,11 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) {
         }
     }
 
+    let name = String::from(String::from(&currrule.name));
     rules.push(currrule);
+
+    name
+
 }
 
 pub fn parse_cocci(contents: &str) {
@@ -108,7 +116,11 @@ pub fn parse_cocci(contents: &str) {
     let mut plusstmts = String::from("");
     let mut minusstmts = String::from("");
 
-    let mut rules: Vec<rule> = vec![];
+    let mut rules: Vec<rule> = vec![];//keeps a track of rules
+    let mut idmetavars: Vec<mvar> = vec![];
+    let mut exmetavars: Vec<mvar> = vec![];
+
+    let mut rulename = String::from("");
     for line in lines {
         let chars: Vec<char> = line.chars().collect();
         let firstchar = chars.get(0);
@@ -116,10 +128,10 @@ pub fn parse_cocci(contents: &str) {
         match (firstchar, lastchar, inmetadec) {
             (Some('@'), Some('@'), false) => {
                 //starting of @@ block
-                handlerules(&mut rules, chars, lino);
+                rulename = handlerules(&mut rules, chars, lino);
                 //iter and collect converts from [char] to String
-                let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts); //wrapping the collective statements
-                let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", minusstmts); //into two functions
+                let plusfn = format!("fn {rulename}_plus {{ {plusstmts} }}"); //wrapping the collective statements
+                let minusfn = format!("fn {rulename}_minus {{ {minusstmts} }}"); //into two functions
                 (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
                 inmetadec = true;
             }
@@ -153,7 +165,7 @@ pub fn parse_cocci(contents: &str) {
                 minusstmts.push('\n');
             }
             (_, _, true) => {
-                handlemetavars(rules.last_mut().unwrap(), line);
+                handlemetavars(&rulename, &mut idmetavars, &mut exmetavars, line);
             }
         }
         lino += 1;
