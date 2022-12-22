@@ -48,9 +48,7 @@ impl rule {
     pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = self.getdep(rules, 
-            get_binexpr(fnstr.as_str())
-            , lino);
+        self.dependson = self.getdep(rules, get_binexpr(fnstr.as_str()), lino);
     }
 
     fn getdep(&self, rules: &Vec<rule>, dep: Expr, lino: usize) -> dep {
@@ -75,18 +73,14 @@ impl rule {
                         .any(|x| x.name == bexpr.rhs().unwrap().to_string())
                 {
                     return match bexpr.op_kind().unwrap() {
-                        BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(
-                            Box::new(
-                                (self.getdep(rules, bexpr.lhs().unwrap(), lino), 
-                                self.getdep(rules, bexpr.rhs().unwrap(), lino))
-                            )
-                        ),
-                        BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(
-                            Box::new(
-                                (self.getdep(rules, bexpr.lhs().unwrap(), lino),
-                                self.getdep(rules, bexpr.rhs().unwrap(), lino))
-                            )
-                        ),
+                        BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
+                            self.getdep(rules, bexpr.lhs().unwrap(), lino),
+                            self.getdep(rules, bexpr.rhs().unwrap(), lino),
+                        ))),
+                        BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(Box::new((
+                            self.getdep(rules, bexpr.lhs().unwrap(), lino),
+                            self.getdep(rules, bexpr.rhs().unwrap(), lino),
+                        ))),
                         _ => {
                             syntaxerror(lino, "No such rule");
                             dep::NoDep
@@ -113,16 +107,18 @@ fn get_blxpr(contents: &str) -> BlockExpr {
 fn get_binexpr(contents: &str) -> Expr {
     //assumes that a
     //binary expression exists
-    Expr::cast(get_blxpr(contents)
-        .stmt_list() //Option<StmtList>
-        //cloning an expression should not be heavy
-        .unwrap()
-        .statements()//StmtList
-        .next()
-        .unwrap()
-        .syntax()
-        .clone()).unwrap()
-
+    Expr::cast(
+        get_blxpr(contents)
+            .stmt_list() //Option<StmtList>
+            //cloning an expression should not be heavy
+            .unwrap()
+            .statements() //StmtList
+            .next()
+            .unwrap()
+            .syntax()
+            .clone(),
+    )
+    .unwrap()
 }
 
 fn handlemetavars(
