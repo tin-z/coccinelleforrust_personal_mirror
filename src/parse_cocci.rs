@@ -1,7 +1,7 @@
 use std::{path::Prefix, process::id, vec};
 
 use syntax::{
-    ast::{BinExpr, BinaryOp, BlockExpr, Expr, Fn, LogicOp, PrefixExpr},
+    ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp},
     AstNode, SourceFile,
 };
 
@@ -10,11 +10,12 @@ use crate::util::syntaxerror;
 enum dep {
     NoDep,
     FailDep,
-    AndDep(BinExpr),
-    OrDep(BinExpr),
-    AntiDep(PrefixExpr),
-    EverDep(BinExpr),
-    NeverDep(BinExpr), //what to do with Ever and Never
+    Dep(String),
+    AndDep(Box<(dep, dep)>),
+    OrDep(Box<(dep, dep)>),
+    AntiDep(Box<dep>),
+    EverDep(),
+    NeverDep(), //what to do with Ever and Never
 }
 struct mvar {
     rulename: String,
@@ -58,7 +59,7 @@ impl rule {
                     .iter()
                     .any(|x| x.name == pexpr.expr().unwrap().to_string().trim())
                 {
-                    return dep::AntiDep(pexpr);
+                    return dep::AntiDep(Box::new(dep::Dep(pexpr.to_string())));
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
@@ -72,8 +73,18 @@ impl rule {
                         .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
                 {
                     return match bexpr.op_kind().unwrap() {
-                        BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(bexpr),
-                        BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(bexpr),
+                        BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(
+                            Box::new(
+                                (self.getdep(rules, bexpr.lhs().unwrap().to_string().as_str(), lino), 
+                                self.getdep(rules, bexpr.rhs().unwrap().to_string().as_str(), lino))
+                            )
+                        ),
+                        BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(
+                            Box::new(
+                                (self.getdep(rules, bexpr.lhs().unwrap().to_string().as_str(), lino),
+                                self.getdep(rules, bexpr.rhs().unwrap().to_string().as_str(), lino))
+                            )
+                        ),
                         _ => {
                             syntaxerror(lino, "No such rule");
                             dep::NoDep
@@ -100,23 +111,16 @@ fn get_blxpr(contents: &str) -> BlockExpr {
 fn get_binexpr(contents: &str) -> Expr {
     //assumes that a
     //binary expression exists
-    let node = SourceFile::parse(contents).tree();
-    let fnode = node.syntax().children().nth(0).unwrap();
-    Expr::cast(
-        Fn::cast(fnode)
-            .unwrap()
-            .body() //Option<BlockExpr>
-            .unwrap()
-            .stmt_list() //Option<StmtList>
-            //cloning an expression should not be heavy
-            .unwrap()
-            .statements()
-            .next()
-            .unwrap()
-            .syntax()
-            .clone(),
-    )
-    .unwrap()
+    Expr::cast(get_blxpr(contents)
+        .stmt_list() //Option<StmtList>
+        //cloning an expression should not be heavy
+        .unwrap()
+        .statements()//StmtList
+        .next()
+        .unwrap()
+        .syntax()
+        .clone()).unwrap()
+
 }
 
 fn handlemetavars(
