@@ -1,10 +1,7 @@
-use std::{process::id, vec, path::Prefix};
+use std::{path::Prefix, process::id, vec};
 
 use syntax::{
-    ast::{
-        BlockExpr, Expr,
-        Fn, BinExpr, PrefixExpr, LogicOp, BinaryOp,
-    },
+    ast::{BinExpr, BinaryOp, BlockExpr, Expr, Fn, LogicOp, PrefixExpr},
     AstNode, SourceFile,
 };
 
@@ -17,7 +14,7 @@ enum dep {
     OrDep(BinExpr),
     AntiDep(PrefixExpr),
     EverDep(BinExpr),
-    NeverDep(BinExpr)//what to do with Ever and Never
+    NeverDep(BinExpr), //what to do with Ever and Never
 }
 struct mvar {
     rulename: String,
@@ -70,23 +67,18 @@ impl rule {
                 if rules
                     .iter()
                     .any(|x| x.name == bexpr.lhs().unwrap().to_string().trim())
-                    && 
-                   rules
-                    .iter()
-                    .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
+                    && rules
+                        .iter()
+                        .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
                 {
-                    return match bexpr.op_kind().unwrap(){
-                        BinaryOp::LogicOp(LogicOp::And) => {
-                            dep::AndDep(bexpr)
-                        }
-                        BinaryOp::LogicOp(LogicOp::Or) => {
-                            dep::OrDep(bexpr)
-                        }
+                    return match bexpr.op_kind().unwrap() {
+                        BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(bexpr),
+                        BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(bexpr),
                         _ => {
                             syntaxerror(lino, "No such rule");
                             dep::NoDep
                         }
-                    }
+                    };
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
