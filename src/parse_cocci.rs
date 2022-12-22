@@ -57,7 +57,7 @@ impl rule {
                 //for NOT depends
                 if rules
                     .iter()
-                    .any(|x| x.name == pexpr.expr().unwrap().to_string().trim())
+                    .any(|x| x.name == pexpr.expr().unwrap().to_string())
                 {
                     return dep::AntiDep(Box::new(dep::Dep(pexpr.to_string())));
                 }
@@ -67,10 +67,10 @@ impl rule {
             Expr::BinExpr(bexpr) => {
                 if rules
                     .iter()
-                    .any(|x| x.name == bexpr.lhs().unwrap().to_string().trim())
+                    .any(|x| x.name == bexpr.lhs().unwrap().to_string())
                     && rules
                         .iter()
-                        .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
+                        .any(|x| x.name == bexpr.rhs().unwrap().to_string())
                 {
                     return match bexpr.op_kind().unwrap() {
                         BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(
