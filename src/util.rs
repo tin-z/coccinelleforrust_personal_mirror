@@ -11,3 +11,12 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3]{
         _ => { panic!("Does not have three elements") }
     }
 }
+
+pub fn syntaxerror(lino: usize, err: &str){
+    let errmsg = 
+        if err == "" 
+            { "SyntaxError at line" }
+        else
+            { err };
+    panic!("{errmsg} {lino}");
+}
