@@ -1,39 +1,88 @@
-use std::{vec, process::id};
+use std::{process::id, vec};
 
 use syntax::{
-    ast::{BlockExpr, Fn},
+    ast::{
+        BlockExpr, Expr,
+        Expr::{BinExpr, PrefixExpr},
+        Fn,
+    },
     AstNode, SourceFile,
 };
 
 use crate::util::syntaxerror;
 
-struct mvar{
+enum dep {
+    NoDep,
+    BinDep(Expr),
+    AntiDep(Expr),
+}
+struct mvar {
     rulename: String,
-    varname: String
+    varname: String,
 }
 
-impl mvar{
-    pub fn new(rule: String, var: String) -> mvar{
-        mvar { rulename: rule, varname: var }
+impl mvar {
+    pub fn new(rule: String, var: String) -> mvar {
+        mvar {
+            rulename: rule,
+            varname: var,
+        }
     }
 }
 
 struct rule {
     name: String,
-    dependson: String//We can only inherit one rule?
+    dependson: dep, //We can only inherit one rule?
 }
 
-impl rule {//We may need to keep a track of rules?
+impl rule {
+    //We may need to keep a track of rules?
     pub fn new(name: String) -> rule {
         rule {
             name: name,
-            dependson : String::from(""),
+            dependson: dep::NoDep,
         }
     }
-    
 
-    pub fn setdependson(&mut self, rule: String){
-        self.dependson = rule;
+    pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
+        //rule is trimmed
+        self.dependson = self.getdep(rules, rule, lino);
+    }
+
+    fn getdep(&self, rules: &Vec<rule>, dep: &str, lino: usize) -> dep {
+        let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", dep);
+        match get_binexpr(fnstr.as_str()) {
+            PrefixExpr(pexpr) => {
+                //for NOT depends
+                if rules
+                    .iter()
+                    .any(|x| x.name == pexpr.expr().unwrap().to_string().trim())
+                {
+                    return dep::AntiDep(Expr::from(pexpr));
+                }
+                syntaxerror(lino, "No such rule");
+                dep::NoDep
+            }
+            BinExpr(bexpr) => {
+                if rules
+                    .iter()
+                    .any(|x| x.name == bexpr.lhs().unwrap().to_string().trim())
+                    && rules
+                        .iter()
+                        .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
+                {
+                    //iterating over the rules two times here
+                    //Can decrease to one
+                    return dep::BinDep(Expr::from(bexpr));
+                }
+                syntaxerror(lino, "No such rule");
+                dep::NoDep
+            }
+            _ => {
+                syntaxerror(lino, "Malformed Boolean Expression");
+                dep::NoDep //panics in the line above
+            }
+        }
     }
 }
 
@@ -43,7 +92,34 @@ fn get_blxpr(contents: &str) -> BlockExpr {
     Fn::cast(fnode).unwrap().body().unwrap()
 }
 
-fn handlemetavars(rulename: &String, idmetavars: &mut Vec<mvar>, exmetavars: &mut Vec<mvar>, line: String) {
+fn get_binexpr(contents: &str) -> Expr {
+    //assumes that a
+    //binary expression exists
+    let node = SourceFile::parse(contents).tree();
+    let fnode = node.syntax().children().nth(0).unwrap();
+    Expr::cast(
+        Fn::cast(fnode)
+            .unwrap()
+            .body() //Option<BlockExpr>
+            .unwrap()
+            .stmt_list() //Option<StmtList>
+            //cloning an expression should not be heavy
+            .unwrap()
+            .statements()
+            .next()
+            .unwrap()
+            .syntax()
+            .clone(),
+    )
+    .unwrap()
+}
+
+fn handlemetavars(
+    rulename: &String,
+    idmetavars: &mut Vec<mvar>,
+    exmetavars: &mut Vec<mvar>,
+    line: String,
+) {
     //rule here is usize because this does not represent the
     //name of the rule but the index at which it was encountered
     let mut tokens = line.split(&[',', ' ', ';'][..]);
@@ -53,7 +129,7 @@ fn handlemetavars(rulename: &String, idmetavars: &mut Vec<mvar>, exmetavars: &mu
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var.trim() != ""{
+                if var.trim() != "" {
                     exmetavars.push(mvar::new(String::from(rulename), var.trim().to_string()));
                 }
             }
@@ -65,7 +141,7 @@ fn handlemetavars(rulename: &String, idmetavars: &mut Vec<mvar>, exmetavars: &mu
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var.trim() != ""{
+                if var.trim() != "" {
                     idmetavars.push(mvar::new(String::from(rulename), var.trim().to_string()));
                 }
             }
@@ -73,7 +149,6 @@ fn handlemetavars(rulename: &String, idmetavars: &mut Vec<mvar>, exmetavars: &mu
         _ => {}
     }
 }
-
 
 fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
@@ -88,13 +163,13 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
 
     let sword = tokens.next();
     let tword = tokens.next();
-    let rulename = tokens.next();
 
-    match (sword, tword, rulename) {
-        (Some("depends"), Some("on"), Some(rulename)) => {
-            currrule.setdependson(String::from(rulename));
+    match (sword, tword) {
+        (Some("depends"), Some("on")) => {
+            let booleanexp: String = tokens.collect();
+            currrule.setdependson(rules, String::from(booleanexp).trim(), lino);
         }
-        (None, None, None) => {}
+        (None, None) => {}
         _ => {
             syntaxerror(lino, "");
         }
@@ -104,7 +179,6 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     rules.push(currrule);
 
     name
-
 }
 
 pub fn parse_cocci(contents: &str) {
@@ -116,7 +190,7 @@ pub fn parse_cocci(contents: &str) {
     let mut plusstmts = String::from("");
     let mut minusstmts = String::from("");
 
-    let mut rules: Vec<rule> = vec![];//keeps a track of rules
+    let mut rules: Vec<rule> = vec![]; //keeps a track of rules
     let mut idmetavars: Vec<mvar> = vec![];
     let mut exmetavars: Vec<mvar> = vec![];
 
@@ -145,7 +219,7 @@ pub fn parse_cocci(contents: &str) {
             (Some('+'), _, false) => {
                 plusstmts.push_str(format!("/*{lino}*/").as_str());
                 plusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
+                plusstmts.push('\n');
             }
             (Some('-'), _, false) => {
                 minusstmts.push_str(format!("/*{lino}*/").as_str());
@@ -158,7 +232,7 @@ pub fn parse_cocci(contents: &str) {
                 }
                 plusstmts.push_str(format!("/*{lino}*/").as_str());
                 plusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
+                plusstmts.push('\n');
 
                 minusstmts.push_str(format!("/*{lino}*/").as_str());
                 minusstmts.push_str(line.as_str());
@@ -175,6 +249,6 @@ pub fn parse_cocci(contents: &str) {
     }
     //takes care of the last block
     let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);
-    let minusfn = format!("fn {}_plus {{ {} }}", "coccifn", minusstmts);
+    let minusfn = format!("fn {}_min {{ {} }}", "coccifn", minusstmts);
     (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these functions
 }
