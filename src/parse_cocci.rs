@@ -1,10 +1,9 @@
-use std::{process::id, vec};
+use std::{process::id, vec, path::Prefix};
 
 use syntax::{
     ast::{
         BlockExpr, Expr,
-        Expr::{BinExpr, PrefixExpr},
-        Fn,
+        Fn, BinExpr, PrefixExpr, LogicOp, BinaryOp,
     },
     AstNode, SourceFile,
 };
@@ -14,7 +13,11 @@ use crate::util::syntaxerror;
 enum dep {
     NoDep,
     FailDep,
-    Dep(Expr),
+    AndDep(BinExpr),
+    OrDep(BinExpr),
+    AntiDep(PrefixExpr),
+    EverDep(BinExpr),
+    NeverDep(BinExpr)//what to do with Ever and Never
 }
 struct mvar {
     rulename: String,
@@ -52,28 +55,38 @@ impl rule {
     fn getdep(&self, rules: &Vec<rule>, dep: &str, lino: usize) -> dep {
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", dep);
         match get_binexpr(fnstr.as_str()) {
-            PrefixExpr(pexpr) => {
+            Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
                 if rules
                     .iter()
                     .any(|x| x.name == pexpr.expr().unwrap().to_string().trim())
                 {
-                    return dep::Dep(Expr::from(pexpr));
+                    return dep::AntiDep(pexpr);
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
             }
-            BinExpr(bexpr) => {
+            Expr::BinExpr(bexpr) => {
                 if rules
                     .iter()
                     .any(|x| x.name == bexpr.lhs().unwrap().to_string().trim())
-                    && rules
-                        .iter()
-                        .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
+                    && 
+                   rules
+                    .iter()
+                    .any(|x| x.name == bexpr.rhs().unwrap().to_string().trim())
                 {
-                    //iterating over the rules two times here
-                    //Can decrease to one
-                    return dep::Dep(Expr::from(bexpr));
+                    return match bexpr.op_kind().unwrap(){
+                        BinaryOp::LogicOp(LogicOp::And) => {
+                            dep::AndDep(bexpr)
+                        }
+                        BinaryOp::LogicOp(LogicOp::Or) => {
+                            dep::OrDep(bexpr)
+                        }
+                        _ => {
+                            syntaxerror(lino, "No such rule");
+                            dep::NoDep
+                        }
+                    }
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
