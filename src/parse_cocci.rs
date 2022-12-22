@@ -1,7 +1,7 @@
 use std::{vec};
 
 use syntax::{
-    ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp},
+    ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp},
     AstNode, SourceFile,
 };
 
@@ -57,7 +57,11 @@ impl rule {
                     .iter()
                     .any(|x| x.name == pexpr.expr().unwrap().to_string())
                 {
-                    return dep::AntiDep(Box::new(dep::Dep(pexpr.to_string())));
+                    if let UnaryOp::Not = pexpr.op_kind().unwrap() {
+                        return dep::AntiDep(
+                            Box::new(self.getdep(rules, pexpr.expr().unwrap(), lino))
+                        );
+                    };
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
@@ -87,6 +91,15 @@ impl rule {
                 }
                 syntaxerror(lino, "No such rule");
                 dep::NoDep
+            }
+            Expr::PathExpr(pexpr) => {
+                dep::Dep(
+                pexpr.path().unwrap()//Path
+                .segment().unwrap()//PathSegment
+                .name_ref().unwrap()//NameRef
+                .ident_token().unwrap()//Ident
+                .to_string()
+                )
             }
             _ => {
                 syntaxerror(lino, "Malformed Boolean Expression");
