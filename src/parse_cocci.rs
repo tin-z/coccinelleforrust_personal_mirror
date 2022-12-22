@@ -1,4 +1,4 @@
-use std::{path::Prefix, process::id, vec};
+use std::{vec};
 
 use syntax::{
     ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp},
@@ -14,8 +14,6 @@ enum dep {
     AndDep(Box<(dep, dep)>),
     OrDep(Box<(dep, dep)>),
     AntiDep(Box<dep>),
-    EverDep(),
-    NeverDep(), //what to do with Ever and Never
 }
 struct mvar {
     rulename: String,
@@ -33,7 +31,7 @@ impl mvar {
 
 struct rule {
     name: String,
-    dependson: dep, //We can only inherit one rule?
+    dependson: dep,
 }
 
 impl rule {
