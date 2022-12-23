@@ -61,7 +61,7 @@ impl rule {
                         dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)?))
                     }
                     _ => {
-                        syntaxerror!(lino, "No such operator")
+                        syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression")
                     }
                 }
             }
@@ -75,7 +75,7 @@ impl rule {
                     self.getdep(rules, lino, bexpr.rhs()?)?,
                 ))),
                 _ => {
-                    syntaxerror!(lino, "No such operator")
+                    syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression")
                 }
             },
             Expr::PathExpr(pexpr) => {
@@ -193,7 +193,7 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
 pub fn parse_cocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
-    let mut lino = 0; //stored line numbers
+    let mut lino = 1; //stored line numbers
                       //mutable because I supply it with modifier statements
 
     let mut plusstmts = String::from("");
@@ -236,16 +236,15 @@ pub fn parse_cocci(contents: &str) {
                 minusstmts.push('\n');
             }
             (_, _, false) => {
-                if line == "" {
-                    continue;
-                }
-                plusstmts.push_str(format!("/*{lino}*/").as_str());
-                plusstmts.push_str(line.as_str());
-                plusstmts.push('\n');
+                if line != "" {
+                    plusstmts.push_str(format!("/*{lino}*/").as_str());
+                    plusstmts.push_str(line.as_str());
+                    plusstmts.push('\n');
 
-                minusstmts.push_str(format!("/*{lino}*/").as_str());
-                minusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
+                    minusstmts.push_str(format!("/*{lino}*/").as_str());
+                    minusstmts.push_str(line.as_str());
+                    minusstmts.push('\n');
+                }
             }
             (_, _, true) => {
                 handlemetavars(&rulename, &mut idmetavars, &mut exmetavars, line);
