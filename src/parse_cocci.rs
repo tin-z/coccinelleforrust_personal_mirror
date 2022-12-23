@@ -57,8 +57,6 @@ impl rule {
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
         self.dependson = getdep(rules, lino, &mut get_expr(fnstr.as_str()))
     }
-
-    
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -69,21 +67,23 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             let [cond, expr] = tuple_of_2(&mut dep.children);
             match cond.kind() {
                 Tag::BANG => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
-                _ => syntaxerror!( lino, "Dependance must be a boolean expression" ) 
+                _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
         }
         Tag::BIN_EXPR => {
             let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
             match cond.kind() {
-                Tag::AMP2 => dep::AndDep(Box::new((
-                    getdep(rules, lino, lhs),
-                    getdep(rules, lino, rhs),
-                ))),
-                Tag::PIPE2 => dep::OrDep(Box::new((
-                    getdep(rules, lino, lhs),
-                    getdep(rules, lino, rhs),
-                ))),
-                _ => syntaxerror!(lino, "Dependance must be a boolean expression" )
+                Tag::AMP2 =>
+                    dep::AndDep(Box::new((
+                        getdep(rules, lino, lhs),
+                        getdep(rules, lino, rhs),
+                    ))),
+                Tag::PIPE2 =>
+                    dep::OrDep(Box::new((
+                        getdep(rules, lino, lhs),
+                        getdep(rules, lino, rhs),
+                    ))),
+                _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
         }
         Tag::PATH_EXPR => {
