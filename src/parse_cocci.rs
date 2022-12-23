@@ -1,3 +1,5 @@
+#![feature(try_blocks)]
+
 use std::vec;
 
 use syntax::{
@@ -48,16 +50,16 @@ impl rule {
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
         self.dependson = self
             .getdep(rules, lino, get_binexpr(fnstr.as_str()).unwrap())
-            .unwrap();
     }
 
-    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> Option<dep> {
+    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> dep {
+        let f = || -> Option<dep>{
         Some(match dep {
             Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
                 match pexpr.op_kind()? {
                     UnaryOp::Not => {
-                        dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)?))
+                        dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)))
                     }
                     _ => {
                         syntaxerror!(
@@ -69,12 +71,12 @@ impl rule {
             }
             Expr::BinExpr(bexpr) => match bexpr.op_kind()? {
                 BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
-                    self.getdep(rules, lino, bexpr.lhs()?)?,
-                    self.getdep(rules, lino, bexpr.rhs()?)?,
+                    self.getdep(rules, lino, bexpr.lhs()?),
+                    self.getdep(rules, lino, bexpr.rhs()?),
                 ))),
                 BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(Box::new((
-                    self.getdep(rules, lino, bexpr.lhs()?)?,
-                    self.getdep(rules, lino, bexpr.rhs()?)?,
+                    self.getdep(rules, lino, bexpr.lhs()?),
+                    self.getdep(rules, lino, bexpr.rhs()?),
                 ))),
                 _ => {
                     syntaxerror!(
@@ -100,13 +102,16 @@ impl rule {
             Expr::ParenExpr(pexpr) => {
                 let expr = pexpr.expr()?;
 
-                self.getdep(rules, lino, expr)?
+                self.getdep(rules, lino, expr)
             }
             _ => {
                 syntaxerror!(lino, "No such operator")
             }
         })
+        };
+        f().unwrap()
     }
+
 }
 
 fn get_blxpr(contents: &str) -> Option<BlockExpr> {
