@@ -5,7 +5,9 @@ use syntax::{
     AstNode, SourceFile,
 };
 
-use crate::util::syntaxerror;
+#[macro_use]
+use crate::syntaxerror;
+
 
 enum dep {
     NoDep,
@@ -46,91 +48,75 @@ impl rule {
     pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = self.getdep(rules, lino, get_binexpr(fnstr.as_str()));
+        self.dependson = self
+            .getdep(rules, lino, get_binexpr(fnstr.as_str()).unwrap())
+            .unwrap();
     }
 
-    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> dep {
-        match dep {
+    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> Option<dep> {
+        Some(match dep {
             Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
-                match pexpr.op_kind().unwrap(){
+                match pexpr.op_kind()? {
                     UnaryOp::Not => {
-                        return dep::AntiDep(
-                            Box::new(self.getdep(rules, lino, pexpr.expr().unwrap()))
-                        );
+                        dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)?))
                     }
                     _ => {
-                        syntaxerror(lino, "No such operator");
-                        dep::NoDep
+                        syntaxerror!(lino, "No such operator")
                     }
                 }
             }
-            Expr::BinExpr(bexpr) => {
-                return match bexpr.op_kind().unwrap() {
-                    BinaryOp::LogicOp(LogicOp::And) =>
-                    dep::AndDep(Box::new((
-                        self.getdep(rules, lino, bexpr.lhs().unwrap()),
-                        self.getdep(rules, lino, bexpr.rhs().unwrap()),
-                    ))),
-                    BinaryOp::LogicOp(LogicOp::Or) =>
-                    dep::OrDep(Box::new((
-                        self.getdep(rules, lino, bexpr.lhs().unwrap()),
-                        self.getdep(rules, lino, bexpr.rhs().unwrap()),
-                    ))),
-                    _ => {
-                        syntaxerror(lino, "No such rule");
-                        dep::NoDep
-                    }
-                };
-            }
+            Expr::BinExpr(bexpr) => match bexpr.op_kind()? {
+                BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
+                    self.getdep(rules, lino, bexpr.lhs()?)?,
+                    self.getdep(rules, lino, bexpr.rhs()?)?,
+                ))),
+                BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(Box::new((
+                    self.getdep(rules, lino, bexpr.lhs()?)?,
+                    self.getdep(rules, lino, bexpr.rhs()?)?,
+                ))),
+                _ => {
+                    syntaxerror!(lino, "No such operator")
+                }
+            },
             Expr::PathExpr(pexpr) => {
                 let name = pexpr
-                    .path()
-                    .unwrap() //Path
-                    .segment()
-                    .unwrap() //PathSegment
-                    .name_ref()
-                    .unwrap() //NameRef
-                    .ident_token()
-                    .unwrap() //Ident
+                    .path()?
+                    .segment()?
+                    .name_ref()?
+                    .ident_token()?
                     .to_string();
 
                 if rules.iter().any(|x| x.name == name) {
-                    return dep::Dep(name);
+                    dep::Dep(name)
                 } else {
-                    syntaxerror(lino, "No such rule");
-                    dep::NoDep
+                    syntaxerror!(lino, "No such operator")
                 }
             }
             _ => {
-                syntaxerror(lino, "Malformed Boolean Expression");
-                dep::NoDep //panics in the line above
+                syntaxerror!(lino, "No such operator")
             }
-        }
+        })
     }
 }
 
-fn get_blxpr(contents: &str) -> BlockExpr {
+fn get_blxpr(contents: &str) -> Option<BlockExpr> {
     let node = SourceFile::parse(contents).tree();
-    let fnode = node.syntax().children().nth(0).unwrap();
-    Fn::cast(fnode).unwrap().body().unwrap()
+    let fnode = node.syntax().children().nth(0)?;
+    Some(Fn::cast(fnode)?.body()?)
 }
 
-fn get_binexpr(contents: &str) -> Expr {
+fn get_binexpr(contents: &str) -> Option<Expr> {
     //assumes that a
     //binary expression exists
-    Expr::cast(
-        get_blxpr(contents)
-            .stmt_list() //Option<StmtList>
-            //cloning an expression should not be heavy
-            .unwrap()
-            .statements() //StmtList
-            .next()
-            .unwrap()
+    println!("contents - {contents}");
+    Some(Expr::cast(
+        get_blxpr(contents)?
+            .stmt_list()?
+            .tail_expr()?
             .syntax()
             .clone(),
-    )
-    .unwrap()
+    )?)
 }
 
 fn handlemetavars(
@@ -190,7 +176,7 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
         }
         (None, None) => {}
         _ => {
-            syntaxerror(lino, "");
+            syntaxerror!(lino, "")
         }
     }
 
@@ -264,7 +250,7 @@ pub fn parse_cocci(contents: &str) {
         lino += 1;
     }
     if inmetadec {
-        syntaxerror(lino, "Unclosed metavariable declaration block");
+        syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
     //takes care of the last block
     let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);

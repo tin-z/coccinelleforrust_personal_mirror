@@ -1,3 +1,12 @@
+@ rule13 @
+expression e;
+identifier fun;
+@@
+
+-fun(e);
++fun(e, e);
+
+
 @ rule1 @
 expression e;
 identifier fun;
@@ -6,7 +15,7 @@ identifier fun;
 -fun(e);
 +fun(e, e);
 
-@ rule2 depends on rule1 @
+@ rule2 depends on !rule1 && rule13 @
 @@
 
 -gh();
