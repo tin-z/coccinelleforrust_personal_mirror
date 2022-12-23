@@ -27,12 +27,3 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
         }
     }
 }
-
-pub fn trim(cond: &dyn Fn(&SyntaxNode) -> bool, tree: SyntaxNode) -> SyntaxNode{
-    for child in tree.children(){
-        if cond(&child){
-            return child
-        }
-    }
-    panic!("No such node");
-}
