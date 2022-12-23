@@ -25,7 +25,7 @@ identifier fun;
 -fun(e);
 +fun(e, e);
 
-@ rule2 depends on !rule1 && ( ruleh3     || rule32) @
+@ rule2 depends on !rule1 && ( ruleh3     |f| rule32) @
 @@
 
 -gh();
