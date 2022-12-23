@@ -5,7 +5,6 @@ use syntax::{
     AstNode, SourceFile,
 };
 
-#[macro_use]
 use crate::syntaxerror;
 
 
@@ -92,7 +91,12 @@ impl rule {
                 } else {
                     syntaxerror!(lino, "No such operator")
                 }
-            }
+            },
+            Expr::ParenExpr(pexpr) => {
+                let expr = pexpr.expr()?;
+
+                self.getdep(rules, lino, expr)?
+            },
             _ => {
                 syntaxerror!(lino, "No such operator")
             }
