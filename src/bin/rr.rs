@@ -1,1 +1,1 @@
-fn coccifn { 1&& 8 }
+fn coccifn {  ! /**/ 8 }

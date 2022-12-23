@@ -2,12 +2,15 @@
 
 use std::vec;
 
+use parser::SyntaxKind;
 use syntax::{
     ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp, BinExpr},
     AstNode, SourceFile,
 };
 
-use crate::{syntaxerror, wrap::{wrap_root, Rnode}};
+use crate::{syntaxerror, wrap::{wrap_root, Rnode}, util::{tuple_of_2, tuple_of_3}};
+
+type Tag = SyntaxKind;
 
 enum dep {
     NoDep,
@@ -49,17 +52,21 @@ impl rule {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
         self.dependson = self
-            .getdep(rules, lino, get_expr(fnstr.as_str())).unwrap()
+            .getdep(rules, lino, &mut get_expr(fnstr.as_str()))
     }
 
-    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> Option<dep> {
-        Some(
-        match dep {
-            Expr::PrefixExpr(pexpr) => {
+    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
+        
+        let node = &dep.astnode;
+        match node.kind() {
+            Tag::PREFIX_EXPR => {
                 //for NOT depends
-                match pexpr.op_kind()? {
-                    UnaryOp::Not => {
-                        dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)?))
+                let [cond, expr] = tuple_of_2(&mut dep.children);
+                match (cond.kind(), &expr) {
+                    (Tag::BANG, _) => {
+                        dep::AntiDep(
+                            Box::new(self.getdep(rules, lino, expr))
+                        )
                     }
                     _ => {
                         syntaxerror!(
@@ -69,45 +76,51 @@ impl rule {
                     }
                 }
             }
-            Expr::BinExpr(bexpr) => match bexpr.op_kind()? {
-                BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
-                    self.getdep(rules, lino, bexpr.lhs()?)?,
-                    self.getdep(rules, lino, bexpr.rhs()?)?,
-                ))),
-                BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(Box::new((
-                    self.getdep(rules, lino, bexpr.lhs()?)?,
-                    self.getdep(rules, lino, bexpr.rhs()?)?,
-                ))),
-                _ => {
-                    syntaxerror!(
-                        lino,
-                        "Malformed Rule Dependance, must be a boolean expression"
+            Tag::BIN_EXPR => 
+            {
+                let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
+                match cond.kind(){
+                    Tag::AMP2 => {
+                        dep::AndDep(Box::new((
+                            self.getdep(rules, lino, lhs),
+                            self.getdep(rules, lino, rhs),
+                        ))
                     )
+                    }
+                    Tag::PIPE2 => {
+                        dep::OrDep(Box::new((
+                            self.getdep(rules, lino, lhs),
+                            self.getdep(rules, lino, rhs),
+                        ))
+                    )
+                    }
+                    _ => {
+                        syntaxerror!(
+                            lino,
+                            "Malformed Rule Dependance, must be a boolean expression"
+                        )
+                    }
                 }
-            },
-            Expr::PathExpr(pexpr) => {
-                let name = pexpr
-                    .path()?
-                    .segment()?
-                    .name_ref()?
-                    .ident_token()?
-                    .to_string();
+            }
+            Tag::PATH_EXPR => {
+                let name = dep.astnode.to_string();
 
                 if rules.iter().any(|x| x.name == name) {
                     dep::Dep(name)
                 } else {
+                    println!("{:?}", name);
                     syntaxerror!(lino, "No such operator")
                 }
             }
-            Expr::ParenExpr(pexpr) => {
-                let expr = pexpr.expr()?;
+            Tag::PAREN_EXPR => {
+                let expr = &mut dep.children[1];
 
-                self.getdep(rules, lino, expr)?
+                self.getdep(rules, lino, expr)
             }
             _ => {
                 syntaxerror!(lino, "No such operator")
             }
-        })
+        }
     }
 
 }
@@ -118,17 +131,14 @@ fn get_blxpr(contents: &str) -> Rnode {
         .children.swap_remove(4)//BlockExpr
 }
 
-fn get_expr(contents: &str) -> Expr {
+fn get_expr(contents: &str) -> Rnode {
     //assumes that a
     //binary expression exists
     println!("contents - {contents}");
     
-    Expr::cast(
     get_blxpr(contents)
             .children.swap_remove(0)
             .children.swap_remove(2)
-            .tonode()
-    ).unwrap()
 }
 
 fn handlemetavars(

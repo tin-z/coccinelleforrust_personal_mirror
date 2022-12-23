@@ -1,5 +1,6 @@
 use crate::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
+use parser::SyntaxKind;
 use syntax::ast::Type;
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
@@ -8,14 +9,17 @@ pub struct Rnode {
     pub wrapper: wrap,
     pub astnode: SyntaxElement,
     pub children: Vec<Rnode>,
+    pub children_with_tokens: Vec<Rnode>
 }
 
 impl Rnode {
-    pub fn new_root(wrapper: wrap, syntax: SyntaxElement, children: Vec<Rnode>) -> Rnode {
+    pub fn new_root(wrapper: wrap, syntax: SyntaxElement, children: Vec<Rnode>, 
+        children_with_tokens: Vec<Rnode>) -> Rnode {
         Rnode {
             wrapper: wrapper,
             astnode: syntax,
             children: children,
+            children_with_tokens: children_with_tokens
         }
     }
 
@@ -29,6 +33,10 @@ impl Rnode {
 
     pub fn toktoken(self) -> SyntaxToken{
         self.astnode.into_token().unwrap()
+    }
+
+    pub fn kind(&self) -> SyntaxKind{
+        self.astnode.kind()
     }
 }
 
@@ -226,13 +234,14 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
 pub fn wrap_root(contents: &str) -> Rnode {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> (Vec<Rnode>, Vec<Rnode>)| -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
-        let children = df(&node);
+        let (children, children_with_tokens) = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
             astnode: node, //Change this to SyntaxElement
             children: children,
+            children_with_tokens: children_with_tokens
         };
         rnode
     };
