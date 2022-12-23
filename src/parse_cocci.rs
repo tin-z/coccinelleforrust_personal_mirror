@@ -66,12 +66,7 @@ impl rule {
                 let [cond, expr] = tuple_of_2(&mut dep.children);
                 match (cond.kind(), &expr) {
                     (Tag::BANG, _) => dep::AntiDep(Box::new(self.getdep(rules, lino, expr))),
-                    _ => {
-                        syntaxerror!(
-                            lino,
-                            "Malformed Rule Dependance, must be a boolean expression"
-                        )
-                    }
+                    _ => syntaxerror!( lino, "Malformed Rule Dependance, must be a boolean expression" ) 
                 }
             }
             Tag::BIN_EXPR => {
@@ -85,12 +80,7 @@ impl rule {
                         self.getdep(rules, lino, lhs),
                         self.getdep(rules, lino, rhs),
                     ))),
-                    _ => {
-                        syntaxerror!(
-                            lino,
-                            "Malformed Rule Dependance, must be a boolean expression"
-                        )
-                    }
+                    _ => syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression" )
                 }
             }
             Tag::PATH_EXPR => {
