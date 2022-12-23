@@ -55,52 +55,54 @@ impl rule {
     pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = self.getdep(rules, lino, &mut get_expr(fnstr.as_str()))
+        self.dependson = getdep(rules, lino, &mut get_expr(fnstr.as_str()))
     }
 
-    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
-        let node = &dep.astnode;
-        match node.kind() {
-            Tag::PREFIX_EXPR => {
-                //for NOT depends
-                let [cond, expr] = tuple_of_2(&mut dep.children);
-                match (cond.kind(), &expr) {
-                    (Tag::BANG, _) => dep::AntiDep(Box::new(self.getdep(rules, lino, expr))),
-                    _ => syntaxerror!( lino, "Malformed Rule Dependance, must be a boolean expression" ) 
-                }
-            }
-            Tag::BIN_EXPR => {
-                let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
-                match cond.kind() {
-                    Tag::AMP2 => dep::AndDep(Box::new((
-                        self.getdep(rules, lino, lhs),
-                        self.getdep(rules, lino, rhs),
-                    ))),
-                    Tag::PIPE2 => dep::OrDep(Box::new((
-                        self.getdep(rules, lino, lhs),
-                        self.getdep(rules, lino, rhs),
-                    ))),
-                    _ => syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression" )
-                }
-            }
-            Tag::PATH_EXPR => {
-                let name = dep.astnode.to_string();
+    
+}
 
-                if rules.iter().any(|x| x.name == name) {
-                    dep::Dep(name)
-                } else {
-                    println!("{:?}", name);
-                    syntaxerror!(lino, "No such operator")
-                }
+fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
+    let node = &dep.astnode;
+    match node.kind() {
+        Tag::PREFIX_EXPR => {
+            //for NOT depends
+            let [cond, expr] = tuple_of_2(&mut dep.children);
+            match (cond.kind(), &expr) {
+                (Tag::BANG, _) => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
+                _ => syntaxerror!( lino, "Malformed Rule Dependance, must be a boolean expression" ) 
             }
-            Tag::PAREN_EXPR => {
-                let expr = &mut dep.children[1];
+        }
+        Tag::BIN_EXPR => {
+            let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
+            match cond.kind() {
+                Tag::AMP2 => dep::AndDep(Box::new((
+                    getdep(rules, lino, lhs),
+                    getdep(rules, lino, rhs),
+                ))),
+                Tag::PIPE2 => dep::OrDep(Box::new((
+                    getdep(rules, lino, lhs),
+                    getdep(rules, lino, rhs),
+                ))),
+                _ => syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression" )
+            }
+        }
+        Tag::PATH_EXPR => {
+            let name = dep.astnode.to_string();
 
-                self.getdep(rules, lino, expr)
-            }
-            _ => {
+            if rules.iter().any(|x| x.name == name) {
+                dep::Dep(name)
+            } else {
+                println!("{:?}", name);
                 syntaxerror!(lino, "No such operator")
             }
+        }
+        Tag::PAREN_EXPR => {
+            let expr = &mut dep.children[1];
+
+            getdep(rules, lino, expr)
+        }
+        _ => {
+            syntaxerror!(lino, "No such operator")
         }
     }
 }
