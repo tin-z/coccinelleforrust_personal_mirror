@@ -7,7 +7,6 @@ use syntax::{
 
 use crate::syntaxerror;
 
-
 enum dep {
     NoDep,
     FailDep,
@@ -61,7 +60,10 @@ impl rule {
                         dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)?))
                     }
                     _ => {
-                        syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression")
+                        syntaxerror!(
+                            lino,
+                            "Malformed Rule Dependance, must be a boolean expression"
+                        )
                     }
                 }
             }
@@ -75,7 +77,10 @@ impl rule {
                     self.getdep(rules, lino, bexpr.rhs()?)?,
                 ))),
                 _ => {
-                    syntaxerror!(lino, "Malformed Rule Dependance, must be a boolean expression")
+                    syntaxerror!(
+                        lino,
+                        "Malformed Rule Dependance, must be a boolean expression"
+                    )
                 }
             },
             Expr::PathExpr(pexpr) => {
@@ -91,12 +96,12 @@ impl rule {
                 } else {
                     syntaxerror!(lino, "No such operator")
                 }
-            },
+            }
             Expr::ParenExpr(pexpr) => {
                 let expr = pexpr.expr()?;
 
                 self.getdep(rules, lino, expr)?
-            },
+            }
             _ => {
                 syntaxerror!(lino, "No such operator")
             }
