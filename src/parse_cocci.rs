@@ -4,11 +4,15 @@ use std::vec;
 
 use parser::SyntaxKind;
 use syntax::{
-    ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp, BinExpr},
+    ast::{BinExpr, BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp},
     AstNode, SourceFile,
 };
 
-use crate::{syntaxerror, wrap::{wrap_root, Rnode}, util::{tuple_of_2, tuple_of_3}};
+use crate::{
+    syntaxerror,
+    util::{tuple_of_2, tuple_of_3},
+    wrap::{wrap_root, Rnode},
+};
 
 type Tag = SyntaxKind;
 
@@ -51,23 +55,17 @@ impl rule {
     pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = self
-            .getdep(rules, lino, &mut get_expr(fnstr.as_str()))
+        self.dependson = self.getdep(rules, lino, &mut get_expr(fnstr.as_str()))
     }
 
     fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
-        
         let node = &dep.astnode;
         match node.kind() {
             Tag::PREFIX_EXPR => {
                 //for NOT depends
                 let [cond, expr] = tuple_of_2(&mut dep.children);
                 match (cond.kind(), &expr) {
-                    (Tag::BANG, _) => {
-                        dep::AntiDep(
-                            Box::new(self.getdep(rules, lino, expr))
-                        )
-                    }
+                    (Tag::BANG, _) => dep::AntiDep(Box::new(self.getdep(rules, lino, expr))),
                     _ => {
                         syntaxerror!(
                             lino,
@@ -76,24 +74,17 @@ impl rule {
                     }
                 }
             }
-            Tag::BIN_EXPR => 
-            {
+            Tag::BIN_EXPR => {
                 let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
-                match cond.kind(){
-                    Tag::AMP2 => {
-                        dep::AndDep(Box::new((
-                            self.getdep(rules, lino, lhs),
-                            self.getdep(rules, lino, rhs),
-                        ))
-                    )
-                    }
-                    Tag::PIPE2 => {
-                        dep::OrDep(Box::new((
-                            self.getdep(rules, lino, lhs),
-                            self.getdep(rules, lino, rhs),
-                        ))
-                    )
-                    }
+                match cond.kind() {
+                    Tag::AMP2 => dep::AndDep(Box::new((
+                        self.getdep(rules, lino, lhs),
+                        self.getdep(rules, lino, rhs),
+                    ))),
+                    Tag::PIPE2 => dep::OrDep(Box::new((
+                        self.getdep(rules, lino, lhs),
+                        self.getdep(rules, lino, rhs),
+                    ))),
                     _ => {
                         syntaxerror!(
                             lino,
@@ -122,23 +113,26 @@ impl rule {
             }
         }
     }
-
 }
 
 fn get_blxpr(contents: &str) -> Rnode {
     wrap_root(contents)
-        .children.swap_remove(0)//Fn
-        .children.swap_remove(4)//BlockExpr
+        .children
+        .swap_remove(0) //Fn
+        .children
+        .swap_remove(4) //BlockExpr
 }
 
 fn get_expr(contents: &str) -> Rnode {
     //assumes that a
     //binary expression exists
     println!("contents - {contents}");
-    
+
     get_blxpr(contents)
-            .children.swap_remove(0)
-            .children.swap_remove(2)
+        .children
+        .swap_remove(0)
+        .children
+        .swap_remove(2)
 }
 
 fn handlemetavars(
