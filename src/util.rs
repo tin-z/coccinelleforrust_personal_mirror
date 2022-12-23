@@ -1,3 +1,15 @@
+use syntax::SyntaxNode;
+
+#[macro_export]
+macro_rules! syntaxerror {
+    ($expression:expr, $err:literal) => {
+        panic!("{:?} at line:{:?}",
+                 $err,
+                 $expression)
+    };
+}
+
+
 pub fn tuple_of_2<T>(v: &mut Vec<T>) -> [&mut T; 2] {
     match &mut v[..2] {
         [a, b] => [a, b],
@@ -16,12 +28,11 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
-#[macro_export]
-macro_rules! syntaxerror {
-    ($expression:expr, $err:literal) => {
-        panic!("{:?} at line:{:?}",
-                 $err,
-                 $expression)
-    };
+pub fn trim(cond: &dyn Fn(&SyntaxNode) -> bool, tree: SyntaxNode) -> SyntaxNode{
+    for child in tree.children(){
+        if cond(&child){
+            return child
+        }
+    }
+    panic!("No such node");
 }

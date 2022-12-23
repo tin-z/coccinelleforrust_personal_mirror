@@ -3,11 +3,11 @@
 use std::vec;
 
 use syntax::{
-    ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp},
+    ast::{BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp, BinExpr},
     AstNode, SourceFile,
 };
 
-use crate::syntaxerror;
+use crate::{syntaxerror, wrap::{wrap_root, Rnode}};
 
 enum dep {
     NoDep,
@@ -49,17 +49,17 @@ impl rule {
         //rule is trimmed
         let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
         self.dependson = self
-            .getdep(rules, lino, get_binexpr(fnstr.as_str()).unwrap())
+            .getdep(rules, lino, get_expr(fnstr.as_str())).unwrap()
     }
 
-    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> dep {
-        let f = || -> Option<dep>{
-        Some(match dep {
+    fn getdep(&self, rules: &Vec<rule>, lino: usize, dep: Expr) -> Option<dep> {
+        Some(
+        match dep {
             Expr::PrefixExpr(pexpr) => {
                 //for NOT depends
                 match pexpr.op_kind()? {
                     UnaryOp::Not => {
-                        dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)))
+                        dep::AntiDep(Box::new(self.getdep(rules, lino, pexpr.expr()?)?))
                     }
                     _ => {
                         syntaxerror!(
@@ -71,12 +71,12 @@ impl rule {
             }
             Expr::BinExpr(bexpr) => match bexpr.op_kind()? {
                 BinaryOp::LogicOp(LogicOp::And) => dep::AndDep(Box::new((
-                    self.getdep(rules, lino, bexpr.lhs()?),
-                    self.getdep(rules, lino, bexpr.rhs()?),
+                    self.getdep(rules, lino, bexpr.lhs()?)?,
+                    self.getdep(rules, lino, bexpr.rhs()?)?,
                 ))),
                 BinaryOp::LogicOp(LogicOp::Or) => dep::OrDep(Box::new((
-                    self.getdep(rules, lino, bexpr.lhs()?),
-                    self.getdep(rules, lino, bexpr.rhs()?),
+                    self.getdep(rules, lino, bexpr.lhs()?)?,
+                    self.getdep(rules, lino, bexpr.rhs()?)?,
                 ))),
                 _ => {
                     syntaxerror!(
@@ -102,35 +102,33 @@ impl rule {
             Expr::ParenExpr(pexpr) => {
                 let expr = pexpr.expr()?;
 
-                self.getdep(rules, lino, expr)
+                self.getdep(rules, lino, expr)?
             }
             _ => {
                 syntaxerror!(lino, "No such operator")
             }
         })
-        };
-        f().unwrap()
     }
 
 }
 
-fn get_blxpr(contents: &str) -> Option<BlockExpr> {
-    let node = SourceFile::parse(contents).tree();
-    let fnode = node.syntax().children().nth(0)?;
-    Some(Fn::cast(fnode)?.body()?)
+fn get_blxpr(contents: &str) -> Rnode {
+    wrap_root(contents)
+        .children.swap_remove(0)//Fn
+        .children.swap_remove(4)//BlockExpr
 }
 
-fn get_binexpr(contents: &str) -> Option<Expr> {
+fn get_expr(contents: &str) -> Expr {
     //assumes that a
     //binary expression exists
     println!("contents - {contents}");
-    Some(Expr::cast(
-        get_blxpr(contents)?
-            .stmt_list()?
-            .tail_expr()?
-            .syntax()
-            .clone(),
-    )?)
+    
+    Expr::cast(
+    get_blxpr(contents)
+            .children.swap_remove(0)
+            .children.swap_remove(2)
+            .tonode()
+    ).unwrap()
 }
 
 fn handlemetavars(

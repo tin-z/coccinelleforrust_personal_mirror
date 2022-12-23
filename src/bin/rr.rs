@@ -1,0 +1,1 @@
+fn coccifn { 1&& 8 }

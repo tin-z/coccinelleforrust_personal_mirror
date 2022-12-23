@@ -1,7 +1,7 @@
 use crate::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use syntax::ast::Type;
-use syntax::{AstNode, SourceFile, SyntaxElement};
+use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
 pub struct Rnode {
@@ -21,6 +21,14 @@ impl Rnode {
 
     pub fn set_children(&mut self, children: Vec<Rnode>) {
         self.children = children
+    }
+
+    pub fn tonode(self) -> SyntaxNode{
+        self.astnode.into_node().unwrap()
+    }
+
+    pub fn toktoken(self) -> SyntaxToken{
+        self.astnode.into_token().unwrap()
     }
 }
 
