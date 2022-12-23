@@ -67,7 +67,8 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             let [cond, expr] = tuple_of_2(&mut dep.children);
             match cond.kind() {
                 Tag::BANG => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
-                _ => {syntaxerror!(lino, "Dependance must be a boolean expression")},
+                _ => {syntaxerror!(lino, 
+                                   "Dependance must be a boolean expression")},
             }
         }
         Tag::BIN_EXPR => {
@@ -83,7 +84,8 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
                         getdep(rules, lino, lhs),
                         getdep(rules, lino, rhs),
                     ))),
-                _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
+                _ => syntaxerror!(lino, 
+                                  "Dependance must be a boolean expression"),
             }
         }
         Tag::PATH_EXPR => {
@@ -91,7 +93,8 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             if rules.iter().any(|x| x.name == name) {
                 dep::Dep(name)
             } else {
-                syntaxerror!(lino, "No such Rule")
+                syntaxerror!(lino, 
+                             "No such Rule")
             }
         }
         Tag::PAREN_EXPR => {
@@ -100,7 +103,8 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             getdep(rules, lino, expr)
         }
         _ => {
-            syntaxerror!(lino, "Malformed Rule")
+            syntaxerror!(lino, 
+                         "Malformed Rule")
         }
     }
 }
