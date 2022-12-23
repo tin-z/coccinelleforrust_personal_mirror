@@ -67,8 +67,8 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
         Tag::PREFIX_EXPR => {
             //for NOT depends
             let [cond, expr] = tuple_of_2(&mut dep.children);
-            match (cond.kind(), &expr) {
-                (Tag::BANG, _) => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
+            match cond.kind() {
+                Tag::BANG => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
                 _ => syntaxerror!( lino, "Dependance must be a boolean expression" ) 
             }
         }
