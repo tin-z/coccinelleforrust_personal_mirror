@@ -93,18 +93,17 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             if rules.iter().any(|x| x.name == name) {
                 dep::Dep(name)
             } else {
-                syntaxerror!(lino, 
-                             "No such Rule")
+                syntaxerror!(lino, "no such Rule", name)
             }
         }
         Tag::PAREN_EXPR => {
             let expr = &mut dep.children[1];
-
             getdep(rules, lino, expr)
         }
         _ => {
             syntaxerror!(lino, 
-                         "Malformed Rule")
+                         "Malformed Rule",
+                         dep.astnode.to_string())
         }
     }
 }

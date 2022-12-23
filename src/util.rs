@@ -2,10 +2,16 @@ use syntax::SyntaxNode;
 
 #[macro_export]
 macro_rules! syntaxerror {
-    ($lino: expr, $err:literal) => {
+    ($lino: expr, $err:expr) => {
         panic!("{:?} at line:{:?}",
                  $err,
                  $lino)
+    };
+    ($lino:expr, $err:expr, $name:expr) => {
+        panic!("{:?}: {:?} at line:{:?}",
+                $name,
+                $err,
+                $lino)
     };
 }
 
