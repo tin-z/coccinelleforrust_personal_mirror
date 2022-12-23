@@ -265,3 +265,78 @@ pub fn parse_cocci(contents: &str) {
     let minusfn = format!("fn {}_min {{ {} }}", "coccifn", minusstmts);
     (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these functions
 }
+
+pub fn processcocci(contents: &str){
+    let lines: Vec<String> = contents.lines().map(String::from).collect();
+    let mut inmetadec = false; //checks if in metavar declaration
+    let mut lino = 1; //stored line numbers
+                      //mutable because I supply it with modifier statements
+
+    let mut pluscocci = String::from("");
+    let mut minuscocci = String::from("");
+    let mut plusparsed = String::from("\n");
+    let mut minusparsed = String::from("\n");
+
+    let mut rules: Vec<rule> = vec![]; //keeps a track of rules
+    let mut idmetavars: Vec<mvar> = vec![];
+    let mut exmetavars: Vec<mvar> = vec![];
+
+    let mut rulename = String::from("");
+    for line in lines {
+        let chars: Vec<char> = line.chars().collect();
+        let firstchar = chars.get(0);
+        let lastchar = chars.last();
+        match (firstchar, lastchar, inmetadec) {
+            (Some('@'), Some('@'), false) => {
+                //starting of @@ block
+                //iter and collect converts from [char] to String
+                if rulename!=""{
+                    plusparsed.push_str(format!("fn {rulename}_plus {{\n {pluscocci} }}\n").as_str());
+                    minusparsed.push_str(format!("fn {rulename}_minus {{\n {minuscocci} }}\n").as_str());
+                }
+
+                rulename = handlerules(&mut rules, chars, lino);
+                pluscocci = String::from("");
+                minuscocci = String::from("");
+                //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
+                inmetadec = true;
+            }
+            (Some('@'), Some('@'), true) => {
+                //end of @@ block
+                //TODO: Handle meta variables
+                inmetadec = false;
+            }
+            (Some('+'), _, false) => {
+                pluscocci.push_str(line.as_str());
+                pluscocci.push('\n');
+                minuscocci.push('\n');
+            }
+            (Some('-'), _, false) => {
+                minuscocci.push_str(line.as_str());
+                minuscocci.push('\n');
+                pluscocci.push('\n');
+            }
+            (_, _, false) => {
+                pluscocci.push_str(line.as_str());
+                pluscocci.push('\n');
+
+                minuscocci.push_str(line.as_str());
+                minuscocci.push('\n');
+            }
+            (_, _, true) => {
+                handlemetavars(&rulename, &mut idmetavars, &mut exmetavars, line);
+                pluscocci.push('\n');
+                minuscocci.push('\n')
+            }
+        }
+        lino += 1;
+    }
+    if inmetadec {
+        syntaxerror!(lino, "Unclosed metavariable declaration block")
+    }
+    //takes care of the last block
+    plusparsed.push_str(format!("fn {rulename}_plus {{\n {pluscocci} }}").as_str());
+    minusparsed.push_str(format!("fn {rulename}_minus {{\n {minuscocci} }}").as_str());
+    //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these functions
+    println!("{minusparsed}");
+}

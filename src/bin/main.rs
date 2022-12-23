@@ -1,4 +1,4 @@
-use coccinelleforrust::{parse_cocci::parse_cocci, wrap::wrap_root};
+use coccinelleforrust::{parse_cocci::{parse_cocci, processcocci}, wrap::wrap_root};
 use std::fs;
 
 fn main() {
@@ -6,5 +6,5 @@ fn main() {
     //    .expect("This shouldnt be empty");
     let contents = fs::read_to_string("./src/bin/test.rs").expect("This shouldnt be empty");
 
-    parse_cocci(&contents);
+    processcocci(&contents);
 }
