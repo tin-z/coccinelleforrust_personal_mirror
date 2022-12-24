@@ -67,25 +67,23 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             let [cond, expr] = tuple_of_2(&mut dep.children);
             match cond.kind() {
                 Tag::BANG => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
-                _ => {syntaxerror!(lino, 
-                                   "Dependance must be a boolean expression")},
+                _ => {
+                    syntaxerror!(lino, "Dependance must be a boolean expression")
+                }
             }
         }
         Tag::BIN_EXPR => {
             let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
             match cond.kind() {
-                Tag::AMP2 =>
-                    dep::AndDep(Box::new((
-                        getdep(rules, lino, lhs),
-                        getdep(rules, lino, rhs),
-                    ))),
-                Tag::PIPE2 =>
-                    dep::OrDep(Box::new((
-                        getdep(rules, lino, lhs),
-                        getdep(rules, lino, rhs),
-                    ))),
-                _ => syntaxerror!(lino, 
-                                  "Dependance must be a boolean expression"),
+                Tag::AMP2 => dep::AndDep(Box::new((
+                    getdep(rules, lino, lhs),
+                    getdep(rules, lino, rhs),
+                ))),
+                Tag::PIPE2 => dep::OrDep(Box::new((
+                    getdep(rules, lino, lhs),
+                    getdep(rules, lino, rhs),
+                ))),
+                _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
         }
         Tag::PATH_EXPR => {
@@ -101,9 +99,7 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             getdep(rules, lino, expr)
         }
         _ => {
-            syntaxerror!(lino, 
-                         "Malformed Rule",
-                         dep.astnode.to_string())
+            syntaxerror!(lino, "Malformed Rule", dep.astnode.to_string())
         }
     }
 }
@@ -143,8 +139,9 @@ fn handlemetavars(
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var.trim() != "" {
-                    exmetavars.push(mvar::new(String::from(rulename), var.trim().to_string()));
+                let var = var.trim();
+                if var != "" {
+                    exmetavars.push(mvar::new(String::from(rulename), var.to_string()));
                 }
             }
         }
@@ -155,8 +152,9 @@ fn handlemetavars(
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                if var.trim() != "" {
-                    idmetavars.push(mvar::new(String::from(rulename), var.trim().to_string()));
+                let var = var.trim();
+                if var != "" {
+                    idmetavars.push(mvar::new(String::from(rulename), var.to_string()));
                 }
             }
         }
@@ -195,85 +193,12 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     name
 }
 
-pub fn parse_cocci(contents: &str) {
+pub fn processcocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 1; //stored line numbers
                       //mutable because I supply it with modifier statements
 
-    let mut plusstmts = String::from("");
-    let mut minusstmts = String::from("");
-
-    let mut rules: Vec<rule> = vec![]; //keeps a track of rules
-    let mut idmetavars: Vec<mvar> = vec![];
-    let mut exmetavars: Vec<mvar> = vec![];
-
-    let mut rulename = String::from("");
-    for line in lines {
-        let chars: Vec<char> = line.chars().collect();
-        let firstchar = chars.get(0);
-        let lastchar = chars.last();
-        match (firstchar, lastchar, inmetadec) {
-            (Some('@'), Some('@'), false) => {
-                //starting of @@ block
-                rulename = handlerules(&mut rules, chars, lino);
-                //iter and collect converts from [char] to String
-                let plusfn = format!("fn {rulename}_plus {{ {plusstmts} }}"); //wrapping the collective statements
-                let minusfn = format!("fn {rulename}_minus {{ {minusstmts} }}"); //into two functions
-                (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
-                inmetadec = true;
-            }
-            (Some('@'), Some('@'), true) => {
-                //end of @@ block
-                //TODO: Handle meta variables
-                plusstmts = String::from("");
-                minusstmts = String::from("");
-                inmetadec = false;
-            }
-            (Some('+'), _, false) => {
-                plusstmts.push_str(format!("/*{lino}*/").as_str());
-                plusstmts.push_str(line.as_str());
-                plusstmts.push('\n');
-            }
-            (Some('-'), _, false) => {
-                minusstmts.push_str(format!("/*{lino}*/").as_str());
-                minusstmts.push_str(line.as_str());
-                minusstmts.push('\n');
-            }
-            (_, _, false) => {
-                if line != "" {
-                    plusstmts.push_str(format!("/*{lino}*/").as_str());
-                    plusstmts.push_str(line.as_str());
-                    plusstmts.push('\n');
-
-                    minusstmts.push_str(format!("/*{lino}*/").as_str());
-                    minusstmts.push_str(line.as_str());
-                    minusstmts.push('\n');
-                }
-            }
-            (_, _, true) => {
-                handlemetavars(&rulename, &mut idmetavars, &mut exmetavars, line);
-            }
-        }
-        lino += 1;
-    }
-    if inmetadec {
-        syntaxerror!(lino, "Unclosed metavariable declaration block")
-    }
-    //takes care of the last block
-    let plusfn = format!("fn {}_plus {{ {} }}", "coccifn", plusstmts);
-    let minusfn = format!("fn {}_min {{ {} }}", "coccifn", minusstmts);
-    (get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these functions
-}
-
-pub fn processcocci(contents: &str){
-    let lines: Vec<String> = contents.lines().map(String::from).collect();
-    let mut inmetadec = false; //checks if in metavar declaration
-    let mut lino = 1; //stored line numbers
-                      //mutable because I supply it with modifier statements
-
-    let mut pluscocci = String::from("");
-    let mut minuscocci = String::from("");
     let mut plusparsed = String::from("\n");
     let mut minusparsed = String::from("\n");
 
@@ -283,50 +208,48 @@ pub fn processcocci(contents: &str){
 
     let mut rulename = String::from("");
     for line in lines {
-        let chars: Vec<char> = line.chars().collect();
+        let chars: Vec<char> = line.trim().chars().collect();
         let firstchar = chars.get(0);
         let lastchar = chars.last();
         match (firstchar, lastchar, inmetadec) {
             (Some('@'), Some('@'), false) => {
                 //starting of @@ block
                 //iter and collect converts from [char] to String
-                if rulename!=""{
-                    plusparsed.push_str(format!("fn {rulename}_plus {{\n {pluscocci} }}\n").as_str());
-                    minusparsed.push_str(format!("fn {rulename}_minus {{\n {minuscocci} }}\n").as_str());
+                if rulename != "" {
+                    plusparsed.push_str("}\n");
+                    minusparsed.push_str("}\n");
                 }
 
                 rulename = handlerules(&mut rules, chars, lino);
-                pluscocci = String::from("");
-                minuscocci = String::from("");
                 //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
                 inmetadec = true;
             }
             (Some('@'), Some('@'), true) => {
-                //end of @@ block
-                //TODO: Handle meta variables
+                plusparsed.push_str(format!("fn {rulename}_plus {{\n").as_str());
+                minusparsed.push_str(format!("fn {rulename}_minus {{\n").as_str());
                 inmetadec = false;
             }
             (Some('+'), _, false) => {
-                pluscocci.push_str(line.as_str());
-                pluscocci.push('\n');
-                minuscocci.push('\n');
+                plusparsed.push_str(line.as_str());
+                plusparsed.push('\n');
+                minusparsed.push('\n');
             }
             (Some('-'), _, false) => {
-                minuscocci.push_str(line.as_str());
-                minuscocci.push('\n');
-                pluscocci.push('\n');
+                minusparsed.push_str(line.as_str());
+                minusparsed.push('\n');
+                plusparsed.push('\n');
             }
             (_, _, false) => {
-                pluscocci.push_str(line.as_str());
-                pluscocci.push('\n');
+                plusparsed.push_str(line.as_str());
+                plusparsed.push('\n');
 
-                minuscocci.push_str(line.as_str());
-                minuscocci.push('\n');
+                minusparsed.push_str(line.as_str());
+                minusparsed.push('\n');
             }
             (_, _, true) => {
                 handlemetavars(&rulename, &mut idmetavars, &mut exmetavars, line);
-                pluscocci.push('\n');
-                minuscocci.push('\n')
+                plusparsed.push('\n');
+                minusparsed.push('\n')
             }
         }
         lino += 1;
@@ -334,9 +257,7 @@ pub fn processcocci(contents: &str){
     if inmetadec {
         syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
-    //takes care of the last block
-    plusparsed.push_str(format!("fn {rulename}_plus {{\n {pluscocci} }}").as_str());
-    minusparsed.push_str(format!("fn {rulename}_minus {{\n {minuscocci} }}").as_str());
-    //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these functions
+    plusparsed.push('}');
+    minusparsed.push('}');
     println!("{minusparsed}");
 }

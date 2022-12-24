@@ -1,4 +1,4 @@
-use coccinelleforrust::{parse_cocci::{parse_cocci, processcocci}, wrap::wrap_root};
+use coccinelleforrust::{parse_cocci::{processcocci}, wrap::wrap_root};
 use std::fs;
 
 fn main() {

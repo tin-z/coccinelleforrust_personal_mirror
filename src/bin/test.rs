@@ -2,7 +2,6 @@
 expression e;
 identifier fun;
 @@
-
 -fun(e);
 +fun(e, e);
 
@@ -22,6 +21,8 @@ expression e;
 identifier fun;
 @@
 
+
+
 -fun(e);
 +fun(e, e);
 
@@ -29,3 +30,4 @@ identifier fun;
 @@
 
 -gh();
++testing(89);
