@@ -221,7 +221,7 @@ pub fn processcocci(contents: &str) {
                 }
 
                 rulename = handlerules(&mut rules, chars, lino);
-                //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); //will work on these nodes
+                //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); 
                 inmetadec = true;
             }
             (Some('@'), Some('@'), true) => {
