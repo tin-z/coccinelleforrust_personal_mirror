@@ -193,7 +193,9 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     name
 }
 
-fn wrap_rules(contents: &str) {}
+fn wrap_rules(contents: &str) {
+    
+}
 
 pub fn processcocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
@@ -227,8 +229,8 @@ pub fn processcocci(contents: &str) {
                 inmetadec = true;
             }
             (Some('@'), Some('@'), true) => {
-                plusparsed.push_str(format!("fn {rulename}_plus {{\n").as_str());
-                minusparsed.push_str(format!("fn {rulename}_minus {{\n").as_str());
+                plusparsed.push_str(format!("fn {rulename}_plus() {{\n").as_str());
+                minusparsed.push_str(format!("fn {rulename}_minus() {{\n").as_str());
                 inmetadec = false;
             }
             (Some('+'), _, false) => {
