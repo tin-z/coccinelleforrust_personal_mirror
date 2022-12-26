@@ -38,6 +38,16 @@ impl Rnode {
     pub fn kind(&self) -> SyntaxKind{
         self.astnode.kind()
     }
+
+    pub fn print_tree(&self, mut pref: &mut String){//stticly debug function    
+        println!("{}{:?}", pref, self.kind());
+        let mut gg = pref.clone();
+        gg.push_str(pref.as_str());
+        for child in &self.children_with_tokens{
+            child.print_tree(&mut gg)
+        }
+    }
+    
 }
 
 #[derive(Clone, PartialEq)]
@@ -45,30 +55,30 @@ pub struct dummy {}
 
 #[derive(Clone, PartialEq)]
 pub struct token_info {
-    tline_start: u32,
-    tline_end: u32,
-    left_offset: u32,
-    right_offset: u32,
+    tline_start: usize,
+    tline_end: usize,
+    left_offset: usize,
+    right_offset: usize,
 }
 
 #[derive(Clone, PartialEq)]
 pub struct position_info {
-    pub line_start: u32,
-    pub line_end: u32,
-    pub logical_start: u32,
-    pub logical_end: u32,
-    pub column: u32,
-    pub offset: u32,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub logical_start: usize,
+    pub logical_end: usize,
+    pub column: usize,
+    pub offset: usize,
 }
 
 impl position_info {
     pub fn new(
-        line_start: u32,
-        line_end: u32,
-        logical_start: u32,
-        logical_end: u32,
-        column: u32,
-        offset: u32,
+        line_start: usize,
+        line_end: usize,
+        logical_start: usize,
+        logical_end: usize,
+        column: usize,
+        offset: usize,
     ) -> position_info {
         position_info {
             line_start: line_start,
@@ -132,7 +142,7 @@ impl info {
 #[derive(Clone, PartialEq)]
 pub struct wrap {
     info: info,
-    index: u32,
+    index: usize,
     pub mcodekind: mcodekind,
     exp_ty: Option<Type>,
     bef_aft: dots_bef_aft,
@@ -147,7 +157,7 @@ impl wrap {
     //Since we are hashing this with Syntax eventually, do we really need the node f
     pub fn new(
         info: info,
-        index: u32,
+        index: usize,
         mcodekind: mcodekind,
         exp_ty: Option<Type>,
         bef_aft: dots_bef_aft,
@@ -171,12 +181,22 @@ impl wrap {
         }
     }
 
-    pub fn getlineno(&self) -> u32 {
+    pub fn getlineno(&self) -> usize {
         self.info.pos_info.line_start + 1
     }
 
     pub fn is_ident(&self) -> bool {
         self.info.isSymbolIdent
+    }
+
+    pub fn set_logilines(&mut self, start: usize, end: usize){
+        self.info.pos_info.logical_start = start;
+        self.info.pos_info.logical_end = end;
+    }
+
+    pub fn getlinenos(&self) -> (usize, usize) {
+        (self.info.pos_info.logical_start + 1,
+            self.info.pos_info.logical_end + 1)
     }
 }
 
@@ -196,12 +216,12 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         }
         _ => {}
     }
-    let pos_info: position_info = position_info::new(
-        sindex.line,
-        eindex.line,
-        sindex.line,
-        eindex.line - (nl as u32),
-        sindex.col,
+    let pos_info: position_info = position_info::new(//all casted to usize because linecol returns u32
+        sindex.line as usize,
+        eindex.line as usize,
+        sindex.line as usize,
+        (eindex.line as usize - nl),
+        sindex.col as usize,
         node.text_range().start().into(),
     );
 
@@ -236,7 +256,7 @@ pub fn wrap_root(contents: &str) -> Rnode {
     let root = SourceFile::parse(contents).tree();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> (Vec<Rnode>, Vec<Rnode>)| -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
-        let (children, children_with_tokens) = df(&node);
+        let (children_with_tokens, children) = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
             astnode: node, //Change this to SyntaxElement

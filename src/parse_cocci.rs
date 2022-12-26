@@ -1,6 +1,6 @@
 #![feature(try_blocks)]
 
-use std::vec;
+use std::{vec, io::Lines};
 
 use parser::SyntaxKind;
 
@@ -44,16 +44,14 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
     match node.kind() {
         Tag::PREFIX_EXPR => {
             //for NOT depends
-            let [cond, expr] = tuple_of_2(&mut dep.children);
+            let [cond, expr] = tuple_of_2(&mut dep.children_with_tokens);
             match cond.kind() {
                 Tag::BANG => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
-                _ => {
-                    syntaxerror!(lino, "Dependance must be a boolean expression")
-                }
+                _ => syntaxerror!(lino, "Dependance must be a boolean expression")
             }
         }
         Tag::BIN_EXPR => {
-            let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
+            let [lhs, cond, rhs] = tuple_of_3(&mut dep.children_with_tokens);
             match cond.kind() {
                 Tag::AMP2 => {
                     dep::AndDep(Box::new((
@@ -79,20 +77,18 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             }
         }
         Tag::PAREN_EXPR => {
-            let expr = &mut dep.children[1];
+            let expr = &mut dep.children_with_tokens[1];
             getdep(rules, lino, expr)
         }
-        _ => {
-            syntaxerror!(lino, "Malformed Rule", dep.astnode.to_string())
-        }
+        _ => syntaxerror!(lino, "Malformed Rule", dep.astnode.to_string())
     }
 }
 
 fn get_blxpr(contents: &str) -> Rnode {
     wrap_root(contents)
-        .children
+        .children_with_tokens
         .swap_remove(0) //Fn
-        .children
+        .children_with_tokens
         .swap_remove(4) //BlockExpr
 }
 
@@ -102,9 +98,9 @@ fn get_expr(contents: &str) -> Rnode {
     println!("contents - {contents}");
 
     get_blxpr(contents) //BlockExpr
-        .children
+        .children_with_tokens
         .swap_remove(0) //StmtList
-        .children
+        .children_with_tokens
         .swap_remove(2) //TailExpr
 }
 
@@ -182,9 +178,7 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
             currrule.setdependson(rules, String::from(booleanexp).trim(), lino);
         }
         (None, None) => {}
-        _ => {
-            syntaxerror!(lino, "")
-        }
+        _ => syntaxerror!(lino, "")
     }
 
     let name = String::from(String::from(&currrule.name));
@@ -193,8 +187,38 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     name
 }
 
-fn wrap_rules(contents: &str) {
-    
+fn get_logilines(mut lino: usize, node: &mut Rnode){
+    println!("into - {:?}", node.kind());
+    if node.kind() == Tag::LITERAL{
+        return;   
+    }
+    for child in &mut node.children_with_tokens{
+        let mut end = 0;
+        let text = child.astnode.to_string();
+        if text.matches('\n').count() == 0{
+            child.wrapper.set_logilines(lino, lino);
+            continue;
+        }
+
+        let lines= text.lines();
+        for line in lines{
+            if line.trim().len() != 0{
+                end+=1;
+            }
+        }
+        if end != 0 {
+            end-=1;
+        }
+        if child.kind() == Tag::WHITESPACE{
+            end = 1;
+        }
+        child.wrapper.set_logilines(lino, lino + end);
+        
+        get_logilines(lino, child);
+        println!("s={:?} -> {}------\n({}, {})", child.kind(), child.astnode.to_string(), lino, lino + end);
+        lino+=end;
+    }
+
 }
 
 pub fn processcocci(contents: &str) {
@@ -265,5 +289,15 @@ pub fn processcocci(contents: &str) {
         plusparsed.push('}');
         minusparsed.push('}');
     }
+
     println!("{minusparsed}");
+    let mut root = wrap_root(
+        &minusparsed
+    );
+
+    get_logilines(0, &mut root);
+    let gg = &root.children_with_tokens[0];
+    println!("{{{}, {}}}", gg.wrapper.getlinenos().0, gg.wrapper.getlinenos().1);
+    
+    
 }

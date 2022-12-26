@@ -1,8 +1,8 @@
 
 
 
-fn rule32_minus {
--fun(e);
+fn rule32_minus() {
++fun(e);
 
 
 
@@ -10,7 +10,7 @@ fn rule32_minus {
 }
 
 
-fn rule13_minus {
+fn rule13_minus() {
 
 -fun(e);
 
@@ -19,7 +19,7 @@ fn rule13_minus {
 }
 
 
-fn rule1_minus {
+fn rule1_minus() {
 
 
 
@@ -27,7 +27,7 @@ fn rule1_minus {
 
 
 }
-fn rule2_minus {
+fn rule2_minus() {
 
 -gh();
 
