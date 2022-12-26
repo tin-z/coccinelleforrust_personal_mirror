@@ -55,14 +55,18 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
         Tag::BIN_EXPR => {
             let [lhs, cond, rhs] = tuple_of_3(&mut dep.children);
             match cond.kind() {
-                Tag::AMP2 => dep::AndDep(Box::new((
-                    getdep(rules, lino, lhs),
-                    getdep(rules, lino, rhs),
-                ))),
-                Tag::PIPE2 => dep::OrDep(Box::new((
-                    getdep(rules, lino, lhs),
-                    getdep(rules, lino, rhs),
-                ))),
+                Tag::AMP2 => {
+                    dep::AndDep(Box::new((
+                        getdep(rules, lino, lhs),
+                        getdep(rules, lino, rhs),
+                    )))
+                }
+                Tag::PIPE2 => {
+                    dep::OrDep(Box::new((
+                        getdep(rules, lino, lhs),
+                        getdep(rules, lino, rhs),
+                    )))
+                }
                 _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
         }
@@ -161,13 +165,12 @@ fn handlemetavars(
 fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
     let mut tokens = decl.trim().split(" ");
-    let rulename = 
-        if let Some(rulename) = tokens.next() {
-            String::from(rulename) //converted &str to String,
-                                //because rule should own its name
-        } else {
-            format!("rule{lino}")
-        }; //if rulename does not exist
+    let rulename = if let Some(rulename) = tokens.next() {
+        String::from(rulename) //converted &str to String,
+                               //because rule should own its name
+    } else {
+        format!("rule{lino}")
+    }; //if rulename does not exist
     let mut currrule = rule::new(rulename);
 
     let sword = tokens.next();
@@ -189,6 +192,8 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
 
     name
 }
+
+fn wrap_rules(contents: &str) {}
 
 pub fn processcocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
@@ -254,7 +259,7 @@ pub fn processcocci(contents: &str) {
     if inmetadec {
         syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
-    if rulename!="" {
+    if rulename != "" {
         plusparsed.push('}');
         minusparsed.push('}');
     }
