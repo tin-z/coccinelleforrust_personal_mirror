@@ -195,22 +195,26 @@ fn get_logilines(mut lino: usize, node: &mut Rnode){
     for child in &mut node.children_with_tokens{
         let mut end = 0;
         let text = child.astnode.to_string();
-        if text.matches('\n').count() == 0{
+        if text.matches('\n').count() == 0{//for single line tokens, set them as so
             child.wrapper.set_logilines(lino, lino);
             continue;
         }
 
-        let lines= text.lines();
-        for line in lines{
-            if line.trim().len() != 0{
-                end+=1;
-            }
-        }
-        if end != 0 {
-            end-=1;
-        }
+        //if there is a block, there can be either
+        //a whitespace block or not
+
+        //if multiline whitespace block, just increment by 1
         if child.kind() == Tag::WHITESPACE{
             end = 1;
+        }
+        else {
+            let lines= text.lines();
+            for line in lines{
+                if line.trim().len() != 0{
+                    end+=1;
+                }
+            }
+            end -= 1;
         }
         child.wrapper.set_logilines(lino, lino + end);
         
