@@ -15,7 +15,6 @@ macro_rules! syntaxerror {
     };
 }
 
-
 pub fn tuple_of_2<T>(v: &mut Vec<T>) -> [&mut T; 2] {
     match &mut v[..2] {
         [a, b] => [a, b],

@@ -3,10 +3,6 @@
 use std::vec;
 
 use parser::SyntaxKind;
-use syntax::{
-    ast::{BinExpr, BinaryOp, BlockExpr, Expr, Fn, LogicOp, UnaryOp},
-    AstNode, SourceFile,
-};
 
 use crate::{
     syntaxerror,
@@ -30,10 +26,10 @@ struct mvar {
 }
 
 impl mvar {
-    pub fn new(rule: String, var: String) -> mvar {
+    pub fn new(rule: &str, var: &str) -> mvar {
         mvar {
-            rulename: rule,
-            varname: var,
+            rulename: var.to_string(),
+            varname: var.to_string(),
         }
     }
 }
@@ -41,22 +37,6 @@ impl mvar {
 struct rule {
     name: String,
     dependson: dep,
-}
-
-impl rule {
-    //We may need to keep a track of rules?
-    pub fn new(name: String) -> rule {
-        rule {
-            name: name,
-            dependson: dep::NoDep,
-        }
-    }
-
-    pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
-        //rule is trimmed
-        let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = getdep(rules, lino, &mut get_expr(fnstr.as_str()))
-    }
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -117,15 +97,31 @@ fn get_expr(contents: &str) -> Rnode {
     //binary expression exists
     println!("contents - {contents}");
 
-    get_blxpr(contents)
+    get_blxpr(contents) //BlockExpr
         .children
-        .swap_remove(0)
+        .swap_remove(0) //StmtList
         .children
-        .swap_remove(2)
+        .swap_remove(2) //TailExpr
+}
+
+impl rule {
+    //We may need to keep a track of rules?
+    pub fn new(name: String) -> rule {
+        rule {
+            name: name,
+            dependson: dep::NoDep,
+        }
+    }
+
+    pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
+        //rule is trimmed
+        let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
+        self.dependson = getdep(rules, lino, &mut get_expr(fnstr.as_str()))
+    }
 }
 
 fn handlemetavars(
-    rulename: &String,
+    rulename: &str,
     idmetavars: &mut Vec<mvar>,
     exmetavars: &mut Vec<mvar>,
     line: String,
@@ -141,7 +137,7 @@ fn handlemetavars(
                 //TODO
                 let var = var.trim();
                 if var != "" {
-                    exmetavars.push(mvar::new(String::from(rulename), var.to_string()));
+                    exmetavars.push(mvar::new(rulename, var));
                 }
             }
         }
@@ -154,7 +150,7 @@ fn handlemetavars(
                 //TODO
                 let var = var.trim();
                 if var != "" {
-                    idmetavars.push(mvar::new(String::from(rulename), var.to_string()));
+                    idmetavars.push(mvar::new(rulename, var));
                 }
             }
         }
@@ -165,12 +161,13 @@ fn handlemetavars(
 fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
     let mut tokens = decl.trim().split(" ");
-    let rulename = if let Some(rulename) = tokens.next() {
-        String::from(rulename) //converted &str to String,
-                               //because rule should own its name
-    } else {
-        format!("rule{lino}")
-    }; //if rulename does not exist
+    let rulename = 
+        if let Some(rulename) = tokens.next() {
+            String::from(rulename) //converted &str to String,
+                                //because rule should own its name
+        } else {
+            format!("rule{lino}")
+        }; //if rulename does not exist
     let mut currrule = rule::new(rulename);
 
     let sword = tokens.next();
@@ -221,7 +218,7 @@ pub fn processcocci(contents: &str) {
                 }
 
                 rulename = handlerules(&mut rules, chars, lino);
-                //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str())); 
+                //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str()));
                 inmetadec = true;
             }
             (Some('@'), Some('@'), true) => {
@@ -257,7 +254,9 @@ pub fn processcocci(contents: &str) {
     if inmetadec {
         syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
-    plusparsed.push('}');
-    minusparsed.push('}');
+    if rulename!="" {
+        plusparsed.push('}');
+        minusparsed.push('}');
+    }
     println!("{minusparsed}");
 }
