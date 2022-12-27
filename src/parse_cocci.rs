@@ -35,11 +35,17 @@ impl mvar {
     }
 }
 
+struct patch{
+    minus: Rnode,
+    plus: Rnode
+}
+
 struct rule {
     name: String,
     dependson: dep,
     expmetavars: Vec<String>,
     idmetavars: Vec<String>,
+    patch: usize//index for the patch vector
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -109,12 +115,13 @@ fn get_expr(contents: &str) -> Rnode {
 
 impl rule {
     //We may need to keep a track of rules?
-    pub fn new(name: String) -> rule {
+    pub fn new(name: String, ind: usize) -> rule {
         rule {
             name: name,
             dependson: dep::NoDep,
             expmetavars: vec![],
-            idmetavars: vec![]
+            idmetavars: vec![],
+            patch: ind
         }
     }
 
@@ -163,7 +170,7 @@ fn handlemetavars(
     }
 }
 
-fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
+fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, ind:usize, lino: usize) -> String {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
     let mut tokens = decl.trim().split(" ");
     let rulename = if let Some(rulename) = tokens.next() {
@@ -172,7 +179,7 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
     } else {
         format!("rule{lino}")
     }; //if rulename does not exist
-    let mut currrule = rule::new(rulename);
+    let mut currrule = rule::new(rulename, ind);
 
     let sword = tokens.next();
     let tword = tokens.next();
@@ -229,6 +236,22 @@ fn get_logilines(mut lino: usize, node: &mut Rnode){
 
 }
 
+fn set_patches(patches: &mut Vec<patch>, plusparsed: &str, minusparsed: &str){
+    let mut pchildren = wrap_root(plusparsed).children_with_tokens;
+    let mut mchildren = wrap_root(minusparsed).children_with_tokens;
+    assert!(pchildren.len() == mchildren.len());
+    let len = pchildren.len();
+
+    for i in 0..len{
+        let currpatch = patch{
+            plus: pchildren.swap_remove(0),
+            minus: mchildren.swap_remove(0)
+        };
+
+        patches.push(currpatch);
+    }
+}
+
 pub fn processcocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
@@ -238,19 +261,24 @@ pub fn processcocci(contents: &str) {
     let mut plusparsed = String::from("\n");
     let mut minusparsed = String::from("\n");
 
-    let mut rules: Vec<rule> = vec![]; //keeps a track of rules
-    let mut idmetavars: Vec<mvar> = vec![];
-    let mut exmetavars: Vec<mvar> = vec![];
+    let mut rules: Vec<rule> = vec![]; //list of rule headers in cocci file
+    let mut patches: Vec<patch> = vec![];//list of associated patches
+    
+    let mut idmetavars: Vec<mvar> = vec![];//tmp
+    let mut exmetavars: Vec<mvar> = vec![];//tmp
 
     let mut rulename = String::from("");
+    let mut currruleid = 0;
     for line in lines {
         let chars: Vec<char> = line.trim().chars().collect();
         let firstchar = chars.get(0);
         let lastchar = chars.last();
+        
         match (firstchar, lastchar, inmetadec) {
             (Some('@'), Some('@'), false) => {
                 //starting of @@ block
                 //iter and collect converts from [char] to String
+
                 if rulename != "" {
                     plusparsed.push_str("}\n");
                     minusparsed.push_str("}\n");
@@ -259,9 +287,11 @@ pub fn processcocci(contents: &str) {
                     rule.idmetavars = idmetavars.into_iter().map(|x| x.varname).collect();
                     exmetavars = vec![];
                     idmetavars = vec![];
+
+                    currruleid+=1;
                 }
 
-                rulename = handlerules(&mut rules, chars, lino);
+                rulename = handlerules(&mut rules, chars, currruleid, lino);
                 //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str()));
                 inmetadec = true;
             }
@@ -288,7 +318,7 @@ pub fn processcocci(contents: &str) {
                 minusparsed.push('\n');
             }
             (_, _, true) => {
-                handlemetavars(rules.len()-1, &mut idmetavars, &mut exmetavars, line);
+                handlemetavars(currruleid, &mut idmetavars, &mut exmetavars, line);
                 plusparsed.push('\n');
                 minusparsed.push('\n')
             }
@@ -309,6 +339,6 @@ pub fn processcocci(contents: &str) {
     );
 
     get_logilines(0, &mut root);
-    
+    set_patches(&mut patches, plusparsed.as_str(), minusparsed.as_str());
     
 }
