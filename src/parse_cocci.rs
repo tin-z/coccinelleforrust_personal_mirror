@@ -45,7 +45,7 @@ struct rule {
     dependson: dep,
     expmetavars: Vec<String>,
     idmetavars: Vec<String>,
-    patch: usize//index for the patch vector
+    patch: patch//index for the patch vector
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -101,6 +101,16 @@ fn get_blxpr(contents: &str) -> Rnode {
         .swap_remove(4) //BlockExpr
 }
 
+fn get_blxpr_arb(contents: &str) -> Rnode {
+    let root = wrap_root(contents);
+    for mut child in root.children_with_tokens{
+        if child.kind()==Tag::FN{
+            return child.children_with_tokens.swap_remove(4)//BlockExpr
+        }
+    }
+    panic!("contents does not have a function")
+}
+
 fn get_expr(contents: &str) -> Rnode {
     //assumes that a
     //binary expression exists
@@ -115,21 +125,21 @@ fn get_expr(contents: &str) -> Rnode {
 
 impl rule {
     //We may need to keep a track of rules?
-    pub fn new(name: String, ind: usize) -> rule {
+    pub fn new(name: String, patch: patch) -> rule {
         rule {
             name: name,
             dependson: dep::NoDep,
             expmetavars: vec![],
             idmetavars: vec![],
-            patch: ind
+            patch: patch
         }
     }
+}
 
-    pub fn setdependson(&mut self, rules: &Vec<rule>, rule: &str, lino: usize) {
-        //rule is trimmed
-        let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
-        self.dependson = getdep(rules, lino, &mut get_expr(fnstr.as_str()))
-    }
+fn getdependson(rules: &Vec<rule>, rule: &str, lino: usize) -> dep{
+    //rule is trimmed
+    let fnstr = format!("fn {}_plus {{ {} }}", "coccifn", rule);
+    getdep(rules, lino, &mut get_expr(fnstr.as_str()))
 }
 
 fn handlemetavars(
@@ -170,33 +180,30 @@ fn handlemetavars(
     }
 }
 
-fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, ind:usize, lino: usize) -> String {
+fn handlerules(rules: &Vec<rule>, chars: Vec<char>, ind:usize, lino: usize) -> (String, dep) {
     let decl: String = chars[1..chars.len() - 1].iter().collect();
     let mut tokens = decl.trim().split(" ");
-    let rulename = if let Some(rulename) = tokens.next() {
-        String::from(rulename) //converted &str to String,
+    let currrulename = if let Some(currrulename) = tokens.next() {
+        String::from(currrulename) //converted &str to String,
                                //because rule should own its name
     } else {
         format!("rule{lino}")
-    }; //if rulename does not exist
-    let mut currrule = rule::new(rulename, ind);
+    }; //if currrulename does not exist
 
     let sword = tokens.next();
     let tword = tokens.next();
 
+    let depends = 
     match (sword, tword) {
         (Some("depends"), Some("on")) => {
             let booleanexp: String = tokens.collect();
-            currrule.setdependson(rules, String::from(booleanexp).trim(), lino);
+            getdependson(rules, String::from(booleanexp).trim(), lino)
         }
-        (None, None) => {}
+        (None, None) => { dep::NoDep }
         _ => syntaxerror!(lino, "")
-    }
+    };
 
-    let name = String::from(String::from(&currrule.name));
-    rules.push(currrule);
-
-    name
+    (currrulename, depends)
 }
 
 fn get_logilines(mut lino: usize, node: &mut Rnode){
@@ -236,20 +243,13 @@ fn get_logilines(mut lino: usize, node: &mut Rnode){
 
 }
 
-fn set_patches(patches: &mut Vec<patch>, plusparsed: &str, minusparsed: &str){
-    let mut pchildren = wrap_root(plusparsed).children_with_tokens;
-    let mut mchildren = wrap_root(minusparsed).children_with_tokens;
-    assert!(pchildren.len() == mchildren.len());
-    let len = pchildren.len();
-
-    for i in 0..len{
-        let currpatch = patch{
-            plus: pchildren.swap_remove(0),
-            minus: mchildren.swap_remove(0)
-        };
-
-        patches.push(currpatch);
+fn getpatch(plusparsed: &str, minusparsed: &str) -> patch{
+    patch{
+        plus: get_blxpr_arb(plusparsed),
+        minus: get_blxpr_arb(minusparsed)
     }
+    
+    
 }
 
 pub fn processcocci(contents: &str) {
@@ -267,8 +267,9 @@ pub fn processcocci(contents: &str) {
     let mut idmetavars: Vec<mvar> = vec![];//tmp
     let mut exmetavars: Vec<mvar> = vec![];//tmp
 
-    let mut rulename = String::from("");
+    let mut currrulename = String::from("");
     let mut currruleid = 0;
+    let mut currdepends = dep::NoDep;
     for line in lines {
         let chars: Vec<char> = line.trim().chars().collect();
         let firstchar = chars.get(0);
@@ -279,25 +280,32 @@ pub fn processcocci(contents: &str) {
                 //starting of @@ block
                 //iter and collect converts from [char] to String
 
-                if rulename != "" {
+                if currrulename != "" {
                     plusparsed.push_str("}\n");
                     minusparsed.push_str("}\n");
-                    let rule = rules.last_mut().unwrap();
-                    rule.expmetavars = exmetavars.into_iter().map(|x| x.varname).collect();
-                    rule.idmetavars = idmetavars.into_iter().map(|x| x.varname).collect();
+
+                    let currpatch = getpatch(plusparsed.as_str(), minusparsed.as_str());
+                    let rule = rule{
+                        name: currrulename,
+                        dependson: currdepends,
+                        expmetavars: exmetavars.into_iter().map(|x| x.varname).collect(),
+                        idmetavars: idmetavars.into_iter().map(|x| x.varname).collect(),
+                        patch: currpatch
+                    };
                     exmetavars = vec![];
                     idmetavars = vec![];
-
+                    rules.push(rule);
+                    
                     currruleid+=1;
                 }
 
-                rulename = handlerules(&mut rules, chars, currruleid, lino);
+                (currrulename, currdepends) = handlerules(&mut rules, chars, currruleid, lino);
                 //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str()));
                 inmetadec = true;
             }
             (Some('@'), Some('@'), true) => {
-                plusparsed.push_str(format!("fn {rulename}_plus() {{\n").as_str());
-                minusparsed.push_str(format!("fn {rulename}_minus() {{\n").as_str());
+                plusparsed.push_str(format!("fn {currrulename}_plus() {{\n").as_str());
+                minusparsed.push_str(format!("fn {currrulename}_minus() {{\n").as_str());
                 inmetadec = false;
             }
             (Some('+'), _, false) => {
@@ -328,7 +336,7 @@ pub fn processcocci(contents: &str) {
     if inmetadec {
         syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
-    if rulename != "" {
+    if currrulename != "" {
         plusparsed.push('}');
         minusparsed.push('}');
     }
@@ -339,6 +347,5 @@ pub fn processcocci(contents: &str) {
     );
 
     get_logilines(0, &mut root);
-    set_patches(&mut patches, plusparsed.as_str(), minusparsed.as_str());
     
 }
