@@ -21,14 +21,15 @@ enum dep {
     AntiDep(Box<dep>),
 }
 struct mvar {
-    rulename: String,
+    ruleid: usize,
     varname: String,
 }
 
 impl mvar {
-    pub fn new(rule: &str, var: &str) -> mvar {
+    pub fn new(ruleid: usize, var: &str) -> mvar {
         mvar {
-            rulename: var.to_string(),
+            ruleid: ruleid,//ruleid is because the array of mvars will be
+            //put inside a rule data structure
             varname: var.to_string(),
         }
     }
@@ -37,6 +38,8 @@ impl mvar {
 struct rule {
     name: String,
     dependson: dep,
+    expmetavars: Vec<String>,
+    idmetavars: Vec<String>,
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -110,6 +113,8 @@ impl rule {
         rule {
             name: name,
             dependson: dep::NoDep,
+            expmetavars: vec![],
+            idmetavars: vec![]
         }
     }
 
@@ -121,7 +126,7 @@ impl rule {
 }
 
 fn handlemetavars(
-    rulename: &str,
+    ruleid: usize,
     idmetavars: &mut Vec<mvar>,
     exmetavars: &mut Vec<mvar>,
     line: String,
@@ -137,7 +142,7 @@ fn handlemetavars(
                 //TODO
                 let var = var.trim();
                 if var != "" {
-                    exmetavars.push(mvar::new(rulename, var));
+                    exmetavars.push(mvar::new(ruleid, var));
                 }
             }
         }
@@ -150,7 +155,7 @@ fn handlemetavars(
                 //TODO
                 let var = var.trim();
                 if var != "" {
-                    idmetavars.push(mvar::new(rulename, var));
+                    idmetavars.push(mvar::new(ruleid, var));
                 }
             }
         }
@@ -188,7 +193,6 @@ fn handlerules(rules: &mut Vec<rule>, chars: Vec<char>, lino: usize) -> String {
 }
 
 fn get_logilines(mut lino: usize, node: &mut Rnode){
-    println!("into - {:?}", node.kind());
     if node.kind() == Tag::LITERAL{
         return;   
     }
@@ -208,6 +212,7 @@ fn get_logilines(mut lino: usize, node: &mut Rnode){
             end = 1;
         }
         else {
+            //else if it is a block cal
             let lines= text.lines();
             for line in lines{
                 if line.trim().len() != 0{
@@ -219,7 +224,6 @@ fn get_logilines(mut lino: usize, node: &mut Rnode){
         child.wrapper.set_logilines(lino, lino + end);
         
         get_logilines(lino, child);
-        println!("s={:?} -> {}------\n({}, {})", child.kind(), child.astnode.to_string(), lino, lino + end);
         lino+=end;
     }
 
@@ -250,6 +254,11 @@ pub fn processcocci(contents: &str) {
                 if rulename != "" {
                     plusparsed.push_str("}\n");
                     minusparsed.push_str("}\n");
+                    let rule = rules.last_mut().unwrap();
+                    rule.expmetavars = exmetavars.into_iter().map(|x| x.varname).collect();
+                    rule.idmetavars = idmetavars.into_iter().map(|x| x.varname).collect();
+                    exmetavars = vec![];
+                    idmetavars = vec![];
                 }
 
                 rulename = handlerules(&mut rules, chars, lino);
@@ -279,7 +288,7 @@ pub fn processcocci(contents: &str) {
                 minusparsed.push('\n');
             }
             (_, _, true) => {
-                handlemetavars(&rulename, &mut idmetavars, &mut exmetavars, line);
+                handlemetavars(rules.len()-1, &mut idmetavars, &mut exmetavars, line);
                 plusparsed.push('\n');
                 minusparsed.push('\n')
             }
@@ -300,8 +309,6 @@ pub fn processcocci(contents: &str) {
     );
 
     get_logilines(0, &mut root);
-    let gg = &root.children_with_tokens[0];
-    println!("{{{}, {}}}", gg.wrapper.getlinenos().0, gg.wrapper.getlinenos().1);
     
     
 }
