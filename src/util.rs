@@ -13,6 +13,12 @@ macro_rules! syntaxerror {
                 $err,
                 $lino)
     };
+    ($err:expr, $name:expr) => {
+        panic!("{:?}: {:?}",
+                $name,
+                $err,
+                $lino)
+    };
 }
 
 pub fn tuple_of_2<T>(v: &mut Vec<T>) -> [&mut T; 2] {

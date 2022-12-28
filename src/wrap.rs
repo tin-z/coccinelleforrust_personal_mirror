@@ -140,13 +140,20 @@ impl info {
 }
 
 #[derive(Clone, PartialEq)]
+pub enum metatype{
+    NoMeta,
+    Exp,
+    Id
+}
+
+#[derive(Clone, PartialEq)]
 pub struct wrap {
     info: info,
     index: usize,
     pub mcodekind: mcodekind,
     exp_ty: Option<Type>,
     bef_aft: dots_bef_aft,
-    true_if_meta: bool,
+    pub metatype: metatype,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
@@ -161,7 +168,7 @@ impl wrap {
         mcodekind: mcodekind,
         exp_ty: Option<Type>,
         bef_aft: dots_bef_aft,
-        true_if_meta: bool,
+        metatype: metatype,
         true_if_arg: bool,
         true_if_test: bool,
         true_if_test_exp: bool,
@@ -173,7 +180,7 @@ impl wrap {
             mcodekind: mcodekind,
             exp_ty: exp_ty,
             bef_aft: bef_aft,
-            true_if_meta: true_if_meta,
+            metatype: metatype,
             true_if_arg: true_if_arg,
             true_if_test: true_if_test,
             true_if_test_exp: true_if_test_exp,
@@ -241,7 +248,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         mcodekind::MIXED(),
         None, //will be filled later with type inference
         dots_bef_aft {},
-        false,
+        metatype::NoMeta,
         false,
         false,
         false,

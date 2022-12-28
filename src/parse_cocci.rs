@@ -7,7 +7,7 @@ use parser::SyntaxKind;
 use crate::{
     syntaxerror,
     util::{tuple_of_2, tuple_of_3},
-    wrap::{wrap_root, Rnode},
+    wrap::{wrap_root, Rnode, metatype},
 };
 
 type Tag = SyntaxKind;
@@ -20,19 +20,10 @@ enum dep {
     OrDep(Box<(dep, dep)>),
     AntiDep(Box<dep>),
 }
+#[derive(PartialEq)]
 struct mvar {
     ruleid: usize,
     varname: String,
-}
-
-impl mvar {
-    pub fn new(ruleid: usize, var: &str) -> mvar {
-        mvar {
-            ruleid: ruleid,//ruleid is because the array of mvars will be
-            //put inside a rule data structure
-            varname: var.to_string(),
-        }
-    }
 }
 
 struct patch{
@@ -143,10 +134,10 @@ fn getdependson(rules: &Vec<rule>, rule: &str, lino: usize) -> dep{
 }
 
 fn handlemetavars(
-    ruleid: usize,
-    idmetavars: &mut Vec<mvar>,
-    exmetavars: &mut Vec<mvar>,
+    idmetavars: &mut Vec<String>,
+    exmetavars: &mut Vec<String>,
     line: String,
+    lino: usize
 ) {
     //rule here is usize because this does not represent the
     //name of the rule but the index at which it was encountered
@@ -157,22 +148,39 @@ fn handlemetavars(
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                let var = var.trim();
+                let var = var.trim().to_string();
                 if var != "" {
-                    exmetavars.push(mvar::new(ruleid, var));
+                    if !exmetavars.contains(&var){
+                        exmetavars.push(var);
+                    }
+                    else{
+                        syntaxerror!(
+                            lino,
+                            format!(
+                            "Redefining expresson meta-varaible {}", var
+                        ));
+                    }
                 }
             }
         }
         "identifier" => {
-            //can expressions have the same name as identifiers?
-            //Would it not be better to create two seperate lists
-            //for ident and exp metavariables?
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
-                let var = var.trim();
+                let var = var.trim().to_string();
                 if var != "" {
-                    idmetavars.push(mvar::new(ruleid, var));
+                    if !idmetavars.contains(&var) &&
+                        !exmetavars.contains(&var){//basically push it if it has
+                                                   //not been declared before
+                        idmetavars.push(var);
+                    }
+                    else{
+                        syntaxerror!(
+                            lino,
+                            format!(
+                            "Redefining identifier meta-varaible {}", var
+                        ));
+                    }
                 }
             }
         }
@@ -206,7 +214,7 @@ fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (String, dep
     (currrulename, depends)
 }
 
-fn get_logilines(mut lino: usize, node: &mut Rnode){
+fn flag_logilines(mut lino: usize, node: &mut Rnode){
     if node.kind() == Tag::LITERAL{
         return;   
     }
@@ -237,7 +245,7 @@ fn get_logilines(mut lino: usize, node: &mut Rnode){
         }
         child.wrapper.set_logilines(lino, lino + end);
         
-        get_logilines(lino, child);
+        flag_logilines(lino, child);
         lino+=end;
     }
 
@@ -255,6 +263,35 @@ fn getpatch(plusparsed: &str, minusparsed: &str, llino: usize) -> patch{
     
 }
 
+fn ismetavar(rule: &mut rule, node: &mut Rnode) -> metatype{
+    let varname = node.astnode.to_string();
+    for var in &rule.expmetavars{
+        if varname.eq(var){
+            return metatype::Exp
+        }
+    }
+    for var in &rule.expmetavars{
+        if varname.eq(var){
+            return metatype::Id
+        }
+    }
+    metatype::NoMeta
+}
+
+fn flag_metavars(rule: &mut rule, node: &mut Rnode){
+    for mut child in node.children_with_tokens.iter_mut(){
+        match (child.kind(), ismetavar(rule, child)){
+            (Tag::PATH_EXPR, metatype::NoMeta) => {}
+            (Tag::PATH_EXPR, a) => {
+                child.wrapper.metatype = a;
+            }
+            _ => {
+                flag_metavars(rule, child);
+            }
+        }
+    }
+}
+
 pub fn processcocci(contents: &str) {
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
@@ -267,8 +304,8 @@ pub fn processcocci(contents: &str) {
     let mut rules: Vec<rule> = vec![]; //list of rule headers in cocci file
     let mut patches: Vec<patch> = vec![];//list of associated patches
     
-    let mut idmetavars: Vec<mvar> = vec![];//tmp
-    let mut exmetavars: Vec<mvar> = vec![];//tmp
+    let mut idmetavars: Vec<String> = vec![];//tmp
+    let mut exmetavars: Vec<String> = vec![];//tmp
 
     let mut currrulename = String::from("");
     let mut lastruleline = 0;
@@ -292,8 +329,8 @@ pub fn processcocci(contents: &str) {
                     let rule = rule{
                         name: currrulename,
                         dependson: currdepends,
-                        expmetavars: exmetavars.into_iter().map(|x| x.varname).collect(),
-                        idmetavars: idmetavars.into_iter().map(|x| x.varname).collect(),
+                        expmetavars: exmetavars.into_iter().map(|x| x).collect(),
+                        idmetavars: idmetavars.into_iter().map(|x| x).collect(),
                         patch: currpatch
                     };
 
@@ -334,7 +371,7 @@ pub fn processcocci(contents: &str) {
                 minusparsed.push('\n');
             }
             (_, _, true) => {
-                handlemetavars(0, &mut idmetavars, &mut exmetavars, line);
+                handlemetavars(&mut idmetavars, &mut exmetavars, line, lino);
                 plusparsed.push('\n');
                 minusparsed.push('\n')
             }
@@ -352,8 +389,8 @@ pub fn processcocci(contents: &str) {
         let rule = rule{
             name: currrulename,
             dependson: currdepends,
-            expmetavars: exmetavars.into_iter().map(|x| x.varname).collect(),
-            idmetavars: idmetavars.into_iter().map(|x| x.varname).collect(),
+            expmetavars: exmetavars.into_iter().collect(),
+            idmetavars: idmetavars.into_iter().collect(),
             patch: currpatch
         };
         rules.push(rule);
@@ -362,6 +399,6 @@ pub fn processcocci(contents: &str) {
         &minusparsed
     );
 
-    get_logilines(0, &mut root);
+    flag_logilines(0, &mut root);
     
 }
