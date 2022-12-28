@@ -8,7 +8,6 @@ use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 pub struct Rnode {
     pub wrapper: wrap,
     pub astnode: SyntaxElement,
-    pub children: Vec<Rnode>,
     pub children_with_tokens: Vec<Rnode>
 }
 
@@ -18,13 +17,12 @@ impl Rnode {
         Rnode {
             wrapper: wrapper,
             astnode: syntax,
-            children: children,
             children_with_tokens: children_with_tokens
         }
     }
 
-    pub fn set_children(&mut self, children: Vec<Rnode>) {
-        self.children = children
+    pub fn set_children_with_tokens(&mut self, children: Vec<Rnode>) {
+        self.children_with_tokens = children
     }
 
     pub fn tonode(self) -> SyntaxNode{
@@ -261,13 +259,12 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
 pub fn wrap_root(contents: &str) -> Rnode {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> (Vec<Rnode>, Vec<Rnode>)| -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode> | -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
-        let (children_with_tokens, children) = df(&node);
+        let children_with_tokens = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
             astnode: node, //Change this to SyntaxElement
-            children: children,
             children_with_tokens: children_with_tokens
         };
         rnode
