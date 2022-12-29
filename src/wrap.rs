@@ -137,7 +137,7 @@ impl info {
     }
 }
 
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, PartialEq, Copy, Debug)]
 pub enum metatype{
     NoMeta,
     Exp,

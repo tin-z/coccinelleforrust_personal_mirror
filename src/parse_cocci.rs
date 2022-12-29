@@ -129,7 +129,7 @@ fn tometatype(ty: &str) -> metatype {
     }
 }
 
-fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: usize) {
+fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: &str, lino: usize) {
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     let ty = tokens.next().unwrap().trim();
     let mtype = tometatype(ty);
@@ -155,8 +155,7 @@ fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: u
     }
 }
 
-fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (Name, dep) {
-    let decl: Name = chars[1..chars.len() - 1].iter().collect();
+fn handlerules(rules: &Vec<rule>, decl: Name, lino: usize) -> (Name, dep) {
     let mut tokens = decl.trim().split(" ");
     let currrulename = if let Some(currrulename) = tokens.next() {
         Name::from(currrulename) //converted &str to Name,
@@ -184,7 +183,6 @@ fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (Name, dep) 
 fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize) -> patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
-    println!("{llino}");
     patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
@@ -204,7 +202,6 @@ fn ismetavar(rule: &mut rule, node: &mut Rnode) -> metatype {
 fn flag_metavars(rule: &mut rule, node: &mut Rnode) {
     for mut child in node.children_with_tokens.iter_mut() {
         match (child.kind(), ismetavar(rule, child)) {
-            (Tag::PATH_EXPR, metatype::NoMeta) => {}
             (Tag::PATH_EXPR, a) => {
                 child.wrapper.metatype = a;
             }
@@ -216,7 +213,7 @@ fn flag_metavars(rule: &mut rule, node: &mut Rnode) {
 }
 
 pub fn processcocci(contents: &str) -> Vec<rule> {
-    let lines: Vec<Name> = contents.lines().map(Name::from).collect();
+    let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 1; //stored line numbers
                       //mutable because I supply it with modifier statements
@@ -230,79 +227,82 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
     let mut currrulename = Name::from("");
     let mut lastruleline = 0;
     let mut currdepends = dep::NoDep;
-    for line in lines {
-        let chars: Vec<char> = line.trim().chars().collect();
-        let firstchar = chars.get(0);
-        let lastchar = chars.last();
+    blocks.remove(0);//throwing away the first part before the first @
+    let nrules = blocks.len()/4; //this should always be an integer if case of a proper cocci file
+    //if it fails we will find out in the next for loop
 
-        match (firstchar, lastchar, inmetadec) {
-            //TODO change to two loop-functions
-            (Some('@'), Some('@'), false) => {
-                //starting of @@ block
-                //iter and collect converts from [char] to Name
+    //TODO line numbers matching properly
 
-                if currrulename != "" {
-                    //end of the previous rule
-                    plusbuf.push_str("}\n");
-                    minusbuf.push_str("}\n");
+    for i in 0..nrules {
+        let mut block = blocks[i*4];
+        block = block.trim();
 
-                    let currpatch = getpatch(plusbuf.as_str(), minusbuf.as_str(), lastruleline);
-                    let rule = rule {
-                        name: currrulename,
-                        dependson: currdepends,
-                        metavars: metavars,
-                        patch: currpatch,
-                    };
+        //Rule declaration
+        if currrulename != "" {
+            //end of the previous rule
+            plusbuf.push_str("}\n");
+            minusbuf.push_str("}\n");
 
-                    metavars = vec![];
-                    plusbuf = Name::from("");
-                    minusbuf = Name::from("");
+            let currpatch = getpatch(plusbuf.as_str(), minusbuf.as_str(), lastruleline);
+            let rule = rule {
+                name: currrulename,
+                dependson: currdepends,
+                metavars: metavars,
+                patch: currpatch,
+            };
 
-                    //flag_metavars(&mut rule, &mut rule.patch.plus);
-                    //flag_metavars(&mut rule, &mut rule.patch.minus);
-                    rules.push(rule);
+            metavars = vec![];
+            plusbuf = Name::from("");
+            minusbuf = Name::from("");
 
-                    lastruleline = lino;
+            //flag_metavars(&mut rule, &mut rule.patch.plus);
+            //flag_metavars(&mut rule, &mut rule.patch.minus);
+            rules.push(rule);
+            println!("{}", rules.last().unwrap().patch.minus.astnode.to_string());
+            lastruleline = lino;
+        }
+
+        (currrulename, currdepends) = handlerules(&mut rules, String::from(block), lino);
+
+        //actual meta vars
+        block = blocks[i*4+1];
+        for line in block.lines() {
+            if line == "" { continue; }
+            handlemetavars(&currrulename, &mut metavars, line.trim(), lino);
+            plusbuf.push_str("\n"); 
+            minusbuf.push_str("\n");
+        }
+        assert!(blocks[i*4+2] == "");
+        
+        //start of function
+        plusbuf.push_str(format!("fn {currrulename}_plus() {{\n").as_str());
+        minusbuf.push_str(format!("fn {currrulename}_minus() {{\n").as_str());
+
+        //modifiers
+        block = blocks[i*4+3];
+        for line in block.lines(){
+            match line.chars().next(){
+                Some('+') => {
+                    plusbuf.push(' ');
+                    plusbuf.push_str(&line[1..]);
+                    plusbuf.push('\n');
+                    minusbuf.push('\n');
+                },
+                Some('-') => {
+                    minusbuf.push(' ');
+                    minusbuf.push_str(&line[1..]);
+                    minusbuf.push('\n');
+                    plusbuf.push('\n');
+                },
+                _ => {
+                    plusbuf.push_str(&line[..]);
+                    plusbuf.push('\n');
+    
+                    minusbuf.push_str(&line[..]);
+                    minusbuf.push('\n');
                 }
-
-                (currrulename, currdepends) = handlerules(&mut rules, chars, lino);
-                //(get_blxpr(plusfn.as_str()), get_blxpr(minusfn.as_str()));
-                inmetadec = true;
-            }
-            (Some('@'), Some('@'), true) => {
-                plusbuf.push_str(format!("fn {currrulename}_plus() {{\n").as_str());
-                minusbuf.push_str(format!("fn {currrulename}_minus() {{\n").as_str());
-                inmetadec = false;
-            }
-            (Some('+'), _, false) => {
-                plusbuf.push(' ');
-                plusbuf.push_str(&line[1..]);
-                plusbuf.push('\n');
-                minusbuf.push('\n');
-            }
-            (Some('-'), _, false) => {
-                minusbuf.push(' ');
-                minusbuf.push_str(&line[1..]);
-                minusbuf.push('\n');
-                plusbuf.push('\n');
-            }
-            (_, _, false) => {
-                plusbuf.push_str(&line[..]);
-                plusbuf.push('\n');
-
-                minusbuf.push_str(&line[..]);
-                minusbuf.push('\n');
-            }
-            (_, _, true) => {
-                handlemetavars(&currrulename, &mut metavars, line, lino);
-                plusbuf.push_str("\n"); //comment inside to preserve lino
-                minusbuf.push_str("\n"); //''
             }
         }
-        lino += 1;
-    }
-    if inmetadec {
-        syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
     if currrulename != "" {
         //TODO change tofunc
