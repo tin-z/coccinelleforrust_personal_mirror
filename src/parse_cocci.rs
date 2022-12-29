@@ -131,30 +131,29 @@ fn tometatype(ty: &str) -> metatype {
 
 fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: usize) {
     let mut tokens = line.split(&[',', ' ', ';'][..]);
-    match tokens.next().unwrap().trim() {
-        //unwrap because there must atleast be a "" in a line
-        ty if (tometatype(ty) != metatype::NoMeta) => {
-            for var in tokens {
-                //does not check for ; at the end of the line
-                //TODO
-                let var = var.trim().to_string();
-                if var != "" {
-                    if !metavars.iter().any(|x| x.varname == var) {
-                        metavars.push(mvar {
-                            rulename: Name::from(rulename),
-                            varname: var,
-                            metatype: tometatype(ty),
-                        }); //integrate metavar inheritance TODO
-                    } else {
-                        syntaxerror!(lino, format!("Redefining {} meta-varaible {}", ty, var));
-                    }
+    let ty = tokens.next().unwrap().trim();
+    if tometatype(ty) != metatype::NoMeta{
+        for var in tokens {
+            //does not check for ; at the end of the line
+            //TODO
+            let var = var.trim().to_string();
+            if var != "" {
+                if !metavars.iter().any(|x| x.varname == var) {
+                    metavars.push(mvar {
+                        rulename: Name::from(rulename),
+                        varname: var,
+                        metatype: tometatype(ty),
+                    }); //integrate metavar inheritance TODO
+                } else {
+                    syntaxerror!(lino, format!("Redefining {} meta-varaible {}", ty, var));
                 }
             }
         }
-        ty => {
-            syntaxerror!(lino, format!("No metavariable type named: {}", ty));
-        }
     }
+    else {
+        syntaxerror!(lino, format!("No metavariable type named: {}", ty));
+    }
+    
 }
 
 fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (Name, dep) {
