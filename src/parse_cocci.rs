@@ -133,7 +133,7 @@ fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: u
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     let ty = tokens.next().unwrap().trim();
     let mtype = tometatype(ty);
-    if mtype != metatype::NoMeta{
+    if mtype != metatype::NoMeta {
         for var in tokens {
             //does not check for ; at the end of the line
             //TODO
@@ -150,11 +150,9 @@ fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: u
                 }
             }
         }
-    }
-    else {
+    } else {
         syntaxerror!(lino, format!("No metavariable type named: {}", ty));
     }
-    
 }
 
 fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (Name, dep) {
@@ -170,14 +168,15 @@ fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (Name, dep) 
     let sword = tokens.next();
     let tword = tokens.next();
 
-    let depends = match (sword, tword) {
-        (Some("depends"), Some("on")) => {
-            let booleanexp: Name = tokens.collect();
-            getdependson(rules, Name::from(booleanexp).trim(), lino)
-        }
-        (None, None) => dep::NoDep,
-        _ => syntaxerror!(lino, ""),
-    };
+    let depends = 
+        match (sword, tword) {
+            (Some("depends"), Some("on")) => {
+                let booleanexp: Name = tokens.collect();
+                getdependson(rules, Name::from(booleanexp).as_str(), lino)
+            }
+            (None, None) => dep::NoDep,
+            _ => syntaxerror!(lino, "")     
+        };
 
     (currrulename, depends)
 }
