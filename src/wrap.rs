@@ -186,22 +186,21 @@ impl wrap {
         }
     }
 
-    pub fn getlineno(&self) -> usize {
-        self.info.pos_info.line_start + 1
-    }
-
     pub fn is_ident(&self) -> bool {
         self.info.isSymbolIdent
     }
 
-    pub fn set_logilines(&mut self, start: usize, end: usize){
-        self.info.pos_info.logical_start = start;
-        self.info.pos_info.logical_end = end;
+    pub fn set_logilines_start(&mut self, lino: usize){
+        self.info.pos_info.logical_start = lino;
     }
 
-    pub fn getlinenos(&self) -> (usize, usize) {
-        (self.info.pos_info.logical_start + 1,
-            self.info.pos_info.logical_end + 1)
+    pub fn set_logilines_end(&mut self, lino: usize){
+        self.info.pos_info.logical_end = lino;
+    }
+
+    pub fn getlogilinenos(&self) -> (usize, usize) {
+        (self.info.pos_info.logical_start,
+            self.info.pos_info.logical_end)
     }
 }
 
@@ -209,6 +208,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
     let mut nl: usize = 0;
+    /*
     match node {
         SyntaxElement::Node(node) => {
             for s in node.children_with_tokens() {
@@ -221,11 +221,12 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         }
         _ => {}
     }
+    */ //CHECK THSI IN THE MORNING
     let pos_info: position_info = position_info::new(//all casted to usize because linecol returns u32
         sindex.line as usize,
         eindex.line as usize,
-        sindex.line as usize,
-        (eindex.line as usize - nl),
+        0,
+        0,
         sindex.col as usize,
         node.text_range().start().into(),
     );

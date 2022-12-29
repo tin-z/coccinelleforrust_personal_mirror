@@ -12,7 +12,7 @@ use crate::{
 
 type Tag = SyntaxKind;
 
-enum dep {
+pub enum dep {
     NoDep,
     FailDep,
     Dep(String),
@@ -21,22 +21,22 @@ enum dep {
     AntiDep(Box<dep>),
 }
 #[derive(PartialEq)]
-struct mvar {
+pub struct mvar {
     ruleid: usize,
     varname: String,
 }
 
-struct patch{
-    minus: Rnode,
-    plus: Rnode
+pub struct patch{
+    pub minus: Rnode,
+    pub plus: Rnode
 }
 
-struct rule {
-    name: String,
-    dependson: dep,
-    expmetavars: Vec<String>,
-    idmetavars: Vec<String>,
-    patch: patch//index for the patch vector
+pub struct rule {
+    pub name: String,
+    pub dependson: dep,
+    pub expmetavars: Vec<String>,
+    pub idmetavars: Vec<String>,
+    pub patch: patch//index for the patch vector
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -96,7 +96,7 @@ fn get_blxpr_arb(contents: &str) -> Rnode {
     let root = wrap_root(contents);
     for mut child in root.children_with_tokens{
         if child.kind()==Tag::FN{
-            return child.children_with_tokens.swap_remove(4)//BlockExpr
+            return child.children_with_tokens.swap_remove(5)//BlockExpr
         }
     }
     panic!("contents does not have a function")
@@ -214,43 +214,6 @@ fn handlerules(rules: &Vec<rule>, chars: Vec<char>, lino: usize) -> (String, dep
     (currrulename, depends)
 }
 
-fn flag_logilines(mut lino: usize, node: &mut Rnode){
-    if node.kind() == Tag::LITERAL{
-        return;   
-    }
-    for child in &mut node.children_with_tokens{
-        let mut end = 0;
-        let text = child.astnode.to_string();
-        if text.matches('\n').count() == 0{//for single line tokens, set them as so
-            child.wrapper.set_logilines(lino, lino);
-            continue;
-        }
-
-        //if there is a block, there can be either
-        //a whitespace block or not
-
-        //if multiline whitespace block, just increment by 1
-        if child.kind() == Tag::WHITESPACE{
-            end = 1;
-        }
-        else {
-            //else if it is a block cal
-            let lines= text.lines();
-            for line in lines{
-                if line.trim().len() != 0{
-                    end+=1;
-                }
-            }
-            end -= 1;
-        }
-        child.wrapper.set_logilines(lino, lino + end);
-        
-        flag_logilines(lino, child);
-        lino+=end;
-    }
-
-}
-
 fn getpatch(plusparsed: &str, minusparsed: &str, llino: usize) -> patch{
     let plusparsed = format!("{}{}", "\n".repeat(llino), plusparsed);
     let minusparsed = format!("{}{}", "\n".repeat(llino), minusparsed);
@@ -259,8 +222,6 @@ fn getpatch(plusparsed: &str, minusparsed: &str, llino: usize) -> patch{
         plus: get_blxpr_arb(plusparsed.as_str()),
         minus: get_blxpr_arb(minusparsed.as_str())
     }
-    
-    
 }
 
 fn ismetavar(rule: &mut rule, node: &mut Rnode) -> metatype{
@@ -292,7 +253,7 @@ fn flag_metavars(rule: &mut rule, node: &mut Rnode){
     }
 }
 
-pub fn processcocci(contents: &str) {
+pub fn processcocci(contents: &str) -> Vec<rule>{
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 1; //stored line numbers
@@ -321,12 +282,13 @@ pub fn processcocci(contents: &str) {
                 //iter and collect converts from [char] to String
 
                 if currrulename != "" {
+                    //end of the previous rule
                     plusparsed.push_str("}\n");
                     minusparsed.push_str("}\n");
 
 
                     let currpatch = getpatch(plusparsed.as_str(), minusparsed.as_str(), lastruleline);
-                    let rule = rule{
+                    let mut rule = rule{
                         name: currrulename,
                         dependson: currdepends,
                         expmetavars: exmetavars.into_iter().map(|x| x).collect(),
@@ -339,8 +301,10 @@ pub fn processcocci(contents: &str) {
                     plusparsed = String::from("");
                     minusparsed = String::from("");
 
+                    //flag_metavars(&mut rule, &mut rule.patch.plus);
+                    //flag_metavars(&mut rule, &mut rule.patch.minus);
                     rules.push(rule);
-                    
+
                     lastruleline = lino;
                 }
 
@@ -395,10 +359,6 @@ pub fn processcocci(contents: &str) {
         };
         rules.push(rule);
     }
-    let mut root = wrap_root(
-        &minusparsed
-    );
-
-    flag_logilines(0, &mut root);
-    
+    rules
+    //flag_logilines(0, &mut root);
 }

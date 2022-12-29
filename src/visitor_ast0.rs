@@ -14,11 +14,8 @@ pub fn work_node<'a, D>(
                     children_with_tokens.push(work_node(do_stuff, child));
                 }
             }
-            SyntaxElement::Token(token) => {
-                children_with_tokens.push(do_stuff(
-                    SyntaxElement::Token(token.clone()),
-                    &|_token| vec![],
-                ));
+            SyntaxElement::Token(_token) => {
+                
             }
         }
         children_with_tokens
