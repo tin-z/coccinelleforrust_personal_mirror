@@ -15,7 +15,6 @@ pub fn work_node<'a, D>(
                 }
             }
             SyntaxElement::Token(_token) => {
-                
             }
         }
         children_with_tokens

@@ -3,13 +3,13 @@ expression e;
 identifier fun;
 @@
 
-
+let u: u32 = 8;
 -fun(e);
 -fun(e, e);
 -fun(e);
 -fun(e, e, e);
 
-
++fun(3);
 
 @ rule13 @
 expression e;

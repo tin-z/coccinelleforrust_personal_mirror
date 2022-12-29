@@ -16,8 +16,7 @@ macro_rules! syntaxerror {
     ($err:expr, $name:expr) => {
         panic!("{:?}: {:?}",
                 $name,
-                $err,
-                $lino)
+                $err)
     };
 }
 

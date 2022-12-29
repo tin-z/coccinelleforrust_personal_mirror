@@ -15,14 +15,14 @@ type Tag = SyntaxKind;
 pub enum dep {
     NoDep,
     FailDep,
-    Dep(String),
+    Dep(String),//TODO ctype alias to name string
     AndDep(Box<(dep, dep)>),
     OrDep(Box<(dep, dep)>),
     AntiDep(Box<dep>),
 }
 #[derive(PartialEq)]
 pub struct mvar {
-    ruleid: usize,
+    ruleid: usize,//change usize to string TODO
     varname: String,
 }
 
@@ -34,9 +34,9 @@ pub struct patch{
 pub struct rule {
     pub name: String,
     pub dependson: dep,
-    pub expmetavars: Vec<String>,
+    pub expmetavars: Vec<String>,//TODO: change string tomvae
     pub idmetavars: Vec<String>,
-    pub patch: patch//index for the patch vector
+    pub patch: patch
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -70,7 +70,7 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
         }
         Tag::PATH_EXPR => {
             let name = dep.astnode.to_string();
-            if rules.iter().any(|x| x.name == name) {
+            if rules.iter().any(|x| x.name == name) {//IndexMap trait
                 dep::Dep(name)
             } else {
                 syntaxerror!(lino, "no such Rule", name)
@@ -80,7 +80,7 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             let expr = &mut dep.children_with_tokens[1];
             getdep(rules, lino, expr)
         }
-        _ => syntaxerror!(lino, "Malformed Rule", dep.astnode.to_string())
+        _ => syntaxerror!(lino, "malformed Rule", dep.astnode.to_string())
     }
 }
 
@@ -90,16 +90,6 @@ fn get_blxpr(contents: &str) -> Rnode {
         .swap_remove(0) //Fn
         .children_with_tokens
         .swap_remove(4) //BlockExpr
-}
-
-fn get_blxpr_arb(contents: &str) -> Rnode {
-    let root = wrap_root(contents);
-    for mut child in root.children_with_tokens{
-        if child.kind()==Tag::FN{
-            return child.children_with_tokens.swap_remove(5)//BlockExpr
-        }
-    }
-    panic!("contents does not have a function")
 }
 
 fn get_expr(contents: &str) -> Rnode {
@@ -139,8 +129,6 @@ fn handlemetavars(
     line: String,
     lino: usize
 ) {
-    //rule here is usize because this does not represent the
-    //name of the rule but the index at which it was encountered
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     match tokens.next().unwrap().trim() {
         //unwrap because there must atleast be a "" in a line
@@ -150,14 +138,14 @@ fn handlemetavars(
                 //TODO
                 let var = var.trim().to_string();
                 if var != "" {
-                    if !exmetavars.contains(&var){
-                        exmetavars.push(var);
+                    if !exmetavars.contains(&var){//put type in mvar and redyce to one type TODO
+                        exmetavars.push(var);//integrate metavar inheritance TODO
                     }
                     else{
                         syntaxerror!(
                             lino,
                             format!(
-                            "Redefining expresson meta-varaible {}", var
+                            "Redefining expression meta-varaible {}", var
                         ));
                     }
                 }
@@ -257,14 +245,12 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
     let lines: Vec<String> = contents.lines().map(String::from).collect();
     let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 1; //stored line numbers
-                      //mutable because I supply it with modifier statements
+                             //mutable because I supply it with modifier statements
 
-    let mut plusparsed = String::from("//metavardec\n");
-    let mut minusparsed = String::from("//metvardec\n");
+    let mut plusparsed = String::from("//metavardec\n");//remove comment TODO
+    let mut minusparsed = String::from("//metvardec\n");//change parsed to buf TODO
 
-    let mut rules: Vec<rule> = vec![]; //list of rule headers in cocci file
-    let mut patches: Vec<patch> = vec![];//list of associated patches
-    
+    let mut rules: Vec<rule> = vec![];
     let mut idmetavars: Vec<String> = vec![];//tmp
     let mut exmetavars: Vec<String> = vec![];//tmp
 
@@ -276,7 +262,7 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
         let firstchar = chars.get(0);
         let lastchar = chars.last();
         
-        match (firstchar, lastchar, inmetadec) {
+        match (firstchar, lastchar, inmetadec) {//TODO change to two loop-functions
             (Some('@'), Some('@'), false) => {
                 //starting of @@ block
                 //iter and collect converts from [char] to String
@@ -291,8 +277,8 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
                     let mut rule = rule{
                         name: currrulename,
                         dependson: currdepends,
-                        expmetavars: exmetavars.into_iter().map(|x| x).collect(),
-                        idmetavars: idmetavars.into_iter().map(|x| x).collect(),
+                        expmetavars: exmetavars,
+                        idmetavars: idmetavars,
                         patch: currpatch
                     };
 
@@ -318,20 +304,22 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
                 inmetadec = false;
             }
             (Some('+'), _, false) => {
-                plusparsed.push_str(line.as_str());
+                plusparsed.push(' ');
+                plusparsed.push_str(&line[1..]);
                 plusparsed.push('\n');
                 minusparsed.push('\n');
             }
             (Some('-'), _, false) => {
-                minusparsed.push_str(line.as_str());
+                minusparsed.push(' ');
+                minusparsed.push_str(&line[1..]);
                 minusparsed.push('\n');
                 plusparsed.push('\n');
             }
             (_, _, false) => {
-                plusparsed.push_str(line.as_str());
+                plusparsed.push_str(&line[..]);
                 plusparsed.push('\n');
 
-                minusparsed.push_str(line.as_str());
+                minusparsed.push_str(&line[..]);
                 minusparsed.push('\n');
             }
             (_, _, true) => {
@@ -345,7 +333,7 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
     if inmetadec {
         syntaxerror!(lino, "Unclosed metavariable declaration block")
     }
-    if currrulename != "" {
+    if currrulename != "" {//TODO change tofunc
         plusparsed.push('}');
         minusparsed.push('}');
 
