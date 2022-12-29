@@ -124,6 +124,14 @@ fn getdependson(rules: &Vec<rule>, rule: &str, lino: usize) -> dep{
     getdep(rules, lino, &mut get_expr(fnstr.as_str()))
 }
 
+fn tometatype(ty: &str) -> metatype{
+    match ty{
+          "identifier" => metatype::Id,
+        | "expression" => metatype::Exp,
+        _ => metatype::NoMeta
+    }
+}
+
 fn handlemetavars(
     rulename: &Name,
     metavars: &mut Vec<mvar>,
@@ -133,7 +141,7 @@ fn handlemetavars(
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     match tokens.next().unwrap().trim() {
         //unwrap because there must atleast be a "" in a line
-        "expression" => {
+        ty if ( tometatype(ty) != metatype::NoMeta) => {
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
@@ -143,43 +151,26 @@ fn handlemetavars(
                         metavars.push(mvar {
                             rulename: Name::from(rulename),
                             varname: var,
-                            metatype: metatype::Exp 
+                            metatype: tometatype(ty) 
                         });//integrate metavar inheritance TODO
                     }
                     else{
                         syntaxerror!(
                             lino,
                             format!(
-                            "Redefining expression meta-varaible {}", var
+                            "Redefining {} meta-varaible {}", ty, var
                         ));
                     }
                 }
             }
         }
-        "identifier" => {
-            for var in tokens {
-                //does not check for ; at the end of the line
-                //TODO
-                let var = var.trim().to_string();
-                if var != "" {
-                    if !metavars.iter().any(|x| x.varname==var){
-                        metavars.push(mvar {
-                            rulename: Name::from(rulename),
-                            varname: var,
-                            metatype: metatype::Id 
-                        });//integrate metavar inheritance TODO
-                    }
-                    else{
-                        syntaxerror!(
-                            lino,
-                            format!(
-                            "Redefining identifier meta-varaible {}", var
-                        ));
-                    }
-                }
-            }
+        ty => {
+            syntaxerror!(
+                lino,
+                format!(
+                "No metavariable type named: {}", ty
+            ));
         }
-        _ => {}
     }
 }
 
@@ -276,7 +267,7 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
 
 
                     let currpatch = getpatch(plusbuf.as_str(), minusbuf.as_str(), lastruleline);
-                    let mut rule = rule{
+                    let  rule = rule{
                         name: currrulename,
                         dependson: currdepends,
                         metavars: metavars,
