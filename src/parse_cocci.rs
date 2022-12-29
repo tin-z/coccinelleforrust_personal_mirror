@@ -132,7 +132,8 @@ fn tometatype(ty: &str) -> metatype {
 fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: usize) {
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     let ty = tokens.next().unwrap().trim();
-    if tometatype(ty) != metatype::NoMeta{
+    let mtype = tometatype(ty);
+    if mtype != metatype::NoMeta{
         for var in tokens {
             //does not check for ; at the end of the line
             //TODO
@@ -142,10 +143,10 @@ fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: Name, lino: u
                     metavars.push(mvar {
                         rulename: Name::from(rulename),
                         varname: var,
-                        metatype: tometatype(ty),
+                        metatype: mtype,
                     }); //integrate metavar inheritance TODO
                 } else {
-                    syntaxerror!(lino, format!("Redefining {} meta-varaible {}", ty, var));
+                    syntaxerror!(lino, format!("Redefining {} metavariable {}", ty, var));
                 }
             }
         }
