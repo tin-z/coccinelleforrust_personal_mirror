@@ -1,9 +1,9 @@
 use parser::SyntaxKind;
 
-use crate::wrap::Rnode;
+use crate::{wrap::Rnode, parse_cocci::rule};
 
 type Tag = SyntaxKind;
-pub fn set_logilines(mut prevline: usize, node: &mut Rnode){
+pub fn set_logilines_aux(mut prevline: usize, node: &mut Rnode){
     if node.children_with_tokens.len()==0{
         // this is only for testing will be removed after enough tests
         if node.kind() != Tag::WHITESPACE
@@ -19,7 +19,7 @@ pub fn set_logilines(mut prevline: usize, node: &mut Rnode){
              start+=1;
         }
         if node.kind()==Tag::IDENT{
-            println!("start {start}")
+            //println!("start {start}")
         }
         node.wrapper.set_logilines_end(start);
     }
@@ -29,11 +29,23 @@ pub fn set_logilines(mut prevline: usize, node: &mut Rnode){
         for child in &mut node.children_with_tokens{
             let jj = prevline;
             child.wrapper.set_logilines_start(prevline);
-            set_logilines(prevline, child);
+            set_logilines_aux(prevline, child);
             prevline=child.wrapper.getlogilinenos().1;
-            println!("{} - KIND - {:?}:{}, {}", child.astnode.to_string(), child.kind(), jj, prevline);
+            //println!("{} - KIND - {:?}:{}, {}", child.astnode.to_string(), child.kind(), jj, prevline);
         }
         node.wrapper.set_logilines_start(tmp);
         node.wrapper.set_logilines_end(prevline);
+    }
+}
+
+pub fn set_logilines(rules: &mut Vec<rule>){
+    let mut offsetline = 0;
+    for rule in rules{
+        //println!("{:?}", rule.patch.minus.children_with_tokens[0].wrapper.getlogilinenos());
+
+        println!("RULE {} - {}", rule.name, offsetline);
+        set_logilines_aux(offsetline, &mut rule.patch.minus);
+        offsetline = rule.patch.minus.wrapper.getlogilinenos().1 - 1;//going to next line
+
     }
 }

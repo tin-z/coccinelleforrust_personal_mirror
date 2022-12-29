@@ -219,8 +219,8 @@ fn getpatch(plusparsed: &str, minusparsed: &str, llino: usize) -> patch{
     let minusparsed = format!("{}{}", "\n".repeat(llino), minusparsed);
     println!("{llino}");
     patch{
-        plus: get_blxpr_arb(plusparsed.as_str()),
-        minus: get_blxpr_arb(minusparsed.as_str())
+        plus: wrap_root(plusparsed.as_str()),
+        minus: wrap_root(minusparsed.as_str())
     }
 }
 
@@ -259,8 +259,8 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
     let mut lino = 1; //stored line numbers
                       //mutable because I supply it with modifier statements
 
-    let mut plusparsed = String::from("\n");
-    let mut minusparsed = String::from("\n");
+    let mut plusparsed = String::from("//metavardec\n");
+    let mut minusparsed = String::from("//metvardec\n");
 
     let mut rules: Vec<rule> = vec![]; //list of rule headers in cocci file
     let mut patches: Vec<patch> = vec![];//list of associated patches
@@ -336,8 +336,8 @@ pub fn processcocci(contents: &str) -> Vec<rule>{
             }
             (_, _, true) => {
                 handlemetavars(&mut idmetavars, &mut exmetavars, line, lino);
-                plusparsed.push('\n');
-                minusparsed.push('\n')
+                plusparsed.push_str("//metavardec\n");//comment inside to preserve lino
+                minusparsed.push_str("//metavardec\n");//''
             }
         }
         lino += 1;
