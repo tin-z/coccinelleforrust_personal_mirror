@@ -32,6 +32,6 @@ pub fn set_logilines(rules: &mut Vec<rule>) {
     let mut offsetline = 0;
     for rule in rules {
         set_logilines_aux(offsetline, &mut rule.patch.minus);
-        offsetline = rule.patch.minus.wrapper.getlogilinenos().1 - 1; //going to next line
+        offsetline = rule.patch.minus.wrapper.getlogilinenos().1 - 1;
     }
 }
