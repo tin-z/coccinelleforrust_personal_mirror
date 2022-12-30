@@ -22,11 +22,40 @@ pub enum dep {
     AntiDep(Box<dep>),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct mvar {
-    rulename: String,
+    rulename: Name,
     varname: Name,
     metatype: metatype,
+}
+
+impl mvar{
+    pub fn new(rules: &Vec<rule>, rulename: &Name, varname: &Name, metatype: metatype, lino: usize) -> mvar{
+        let split = varname.split(".").collect::<Vec<&str>>();
+        match (split.get(0), split.get(1), split.get(2)){
+            (Some(var), None, None) => {
+                mvar{
+                    rulename: String::from(rulename),
+                    varname: String::from(varname),
+                    metatype: metatype
+                }
+            },
+            (Some(rule), Some(var), None) => {
+                let rule = getrule(rules, rulename, lino);
+                for mvar in &rule.metavars{
+                    if mvar.varname.eq(varname){
+                        return mvar.clone()//mvars are pretty small
+                    }
+                }
+                syntaxerror!(lino, 
+                            format!("no such metavariable in rule {}", rule.name), 
+                            varname)
+            }
+            _ => {
+                syntaxerror!(lino, "Invalid meta-variable name", varname);
+            }
+        }
+    }
 }
 
 pub struct patch {
@@ -39,6 +68,15 @@ pub struct rule {
     pub dependson: dep,
     pub metavars: Vec<mvar>,
     pub patch: patch,
+}
+
+fn getrule<'a>(rules: &'a Vec<rule>, rulename: &Name, lino: usize) -> &'a rule{
+    for rule in rules{
+        if rule.name.eq(rulename){
+            return rule;
+        }
+    }
+    syntaxerror!(lino, "no such rule", rulename);
 }
 
 fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
@@ -129,7 +167,7 @@ fn tometatype(ty: &str) -> metatype {
     }
 }
 
-fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: &str, lino: usize) {
+fn handlemetavars(rules: &Vec<rule>, rulename: &Name, metavars: &mut Vec<mvar>, line: &str, lino: usize) {
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     let ty = tokens.next().unwrap().trim();
     let mtype = tometatype(ty);
@@ -140,11 +178,7 @@ fn handlemetavars(rulename: &Name, metavars: &mut Vec<mvar>, line: &str, lino: u
             let var = var.trim().to_string();
             if var != "" {
                 if !metavars.iter().any(|x| x.varname == var) {
-                    metavars.push(mvar {
-                        rulename: Name::from(rulename),
-                        varname: var,
-                        metatype: mtype,
-                    }); //integrate metavar inheritance TODO
+                    metavars.push(mvar::new(&rules, rulename, &var, mtype, lino)); //integrate metavar inheritance TODO
                 } else {
                     syntaxerror!(lino, format!("Redefining {} metavariable {}", ty, var));
                 }
@@ -167,15 +201,14 @@ fn handlerules(rules: &Vec<rule>, decl: Name, lino: usize) -> (Name, dep) {
     let sword = tokens.next();
     let tword = tokens.next();
 
-    let depends = 
-        match (sword, tword) {
-            (Some("depends"), Some("on")) => {
-                let booleanexp: Name = tokens.collect();
-                getdependson(rules, Name::from(booleanexp).as_str(), lino)
-            }
-            (None, None) => dep::NoDep,
-            _ => syntaxerror!(lino, "")     
-        };
+    let depends = match (sword, tword) {
+        (Some("depends"), Some("on")) => {
+            let booleanexp: Name = tokens.collect();
+            getdependson(rules, Name::from(booleanexp).as_str(), lino)
+        }
+        (None, None) => dep::NoDep,
+        _ => syntaxerror!(lino, ""),
+    };
 
     (currrulename, depends)
 }
@@ -212,10 +245,16 @@ fn flag_metavars(rule: &mut rule, node: &mut Rnode) {
     }
 }
 
-fn addrule(plusbuf: &String, minusbuf: &String, currrulename: &Name, currdepends: dep,
-    metavars: Vec<mvar>, lastruleline:usize) -> rule{
+fn addrule(
+    plusbuf: &String,
+    minusbuf: &String,
+    currrulename: &Name,
+    currdepends: dep,
+    metavars: Vec<mvar>,
+    lastruleline: usize,
+) -> rule {
     //end of the previous rule
-    let mut plustmp = String::from(plusbuf); 
+    let mut plustmp = String::from(plusbuf);
     let mut minustmp = String::from(minusbuf);
     plustmp.push_str("}\n");
     minustmp.push_str("}\n");
@@ -245,22 +284,27 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
     let mut currrulename = Name::from("");
     let mut lastruleline = 0;
     let mut currdepends = dep::NoDep;
-    blocks.remove(0);//throwing away the first part before the first @
-    let nrules = blocks.len()/4; //this should always be an integer if case of a proper cocci file
-    //if it fails we will find out in the next for loop
+    blocks.remove(0); //throwing away the first part before the first @
+    let nrules = blocks.len() / 4; //this should always be an integer if case of a proper cocci file
+                                   //if it fails we will find out in the next for loop
 
     //TODO line numbers matching properly
 
     for i in 0..nrules {
-        let mut block = blocks[i*4];
+        let mut block = blocks[i * 4];
         block = block.trim();
 
         //Rule declaration
         if currrulename != "" {
             //end of the previous rule
-            let rule = addrule(&plusbuf, &minusbuf, 
-                &currrulename, currdepends, metavars,
-                lastruleline);
+            let rule = addrule(
+                &plusbuf,
+                &minusbuf,
+                &currrulename,
+                currdepends,
+                metavars,
+                lastruleline,
+            );
 
             metavars = vec![];
             plusbuf = Name::from("");
@@ -276,39 +320,41 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
         (currrulename, currdepends) = handlerules(&mut rules, String::from(block), lino);
 
         //actual meta vars
-        block = blocks[i*4+1];
+        block = blocks[i * 4 + 1];
         for line in block.lines() {
-            if line == "" { continue; }
-            handlemetavars(&currrulename, &mut metavars, line.trim(), lino);
-            plusbuf.push_str("\n"); 
+            if line == "" {
+                continue;
+            }
+            handlemetavars(&rules, &currrulename, &mut metavars, line.trim(), lino);
+            plusbuf.push_str("\n");
             minusbuf.push_str("\n");
         }
-        assert!(blocks[i*4+2] == "");
-        
+        assert!(blocks[i * 4 + 2] == "");
+
         //start of function
         plusbuf.push_str(format!("fn {currrulename}_plus() {{\n").as_str());
         minusbuf.push_str(format!("fn {currrulename}_minus() {{\n").as_str());
 
         //modifiers
-        block = blocks[i*4+3];
-        for line in block.lines(){
-            match line.chars().next(){
+        block = blocks[i * 4 + 3];
+        for line in block.lines() {
+            match line.chars().next() {
                 Some('+') => {
                     plusbuf.push(' ');
                     plusbuf.push_str(&line[1..]);
                     plusbuf.push('\n');
                     minusbuf.push('\n');
-                },
+                }
                 Some('-') => {
                     minusbuf.push(' ');
                     minusbuf.push_str(&line[1..]);
                     minusbuf.push('\n');
                     plusbuf.push('\n');
-                },
+                }
                 _ => {
                     plusbuf.push_str(&line[..]);
                     plusbuf.push('\n');
-    
+
                     minusbuf.push_str(&line[..]);
                     minusbuf.push('\n');
                 }
@@ -318,9 +364,14 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
     println!("{minusbuf}");
     if currrulename != "" {
         //TODO change tofunc
-        let rule = addrule(&plusbuf, &minusbuf, 
-            &currrulename, currdepends,
-            metavars, lastruleline);
+        let rule = addrule(
+            &plusbuf,
+            &minusbuf,
+            &currrulename,
+            currdepends,
+            metavars,
+            lastruleline,
+        );
         rules.push(rule);
     }
     rules
