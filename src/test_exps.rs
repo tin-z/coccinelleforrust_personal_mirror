@@ -23,25 +23,25 @@ fn process_exp(exp: &mut Rnode) {
     exp.wrapper.set_test_exps();
     match exp.astnode.kind() {
         Tag::PAREN_EXPR => {
-            let [_lp, exp, _rp] = tuple_of_3(&mut exp.children);
+            let [_lp, exp, _rp] = tuple_of_3(&mut exp.children_with_tokens);
             process_exp(exp);
         }
         _ => {}
     }
 }
 
-fn set_test_exps(node: &mut Rnode) {
+pub fn set_test_exps<'a>(mut node: &'a mut Rnode) {
     match node.astnode.kind() {
         Tag::IF_EXPR => {
-            let [_if, cond] = tuple_of_2(&mut node.children);
+            let [_if, cond] = tuple_of_2(&mut node.children_with_tokens);
             process_exp(cond);
         }
         Tag::WHILE_EXPR => {
-            let [_while, cond] = tuple_of_2(&mut node.children);
+            let [_while, cond] = tuple_of_2(&mut node.children_with_tokens);
             process_exp(cond);
         }
         Tag::BIN_EXPR => {
-            let [lhs, op, rhs] = tuple_of_3(&mut node.children);
+            let [lhs, op, rhs] = tuple_of_3(&mut node.children_with_tokens);
             if is_relational(&op.astnode) {
                 process_exp(lhs);
                 process_exp(rhs);
@@ -49,15 +49,11 @@ fn set_test_exps(node: &mut Rnode) {
         }
         Tag::PREFIX_EXPR => {
             //Have to be sure of this identity TODO
-            let [op, exp] = tuple_of_2(&mut node.children);
+            let [op, exp] = tuple_of_2(&mut node.children_with_tokens);
             if is_relational(&op.astnode) {
                 process_exp(exp);
             };
         }
         _ => {}
     }
-    for node in &mut node.children {
-        set_test_exps(node);
-    }
 }
-//TODO MAKE PREORDER TREE TRAVERSAL

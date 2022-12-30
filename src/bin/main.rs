@@ -2,7 +2,7 @@ use coccinelleforrust::{
     parse_cocci::{processcocci, self},
     wrap::{wrap_root, Rnode},
     logical_lines::set_logilines,
-    treeiterator::traveller
+    test_exps::set_test_exps, util::worktree
 };
 use std::fs;
 
@@ -15,7 +15,5 @@ fn main() {
     //set_logilines(&mut rules);
 
     let root = wrap_root(contents.as_str());
-    for node in traveller::new(&root) {
-        println!("{:?}, ", node.kind());
-    }
+    worktree(root, &mut |x| set_test_exps(x));
 }
