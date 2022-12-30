@@ -41,7 +41,7 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 }
 
 
-pub fn worktree(mut node: Rnode, f: &mut dyn Fn(&mut Rnode)){
+pub fn worktree(mut node: Rnode, f: &dyn Fn(&mut Rnode)){
     f(&mut node);
     for child in node.children_with_tokens{
         worktree(child, f);
