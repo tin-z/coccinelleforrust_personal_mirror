@@ -15,5 +15,5 @@ fn main() {
     //set_logilines(&mut rules);
 
     let root = wrap_root(contents.as_str());
-    worktree(root, &|x| set_test_exps(x));
+    set_test_exps(root);
 }
