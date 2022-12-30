@@ -284,7 +284,6 @@ fn addrule(
 
 pub fn processcocci(contents: &str) -> Vec<rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
-    let mut inmetadec = false; //checks if in metavar declaration
     let mut lino = 1; //stored line numbers
                       //mutable because I supply it with modifier statements
 
