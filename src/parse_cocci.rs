@@ -7,7 +7,7 @@ use parser::SyntaxKind;
 use crate::{
     syntaxerror,
     util::{tuple_of_2, tuple_of_3},
-    wrap::{metatype, wrap_root, Rnode},
+    wrap::{metatype, wrap_root, Rnode}
 };
 
 type Tag = SyntaxKind;
@@ -29,27 +29,33 @@ pub struct mvar {
     metatype: metatype,
 }
 
-impl mvar{
-    pub fn new(rules: &Vec<rule>, rulename: &Name, varname: &Name, metatype: metatype, lino: usize) -> mvar{
+impl mvar {
+    pub fn new(
+        rules: &Vec<rule>,
+        rulename: &Name,
+        varname: &Name,
+        metatype: metatype,
+        lino: usize,
+    ) -> mvar {
         let split = varname.split(".").collect::<Vec<&str>>();
-        match (split.get(0), split.get(1), split.get(2)){
-            (Some(var), None, None) => {
-                mvar{
-                    rulename: String::from(rulename),
-                    varname: String::from(varname),
-                    metatype: metatype
-                }
+        match (split.get(0), split.get(1), split.get(2)) {
+            (Some(var), None, None) => mvar {
+                rulename: String::from(rulename),
+                varname: String::from(varname),
+                metatype: metatype,
             },
             (Some(rule), Some(var), None) => {
                 let rule = getrule(rules, rulename, lino);
-                for mvar in &rule.metavars{
-                    if mvar.varname.eq(varname){
-                        return mvar.clone()//mvars are pretty small
+                for mvar in &rule.metavars {
+                    if mvar.varname.eq(varname) {
+                        return mvar.clone(); //mvars are pretty small
                     }
                 }
-                syntaxerror!(lino, 
-                            format!("no such metavariable in rule {}", rule.name), 
-                            varname)
+                syntaxerror!(
+                    lino,
+                    format!("no such metavariable in rule {}", rule.name),
+                    varname
+                )
             }
             _ => {
                 syntaxerror!(lino, "Invalid meta-variable name", varname);
@@ -70,9 +76,9 @@ pub struct rule {
     pub patch: patch,
 }
 
-fn getrule<'a>(rules: &'a Vec<rule>, rulename: &Name, lino: usize) -> &'a rule{
-    for rule in rules{
-        if rule.name.eq(rulename){
+fn getrule<'a>(rules: &'a Vec<rule>, rulename: &Name, lino: usize) -> &'a rule {
+    for rule in rules {
+        if rule.name.eq(rulename) {
             return rule;
         }
     }
@@ -167,7 +173,13 @@ fn tometatype(ty: &str) -> metatype {
     }
 }
 
-fn handlemetavars(rules: &Vec<rule>, rulename: &Name, metavars: &mut Vec<mvar>, line: &str, lino: usize) {
+fn handlemetavars(
+    rules: &Vec<rule>,
+    rulename: &Name,
+    metavars: &mut Vec<mvar>,
+    line: &str,
+    lino: usize,
+) {
     let mut tokens = line.split(&[',', ' ', ';'][..]);
     let ty = tokens.next().unwrap().trim();
     let mtype = tometatype(ty);
@@ -178,7 +190,8 @@ fn handlemetavars(rules: &Vec<rule>, rulename: &Name, metavars: &mut Vec<mvar>, 
             let var = var.trim().to_string();
             if var != "" {
                 if !metavars.iter().any(|x| x.varname == var) {
-                    metavars.push(mvar::new(&rules, rulename, &var, mtype, lino)); //integrate metavar inheritance TODO
+                    metavars.push(mvar::new(&rules, rulename, &var, mtype, lino));
+                //integrate metavar inheritance TODO
                 } else {
                     syntaxerror!(lino, format!("Redefining {} metavariable {}", ty, var));
                 }
