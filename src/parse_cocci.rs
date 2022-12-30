@@ -212,6 +212,24 @@ fn flag_metavars(rule: &mut rule, node: &mut Rnode) {
     }
 }
 
+fn addrule(plusbuf: &String, minusbuf: &String, currrulename: &Name, currdepends: dep,
+    metavars: Vec<mvar>, lastruleline:usize) -> rule{
+    //end of the previous rule
+    let mut plustmp = String::from(plusbuf); 
+    let mut minustmp = String::from(minusbuf);
+    plustmp.push_str("}\n");
+    minustmp.push_str("}\n");
+
+    let currpatch = getpatch(plustmp.as_str(), minustmp.as_str(), lastruleline);
+    let rule = rule {
+        name: Name::from(currrulename),
+        dependson: currdepends,
+        metavars: metavars,
+        patch: currpatch,
+    };
+    rule
+}
+
 pub fn processcocci(contents: &str) -> Vec<rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut inmetadec = false; //checks if in metavar declaration
@@ -240,16 +258,9 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
         //Rule declaration
         if currrulename != "" {
             //end of the previous rule
-            plusbuf.push_str("}\n");
-            minusbuf.push_str("}\n");
-
-            let currpatch = getpatch(plusbuf.as_str(), minusbuf.as_str(), lastruleline);
-            let rule = rule {
-                name: currrulename,
-                dependson: currdepends,
-                metavars: metavars,
-                patch: currpatch,
-            };
+            let rule = addrule(&plusbuf, &minusbuf, 
+                &currrulename, currdepends, metavars,
+                lastruleline);
 
             metavars = vec![];
             plusbuf = Name::from("");
@@ -304,18 +315,12 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
             }
         }
     }
+    println!("{minusbuf}");
     if currrulename != "" {
         //TODO change tofunc
-        plusbuf.push('}');
-        minusbuf.push('}');
-
-        let currpatch = getpatch(plusbuf.as_str(), minusbuf.as_str(), lastruleline);
-        let rule = rule {
-            name: currrulename,
-            dependson: currdepends,
-            metavars: metavars,
-            patch: currpatch,
-        };
+        let rule = addrule(&plusbuf, &minusbuf, 
+            &currrulename, currdepends,
+            metavars, lastruleline);
         rules.push(rule);
     }
     rules
