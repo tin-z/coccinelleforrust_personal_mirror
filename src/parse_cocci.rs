@@ -136,7 +136,6 @@ fn get_blxpr(contents: &str) -> Rnode {
 fn get_expr(contents: &str) -> Rnode {
     //assumes that a
     //binary expression exists
-    println!("contents - {contents}");
 
     get_blxpr(contents) //BlockExpr
         .children_with_tokens
@@ -168,35 +167,6 @@ fn tometatype(ty: &str) -> metatype {
         "identifier" => metatype::Id,
         "expression" => metatype::Exp,
         _ => metatype::NoMeta,
-    }
-}
-
-fn handlemetavars(
-    rules: &Vec<rule>,
-    rulename: &Name,
-    metavars: &mut Vec<mvar>,
-    line: &str,
-    lino: usize,
-) {
-    let mut tokens = line.split(&[',', ' ', ';'][..]);
-    let ty = tokens.next().unwrap().trim();
-    let mtype = tometatype(ty);
-    if mtype != metatype::NoMeta {
-        for var in tokens {
-            //does not check for ; at the end of the line
-            //TODO
-            let var = var.trim().to_string();
-            if var != "" {
-                if !metavars.iter().any(|x| x.varname == var) {
-                    metavars.push(mvar::new(&rules, rulename, &var, mtype, lino));
-                //integrate metavar inheritance TODO
-                } else {
-                    syntaxerror!(lino, format!("Redefining {} metavariable {}", ty, var));
-                }
-            }
-        }
-    } else {
-        syntaxerror!(lino, format!("No metavariable type named: {}", ty));
     }
 }
 
@@ -233,29 +203,6 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize) -> patch {
     }
 }
 
-fn ismetavar(rule: &mut rule, node: &mut Rnode) -> metatype {
-    let varname = node.astnode.to_string();
-    for var in &rule.metavars {
-        if varname.eq(&var.varname) {
-            return var.metatype;
-        }
-    }
-    metatype::NoMeta
-}
-
-fn flag_metavars(rule: &mut rule, node: &mut Rnode) {
-    for mut child in node.children_with_tokens.iter_mut() {
-        match (child.kind(), ismetavar(rule, child)) {
-            (Tag::PATH_EXPR, a) => {
-                child.wrapper.metatype = a;
-            }
-            _ => {
-                flag_metavars(rule, child);
-            }
-        }
-    }
-}
-
 fn buildrule(
     pbufmeta: &String,
     mbufmeta: &String,
@@ -275,18 +222,13 @@ fn buildrule(
     plusbuf.push_str(pbufmeta);
     minusbuf.push_str(mbufmeta);
 
-    plusbuf.push('\n');
-    minusbuf.push('\n');
-
     plusbuf.push_str(pbufmod);
     minusbuf.push_str(mbufmod);
 
-    let mut plustmp = String::from(plusbuf);
-    let mut minustmp = String::from(minusbuf);
-    plustmp.push_str("}\n");
-    minustmp.push_str("}\n");
+    plusbuf.push_str("}");
+    minusbuf.push_str("}");
 
-    let currpatch = getpatch(plustmp.as_str(), minustmp.as_str(), lastruleline);
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline);
     let rule = rule {
         name: Name::from(currrulename),
         dependson: currdepends,
@@ -296,31 +238,11 @@ fn buildrule(
     rule
 }
 
-pub fn handle_metavar_decl(
-    rules: &mut Vec<rule>,
-    block: &str,
-    currrulename: &Name,
-    mut lino: usize,
-) -> (Vec<mvar>, String, String, usize) {
-    let mut plusbuf = String::new();
-    let mut minusbuf = String::new();
-    let mut metavars = vec![];
-    for line in block.lines() {
-        if line == "" {
-            continue;
-        }
-        handlemetavars(&rules, &currrulename, &mut metavars, line.trim(), lino);
-        plusbuf.push_str("\n");
-        minusbuf.push_str("\n");
-        lino += 1;
-    }
-    (metavars, plusbuf, minusbuf, lino)
-}
-
 pub fn handlemods(block: &str) -> (String, String, usize) {
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
     let mut lino = 0;
+    
     for line in block.lines() {
         match line.chars().next() {
             Some('+') => {
@@ -348,9 +270,53 @@ pub fn handlemods(block: &str) -> (String, String, usize) {
     (plusbuf, minusbuf, lino)
 }
 
+
+pub fn handle_metavar_decl(
+    rules: &Vec<rule>,
+    block: &str,
+    currrulename: &Name,
+    offset: usize,
+) -> (Vec<mvar>, String, String, usize) {
+    let mut lino = 0;
+    let mut plusbuf = String::new();
+    let mut minusbuf = String::new();
+    let mut metavars = vec![];
+    for line in block.lines() {
+        if line == "" {
+            continue;
+        }
+        let line = line.trim();
+        let mut tokens = line.split(&[',', ' ', ';'][..]);
+        let ty = tokens.next().unwrap().trim();
+        let mtype = tometatype(ty);
+        if mtype != metatype::NoMeta {
+            for var in tokens {
+                //does not check for ; at the end of the line
+                //TODO
+                let var = var.trim().to_string();
+                if var != "" {
+                    if !metavars.iter().any(|x: &mvar| x.varname == var) {
+                        metavars.push(mvar::new(&rules, currrulename, &var, mtype, lino));
+                    //integrate metavar inheritance TODO
+                    } else {
+                        syntaxerror!(offset+lino, format!("Redefining {} metavariable {}", ty, var));
+                    }
+                }
+            }
+        } else {
+            syntaxerror!(lino, format!("No metavariable type named: {}", ty));
+        }
+        plusbuf.push_str("//meta\n");
+        minusbuf.push_str("//meta\n");
+        lino += 1;
+    }
+    (metavars, plusbuf, minusbuf, lino)
+}
+
+
 pub fn processcocci(contents: &str) -> Vec<rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
-    let mut lino = 1; //stored line numbers
+    let mut lino = 0; //stored line numbers
                       //mutable because I supply it with modifier statements
 
     let mut rules: Vec<rule> = vec![];
@@ -361,34 +327,34 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
     //TODO line numbers matching properly
     let mut lastruleline = 0;
     for i in 0..nrules {
-        let mut block = blocks[i * 4];
-        block = block.trim();
+        let block1 = blocks[i*4].trim();//rule
+        let block2 = blocks[i*4 + 1];//metavars
+        let block3 = blocks[i*4 + 2];//empty
+        let block4 = blocks[i*4 + 3];//mods
 
         //getting rule info
         let (currrulename, currdepends) =
-            handlerules(&mut rules, String::from(block), lino);
-        //actual meta vars
-        block = blocks[i * 4 + 1];
+            handlerules(&mut rules, String::from(block1), lino);
+        
         let (metavars, pbufmeta, mbufmeta, ltmpmeta) =
-            handle_metavar_decl(&mut rules, block, &currrulename, lino);
+            handle_metavar_decl(&mut rules, block2, &currrulename, lino);
+
         //just checks that nothing exists between the two @@
-        if !(blocks[i * 4 + 2] == "") {
+        if !(block3 == "") {
             syntaxerror!(lino, "Syntax Error");
         }
+
         //modifiers
-        block = blocks[i * 4 + 3];
         let (pbufmod, mbufmod, ltmpmod) =
-            handlemods(block);
+            handlemods(block4);
 
         //start of function
         lino += 1;
         //metavars
         lino += ltmpmeta;
-        //for the second @@
-        lino += 1;
         //modifiers
         lino += ltmpmod;
-
+        println!("{},{},{}", currrulename, ltmpmeta, ltmpmod);
 
         let rule = buildrule(
             &pbufmeta,

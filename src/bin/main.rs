@@ -16,6 +16,6 @@ fn main() {
 
     let rules = processcocci(&contents);
     for rule in rules{
-        println!("{}", rule.patch.minus.astnode.to_string())
+        print!("{}", rule.patch.minus.astnode.to_string())
     }
 }
