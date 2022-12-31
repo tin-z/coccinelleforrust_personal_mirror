@@ -9,11 +9,13 @@ use std::fs;
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let contents = fs::read_to_string("./src/bin/rr.rs").expect("This shouldnt be empty");
+    let contents = fs::read_to_string("./src/bin/test.rs").expect("This shouldnt be empty");
 
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
 
-    let root = wrap_root(contents.as_str());
-    set_test_exps(root);
+    let rules = processcocci(&contents);
+    for rule in rules{
+        println!("{}", rule.patch.minus.astnode.to_string())
+    }
 }

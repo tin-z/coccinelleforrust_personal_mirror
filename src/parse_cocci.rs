@@ -1,6 +1,4 @@
-#![feature(try_blocks)]
-
-use std::{io::Lines, vec};
+use std::{vec};
 
 use parser::SyntaxKind;
 
@@ -20,20 +18,6 @@ pub enum dep {
     AndDep(Box<(dep, dep)>),
     OrDep(Box<(dep, dep)>),
     AntiDep(Box<dep>),
-}
-
-struct pinfo {
-    plusbuf: String,
-    minusbuf: String,
-    lino: usize,
-}
-
-impl pinfo {
-    fn update(&mut self, pb: &str, mb: &str, l: usize) {
-        self.plusbuf.push_str(pb);
-        self.minusbuf.push_str(mb);
-        self.lino += l;
-    }
 }
 
 #[derive(PartialEq, Clone)]
@@ -272,15 +256,31 @@ fn flag_metavars(rule: &mut rule, node: &mut Rnode) {
     }
 }
 
-fn addrule(
-    plusbuf: &String,
-    minusbuf: &String,
+fn buildrule(
+    pbufmeta: &String,
+    mbufmeta: &String,
+    pbufmod: &String,
+    mbufmod: &String,
     currrulename: &Name,
     currdepends: dep,
     metavars: Vec<mvar>,
     lastruleline: usize,
 ) -> rule {
     //end of the previous rule
+    let mut plusbuf = String::new();
+    let mut minusbuf = String::new();
+    plusbuf.push_str(format!("fn {currrulename}_plus() {{\n").as_str());
+    minusbuf.push_str(format!("fn {currrulename}_minus() {{\n").as_str());
+
+    plusbuf.push_str(pbufmeta);
+    minusbuf.push_str(mbufmeta);
+
+    plusbuf.push('\n');
+    minusbuf.push('\n');
+
+    plusbuf.push_str(pbufmod);
+    minusbuf.push_str(mbufmod);
+
     let mut plustmp = String::from(plusbuf);
     let mut minustmp = String::from(minusbuf);
     plustmp.push_str("}\n");
@@ -350,6 +350,8 @@ pub fn handlemods(block: &str) -> (String, String, usize) {
 
 pub fn processcocci(contents: &str) -> Vec<rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
+    let mut lino = 1; //stored line numbers
+                      //mutable because I supply it with modifier statements
 
     let mut rules: Vec<rule> = vec![];
     blocks.remove(0); //throwing away the first part before the first @
@@ -362,43 +364,37 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
         let mut block = blocks[i * 4];
         block = block.trim();
 
-        let mut pinfo = pinfo {
-            plusbuf: String::new(),
-            minusbuf: String::new(),
-            lino: lastruleline,
-        };
-
-        let (currrulename, currdepends) = handlerules(&mut rules, String::from(block), pinfo.lino);
-        //start of function
-        pinfo.update(
-            format!("fn {currrulename}_plus() {{\n").as_str(),
-            format!("fn {currrulename}_minus() {{\n").as_str(),
-            1,
-        );
-
+        //getting rule info
+        let (currrulename, currdepends) =
+            handlerules(&mut rules, String::from(block), lino);
         //actual meta vars
-        block = blocks[i * 4 + 1].trim();
-        let (metavars, pbuf, mbuf, ltmp) =
-            handle_metavar_decl(&mut rules, block, &currrulename, pinfo.lino);
-        pinfo.update(&pbuf, &mbuf, ltmp);
-
+        block = blocks[i * 4 + 1];
+        let (metavars, pbufmeta, mbufmeta, ltmpmeta) =
+            handle_metavar_decl(&mut rules, block, &currrulename, lino);
         //just checks that nothing exists between the two @@
         if !(blocks[i * 4 + 2] == "") {
-            syntaxerror!(pinfo.lino, "Syntax Error");
+            syntaxerror!(lino, "Syntax Error");
         }
-        pinfo.update("\n", "\n", 1);
-
         //modifiers
-        block = blocks[i * 4 + 3].trim();
-        let (pbuf, mbuf, ltmp) = handlemods(block);
-        pinfo.update(&pbuf, &mbuf, ltmp);
+        block = blocks[i * 4 + 3];
+        let (pbufmod, mbufmod, ltmpmod) =
+            handlemods(block);
 
-        //closing functions
-        pinfo.update("}", "}", 0);
+        //start of function
+        lino += 1;
+        //metavars
+        lino += ltmpmeta;
+        //for the second @@
+        lino += 1;
+        //modifiers
+        lino += ltmpmod;
 
-        let rule = addrule(
-            &pinfo.plusbuf,
-            &pinfo.minusbuf,
+
+        let rule = buildrule(
+            &pbufmeta,
+            &mbufmeta,
+            &pbufmod,
+            &mbufmod,
             &currrulename,
             currdepends,
             metavars,
@@ -406,7 +402,7 @@ pub fn processcocci(contents: &str) -> Vec<rule> {
         );
         rules.push(rule);
 
-        lastruleline += pinfo.lino;
+        lastruleline = lino;
     }
     rules
     //flag_logilines(0, &mut root);
