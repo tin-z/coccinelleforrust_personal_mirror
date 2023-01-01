@@ -1,6 +1,6 @@
 use parser::SyntaxKind;
 
-use crate::{parse_cocci::rule, wrap::Rnode};
+use crate::{parse_cocci::Rule, wrap::Rnode};
 
 type Tag = SyntaxKind;
 pub fn set_logilines_aux(mut prevline: usize, node: &mut Rnode) {
@@ -28,7 +28,7 @@ pub fn set_logilines_aux(mut prevline: usize, node: &mut Rnode) {
     }
 }
 
-pub fn set_logilines(rules: &mut Vec<rule>) {
+pub fn set_logilines(rules: &mut Vec<Rule>) {
     let mut offsetline = 0;
     for rule in rules {
         set_logilines_aux(offsetline, &mut rule.patch.minus);

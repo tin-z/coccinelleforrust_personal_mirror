@@ -1,5 +1,3 @@
-use syntax::SyntaxNode;
-
 use crate::wrap::Rnode;
 
 #[macro_export]

@@ -5,39 +5,39 @@ use parser::SyntaxKind;
 use crate::{
     syntaxerror,
     util::{tuple_of_2, tuple_of_3},
-    wrap::{metatype, wrap_root, Rnode},
+    wrap::{Metatype, wrap_root, Rnode},
 };
 
 type Tag = SyntaxKind;
 type Name = String;
 
-pub enum dep {
+pub enum Dep {
     NoDep,
     FailDep,
     Dep(Name),
-    AndDep(Box<(dep, dep)>),
-    OrDep(Box<(dep, dep)>),
-    AntiDep(Box<dep>),
+    AndDep(Box<(Dep, Dep)>),
+    OrDep(Box<(Dep, Dep)>),
+    AntiDep(Box<Dep>),
 }
 
-#[derive(PartialEq, Clone)]
-pub struct mvar {
+#[derive(PartialEq, Clone, Eq, Hash)]
+pub struct Mvar {
     rulename: Name,
     varname: Name,
-    metatype: metatype,
+    metatype: Metatype,
 }
 
-impl mvar {
+impl Mvar {
     pub fn new(
-        rules: &Vec<rule>,
+        rules: &Vec<Rule>,
         rulename: &Name,
         varname: &Name,
-        metatype: metatype,
+        metatype: Metatype,
         lino: usize,
-    ) -> mvar {
+    ) -> Mvar {
         let split = varname.split(".").collect::<Vec<&str>>();
         match (split.get(0), split.get(1), split.get(2)) {
-            (Some(var), None, None) => mvar {
+            (Some(var), None, None) => Mvar {
                 rulename: String::from(rulename),
                 varname: String::from(varname),
                 metatype: metatype,
@@ -62,19 +62,19 @@ impl mvar {
     }
 }
 
-pub struct patch {
+pub struct Patch {
     pub minus: Rnode,
     pub plus: Rnode,
 }
 
-pub struct rule {
+pub struct Rule {
     pub name: Name,
-    pub dependson: dep,
-    pub metavars: Vec<mvar>,
-    pub patch: patch,
+    pub dependson: Dep,
+    pub metavars: Vec<Mvar>,
+    pub patch: Patch,
 }
 
-fn getrule<'a>(rules: &'a Vec<rule>, rulename: &Name, lino: usize) -> &'a rule {
+fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &Name, lino: usize) -> &'a Rule {
     for rule in rules {
         if rule.name.eq(rulename) {
             return rule;
@@ -83,25 +83,25 @@ fn getrule<'a>(rules: &'a Vec<rule>, rulename: &Name, lino: usize) -> &'a rule {
     syntaxerror!(lino, "no such rule", rulename);
 }
 
-fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
+fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
     let node = &dep.astnode;
     match node.kind() {
         Tag::PREFIX_EXPR => {
             //for NOT depends
             let [cond, expr] = tuple_of_2(&mut dep.children_with_tokens);
             match cond.kind() {
-                Tag::BANG => dep::AntiDep(Box::new(getdep(rules, lino, expr))),
+                Tag::BANG => Dep::AntiDep(Box::new(getdep(rules, lino, expr))),
                 _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
         }
         Tag::BIN_EXPR => {
             let [lhs, cond, rhs] = tuple_of_3(&mut dep.children_with_tokens);
             match cond.kind() {
-                Tag::AMP2 => dep::AndDep(Box::new((
+                Tag::AMP2 => Dep::AndDep(Box::new((
                     getdep(rules, lino, lhs),
                     getdep(rules, lino, rhs),
                 ))),
-                Tag::PIPE2 => dep::OrDep(Box::new((
+                Tag::PIPE2 => Dep::OrDep(Box::new((
                     getdep(rules, lino, lhs),
                     getdep(rules, lino, rhs),
                 ))),
@@ -112,7 +112,7 @@ fn getdep(rules: &Vec<rule>, lino: usize, dep: &mut Rnode) -> dep {
             let name = dep.astnode.to_string();
             if rules.iter().any(|x| x.name == name) {
                 //IndexMap trait
-                dep::Dep(name)
+                Dep::Dep(name)
             } else {
                 syntaxerror!(lino, "no such Rule", name)
             }
@@ -144,33 +144,33 @@ fn get_expr(contents: &str) -> Rnode {
         .swap_remove(2) //TailExpr
 }
 
-impl rule {
+impl Rule {
     //We may need to keep a track of rules?
-    pub fn new(name: Name, patch: patch) -> rule {
-        rule {
+    pub fn new(name: Name, patch: Patch) -> Rule {
+        Rule {
             name: name,
-            dependson: dep::NoDep,
+            dependson: Dep::NoDep,
             metavars: vec![],
             patch: patch,
         }
     }
 }
 
-fn getdependson(rules: &Vec<rule>, rule: &str, lino: usize) -> dep {
+fn getdependson(rules: &Vec<Rule>, rule: &str, lino: usize) -> Dep {
     //rule is trimmed
     let fnstr = format!("fn coccifn {{ {} }}", rule);
     getdep(rules, lino, &mut get_expr(fnstr.as_str()))
 }
 
-fn tometatype(ty: &str) -> metatype {
+fn tometatype(ty: &str) -> Metatype {
     match ty {
-        "identifier" => metatype::Id,
-        "expression" => metatype::Exp,
-        _ => metatype::NoMeta,
+        "identifier" => Metatype::Id,
+        "expression" => Metatype::Exp,
+        _ => Metatype::NoMeta,
     }
 }
 
-fn handlerules(rules: &Vec<rule>, decl: Name, lino: usize) -> (Name, dep) {
+fn handlerules(rules: &Vec<Rule>, decl: Name, lino: usize) -> (Name, Dep) {
     let mut tokens = decl.trim().split(" ");
     let currrulename = if let Some(currrulename) = tokens.next() {
         Name::from(currrulename) //converted &str to Name,
@@ -187,17 +187,17 @@ fn handlerules(rules: &Vec<rule>, decl: Name, lino: usize) -> (Name, dep) {
             let booleanexp: Name = tokens.collect();
             getdependson(rules, Name::from(booleanexp).as_str(), lino)
         }
-        (None, None) => dep::NoDep,
+        (None, None) => Dep::NoDep,
         _ => syntaxerror!(lino, ""),
     };
 
     (currrulename, depends)
 }
 
-fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize) -> patch {
+fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
-    patch {
+    Patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
     }
@@ -209,10 +209,10 @@ fn buildrule(
     pbufmod: &String,
     mbufmod: &String,
     currrulename: &Name,
-    currdepends: dep,
-    metavars: Vec<mvar>,
+    currdepends: Dep,
+    metavars: Vec<Mvar>,
     lastruleline: usize,
-) -> rule {
+) -> Rule {
     //end of the previous rule
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
@@ -229,7 +229,7 @@ fn buildrule(
     minusbuf.push_str("}");
 
     let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline);
-    let rule = rule {
+    let rule = Rule {
         name: Name::from(currrulename),
         dependson: currdepends,
         metavars: metavars,
@@ -272,11 +272,11 @@ pub fn handlemods(block: &str) -> (String, String, usize) {
 
 
 pub fn handle_metavar_decl(
-    rules: &Vec<rule>,
+    rules: &Vec<Rule>,
     block: &str,
     currrulename: &Name,
     offset: usize,
-) -> (Vec<mvar>, String, String, usize) {
+) -> (Vec<Mvar>, String, String, usize) {
     let mut lino = 0;
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
@@ -289,14 +289,14 @@ pub fn handle_metavar_decl(
         let mut tokens = line.split(&[',', ' ', ';'][..]);
         let ty = tokens.next().unwrap().trim();
         let mtype = tometatype(ty);
-        if mtype != metatype::NoMeta {
+        if mtype != Metatype::NoMeta {
             for var in tokens {
                 //does not check for ; at the end of the line
                 //TODO
                 let var = var.trim().to_string();
                 if var != "" {
-                    if !metavars.iter().any(|x: &mvar| x.varname == var) {
-                        metavars.push(mvar::new(&rules, currrulename, &var, mtype, lino));
+                    if !metavars.iter().any(|x: &Mvar| x.varname == var) {
+                        metavars.push(Mvar::new(&rules, currrulename, &var, mtype, lino));
                     //integrate metavar inheritance TODO
                     } else {
                         syntaxerror!(offset+lino, format!("Redefining {} metavariable {}", ty, var));
@@ -314,12 +314,12 @@ pub fn handle_metavar_decl(
 }
 
 
-pub fn processcocci(contents: &str) -> Vec<rule> {
+pub fn processcocci(contents: &str) -> Vec<Rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
                       //mutable because I supply it with modifier statements
 
-    let mut rules: Vec<rule> = vec![];
+    let mut rules: Vec<Rule> = vec![];
     blocks.remove(0); //throwing away the first part before the first @
     let nrules = blocks.len() / 4; //this should always be an integer if case of a proper cocci file
                                    //if it fails we will find out in the next for loop

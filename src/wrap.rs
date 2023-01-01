@@ -6,13 +6,13 @@ use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
 pub struct Rnode {
-    pub wrapper: wrap,
+    pub wrapper: Wrap,
     pub astnode: SyntaxElement,
     pub children_with_tokens: Vec<Rnode>
 }
 
 impl Rnode {
-    pub fn new_root(wrapper: wrap, syntax: SyntaxElement, children: Vec<Rnode>, 
+    pub fn new_root(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Rnode>, 
         children_with_tokens: Vec<Rnode>) -> Rnode {
         Rnode {
             wrapper: wrapper,
@@ -49,10 +49,10 @@ impl Rnode {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct dummy {}
+pub struct Dummy {}
 
 #[derive(Clone, PartialEq)]
-pub struct token_info {
+pub struct TokenInfo {
     tline_start: usize,
     tline_end: usize,
     left_offset: usize,
@@ -60,7 +60,7 @@ pub struct token_info {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct position_info {
+pub struct PositionInfo {
     pub line_start: usize,
     pub line_end: usize,
     pub logical_start: usize,
@@ -69,7 +69,7 @@ pub struct position_info {
     pub offset: usize,
 }
 
-impl position_info {
+impl PositionInfo {
     pub fn new(
         line_start: usize,
         line_end: usize,
@@ -77,8 +77,8 @@ impl position_info {
         logical_end: usize,
         column: usize,
         offset: usize,
-    ) -> position_info {
-        position_info {
+    ) -> PositionInfo {
+        PositionInfo {
             line_start: line_start,
             line_end: line_end,
             logical_start: logical_start,
@@ -90,7 +90,7 @@ impl position_info {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum mcodekind {
+pub enum Mcodekind {
     //TODO
     MINUS(),
     PLUS(),
@@ -99,32 +99,32 @@ pub enum mcodekind {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct dots_bef_aft {}
+pub struct DotsBefAft {}
 
 #[derive(Clone, PartialEq)]
-pub struct info {
-    pos_info: position_info,
+pub struct Info {
+    pos_info: PositionInfo,
     attachable_start: bool,
     attachable_end: bool,
-    mcode_start: Vec<mcodekind>,
-    mcode_end: Vec<mcodekind>,
-    strings_before: Vec<(dummy, position_info)>,
-    strings_after: Vec<(dummy, position_info)>,
+    mcode_start: Vec<Mcodekind>,
+    mcode_end: Vec<Mcodekind>,
+    strings_before: Vec<(Dummy, PositionInfo)>,
+    strings_after: Vec<(Dummy, PositionInfo)>,
     isSymbolIdent: bool,
 }
 
-impl info {
+impl Info {
     pub fn new(
-        pos_info: position_info,
+        pos_info: PositionInfo,
         attachable_start: bool,
         attachable_end: bool,
-        mcode_start: Vec<mcodekind>,
-        mcode_end: Vec<mcodekind>,
-        strings_before: Vec<(dummy, position_info)>,
-        strings_after: Vec<(dummy, position_info)>,
+        mcode_start: Vec<Mcodekind>,
+        mcode_end: Vec<Mcodekind>,
+        strings_before: Vec<(Dummy, PositionInfo)>,
+        strings_after: Vec<(Dummy, PositionInfo)>,
         isSymbolIdent: bool,
-    ) -> info {
-        info {
+    ) -> Info {
+        Info {
             pos_info: pos_info,
             attachable_start: attachable_start,
             attachable_end: attachable_end,
@@ -137,42 +137,42 @@ impl info {
     }
 }
 
-#[derive(Clone, PartialEq, Copy, Debug)]
-pub enum metatype{
+#[derive(Clone, PartialEq, Copy, Debug, Hash, Eq)]
+pub enum Metatype{
     NoMeta,
     Exp,
     Id
 }
 
 #[derive(Clone, PartialEq)]
-pub struct wrap {
-    info: info,
+pub struct Wrap {
+    info: Info,
     index: usize,
-    pub mcodekind: mcodekind,
+    pub mcodekind: Mcodekind,
     exp_ty: Option<Type>,
-    bef_aft: dots_bef_aft,
-    pub metatype: metatype,
+    bef_aft: DotsBefAft,
+    pub metatype: Metatype,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
-    iso_info: Vec<(String, dummy)>,
+    iso_info: Vec<(String, Dummy)>,
 }
 
-impl wrap {
+impl Wrap {
     //Since we are hashing this with Syntax eventually, do we really need the node f
     pub fn new(
-        info: info,
+        info: Info,
         index: usize,
-        mcodekind: mcodekind,
+        mcodekind: Mcodekind,
         exp_ty: Option<Type>,
-        bef_aft: dots_bef_aft,
-        metatype: metatype,
+        bef_aft: DotsBefAft,
+        metatype: Metatype,
         true_if_arg: bool,
         true_if_test: bool,
         true_if_test_exp: bool,
-        iso_info: Vec<(String, dummy)>,
-    ) -> wrap {
-        wrap {
+        iso_info: Vec<(String, Dummy)>,
+    ) -> Wrap {
+        Wrap {
             info: info,
             index: index,
             mcodekind: mcodekind,
@@ -204,7 +204,7 @@ impl wrap {
     }
 }
 
-pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
+pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
     let mut nl: usize = 0;
@@ -222,7 +222,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         _ => {}
     }
     */ //CHECK THSI IN THE MORNING
-    let pos_info: position_info = position_info::new(//all casted to usize because linecol returns u32
+    let pos_info: PositionInfo = PositionInfo::new(//all casted to usize because linecol returns u32
         sindex.line as usize,
         eindex.line as usize,
         0,
@@ -231,7 +231,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         node.text_range().start().into(),
     );
 
-    let info = info::new(
+    let info = Info::new(
         pos_info,
         false,
         false,
@@ -241,13 +241,13 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> wrap {
         vec![],
         false,
     );
-    let wrap: wrap = wrap::new(
+    let wrap: Wrap = Wrap::new(
         info,
         0,
-        mcodekind::MIXED(),
+        Mcodekind::MIXED(),
         None, //will be filled later with type inference
-        dots_bef_aft {},
-        metatype::NoMeta,
+        DotsBefAft {},
+        Metatype::NoMeta,
         false,
         false,
         false,
