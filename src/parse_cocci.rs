@@ -57,7 +57,7 @@ pub struct Patch {
 impl Patch {
     fn setmetavars_aux(node: &mut Rnode, metavars: &Vec<MetaVar>) {
         match node.kind() {
-            Tag::PREFIX_EXPR => {
+            Tag::NAME_REF => {
                 for metavar in metavars {
                     if node.astnode.to_string() == metavar.name() {
                         node.wrapper.metavar = metavar.clone();
