@@ -242,10 +242,9 @@ fn buildrule(
     rule
 }
 
-pub fn handlemods(block: &str) -> (String, String, usize) {
+pub fn handlemods(block: &str) -> (String, String) {
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
-    let mut lino = 0;
 
     for line in block.lines() {
         match line.chars().next() {
@@ -269,24 +268,23 @@ pub fn handlemods(block: &str) -> (String, String, usize) {
                 minusbuf.push('\n');
             }
         }
-        lino += 1;
     }
-    (plusbuf, minusbuf, lino)
+    (plusbuf, minusbuf)
 }
 
 pub fn handle_metavar_decl(
     rules: &Vec<Rule>,
     block: &str,
     currrulename: &Name,
-    offset: usize,
-) -> (Vec<MetaVar>, String, String, usize) {
-    let mut lino = 0;
+    lino: usize,
+) -> (Vec<MetaVar>, String, String) {
+    let mut offset = 0;
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
     let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encounteres as of now
 
     for line in block.lines() {
-        lino += 1;
+        offset += 1;
         if line == "" {
             continue;
         }
@@ -312,7 +310,7 @@ pub fn handle_metavar_decl(
         plusbuf.push_str("//meta\n");
         minusbuf.push_str("//meta\n");
     }
-    (metavars, plusbuf, minusbuf, lino)
+    (metavars, plusbuf, minusbuf)
 }
 
 pub fn processcocci(contents: &str) -> Vec<Rule> {
@@ -336,7 +334,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
         //getting rule info
         let (currrulename, currdepends) = handlerules(&mut rules, String::from(block1), lino);
 
-        let (metavars, pbufmeta, mbufmeta, ltmpmeta) =
+        let (metavars, pbufmeta, mbufmeta) =
             handle_metavar_decl(&mut rules, block2, &currrulename, lino);
 
         //just checks that nothing exists between the two @@
@@ -345,16 +343,15 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
         }
 
         //modifiers
-        let (pbufmod, mbufmod, ltmpmod) = handlemods(block4);
+        let (pbufmod, mbufmod) = handlemods(block4);
 
         //start of function
         lino += 1;
         //metavars
-        lino += ltmpmeta;
+        lino += block2.lines().count();
         //modifiers
-        lino += ltmpmod;
-        println!("{},{},{}", currrulename, ltmpmeta, ltmpmod);
-
+        lino += block4.lines().count()-1;
+        
         let rule = buildrule(
             &pbufmeta,
             &mbufmeta,

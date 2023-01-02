@@ -39,7 +39,7 @@ impl Rnode {
         self.astnode.kind()
     }
 
-    pub fn print_tree(&self, mut pref: &mut String){//stticly debug function    
+    pub fn print_tree(&self, pref: &mut String){//stticly debug function    
         println!("{}{:?}", pref, self.kind());
         let mut gg = pref.clone();
         gg.push_str(pref.as_str());
@@ -112,7 +112,7 @@ pub struct Info {
     mcode_end: Vec<Mcodekind>,
     strings_before: Vec<(Dummy, PositionInfo)>,
     strings_after: Vec<(Dummy, PositionInfo)>,
-    isSymbolIdent: bool,
+    is_symbol_ident: bool,
 }
 
 impl Info {
@@ -124,7 +124,7 @@ impl Info {
         mcode_end: Vec<Mcodekind>,
         strings_before: Vec<(Dummy, PositionInfo)>,
         strings_after: Vec<(Dummy, PositionInfo)>,
-        isSymbolIdent: bool,
+        is_symbol_ident: bool,
     ) -> Info {
         Info {
             pos_info: pos_info,
@@ -134,7 +134,7 @@ impl Info {
             mcode_end: mcode_end,
             strings_before: strings_before,
             strings_after: strings_after,
-            isSymbolIdent: isSymbolIdent,
+            is_symbol_ident,
         }
     }
 }
@@ -155,7 +155,7 @@ impl MetaVar {
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar{
+    pub fn  new(rulename: &str, name: &str, ty: &str) -> MetaVar{
         let minfo = (String::from(rulename), String::from(name));
         match ty{
             "expression" => {
@@ -212,7 +212,7 @@ impl Wrap {
     }
 
     pub fn is_ident(&self) -> bool {
-        self.info.isSymbolIdent
+        self.info.is_symbol_ident
     }
 
     pub fn set_logilines_start(&mut self, lino: usize){
@@ -232,7 +232,7 @@ impl Wrap {
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
-    
+
     let pos_info: PositionInfo = PositionInfo::new(//all casted to usize because linecol returns u32
         sindex.line as usize,
         eindex.line as usize,
