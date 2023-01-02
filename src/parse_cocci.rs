@@ -172,7 +172,8 @@ fn getdependson(rules: &Vec<Rule>, rule: &str, lino: usize) -> Dep {
     getdep(rules, lino, &mut get_expr(fnstr.as_str()))
 }
 
-fn handlerules(rules: &Vec<Rule>, decl: Name, lino: usize) -> (Name, Dep) {
+fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
+    let decl = decl.get(0).unwrap();
     let mut tokens = decl.trim().split(" ");
     let currrulename = if let Some(currrulename) = tokens.next() {
         Name::from(currrulename) //converted &str to Name,
@@ -242,11 +243,11 @@ fn buildrule(
     rule
 }
 
-pub fn handlemods(block: &str) -> (String, String) {
+pub fn handlemods(block: &Vec<&str>) -> (String, String) {
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
 
-    for line in block.lines() {
+    for line in block {
         match line.chars().next() {
             Some('+') => {
                 plusbuf.push(' ');
@@ -274,7 +275,7 @@ pub fn handlemods(block: &str) -> (String, String) {
 
 pub fn handle_metavar_decl(
     rules: &Vec<Rule>,
-    block: &str,
+    block: &Vec<&str>,
     currrulename: &Name,
     lino: usize,
 ) -> (Vec<MetaVar>, String, String) {
@@ -283,9 +284,9 @@ pub fn handle_metavar_decl(
     let mut minusbuf = String::new();
     let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encounteres as of now
 
-    for line in block.lines() {
+    for line in block {
         offset += 1;
-        if line == "" {
+        if line.deref() == "" {
             continue;
         }
         let line = line.trim();
@@ -326,31 +327,31 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
     //TODO line numbers matching properly
     let mut lastruleline = 0;
     for i in 0..nrules {
-        let block1 = blocks[i * 4].trim(); //rule
-        let block2 = blocks[i * 4 + 1]; //metavars
-        let block3 = blocks[i * 4 + 2]; //empty
-        let block4 = blocks[i * 4 + 3]; //mods
+        let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
+        let block2: Vec<&str> = blocks[i * 4 + 1].lines().collect(); //metavars
+        let block3: Vec<&str> = blocks[i * 4 + 2].lines().collect(); //empty
+        let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //mods
 
         //getting rule info
-        let (currrulename, currdepends) = handlerules(&mut rules, String::from(block1), lino);
+        let (currrulename, currdepends) = handlerules(&mut rules, block1, lino);
 
+        lino += 1;
         let (metavars, pbufmeta, mbufmeta) =
-            handle_metavar_decl(&mut rules, block2, &currrulename, lino);
+            handle_metavar_decl(&mut rules, &block2, &currrulename, lino);
 
+        
+        //metavars
+        lino += block2.len();
         //just checks that nothing exists between the two @@
-        if !(block3 == "") {
+        if block3.len()==1{
             syntaxerror!(lino, "Syntax Error");
         }
 
         //modifiers
-        let (pbufmod, mbufmod) = handlemods(block4);
+        lino += block4.len()-1;
+        let (pbufmod, mbufmod) = handlemods(&block4);
 
         //start of function
-        lino += 1;
-        //metavars
-        lino += block2.lines().count();
-        //modifiers
-        lino += block4.lines().count()-1;
         
         let rule = buildrule(
             &pbufmeta,
