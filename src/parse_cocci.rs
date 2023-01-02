@@ -1,3 +1,15 @@
+/// Parse a Single .cocci file
+/// Structure supported as of now
+/// @ rulename (depends on bool_exp)? @
+/// metavars(exp and id)
+/// .
+/// .
+/// .
+/// @@
+/// 
+/// _context_
+/// (+/-) code
+
 use std::{vec, ops::Deref};
 
 use parser::SyntaxKind;
@@ -93,6 +105,7 @@ fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule {
     syntaxerror!(lino, "no such rule", rulename);
 }
 
+// Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
     let node = &dep.astnode;
     match node.kind() {
@@ -166,12 +179,14 @@ impl Rule {
     }
 }
 
+/// Parses the depends on clause in the rule definition by calling getdep
 fn getdependson(rules: &Vec<Rule>, rule: &str, lino: usize) -> Dep {
     //rule is trimmed
     let fnstr = format!("fn coccifn {{ {} }}", rule);
     getdep(rules, lino, &mut get_expr(fnstr.as_str()))
 }
 
+/// Deals with the first line of a rule definition
 fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
     let decl = decl.get(0).unwrap();
     let mut tokens = decl.trim().split(" ");
@@ -197,6 +212,7 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
     (currrulename, depends)
 }
 
+/// Turns values from handlemods into a patch object
 fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
@@ -208,6 +224,9 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
     p
 }
 
+
+/// Given all the info abuot name, depends, metavars and modifiers and context
+/// it consolidates everything into a line preserved rule object
 fn buildrule(
     pbufmeta: &String,
     mbufmeta: &String,
@@ -243,6 +262,8 @@ fn buildrule(
     rule
 }
 
+/// Does nothing much as of now. Just appends lines inside the rules
+/// while preserving line numbers with new lines
 pub fn handlemods(block: &Vec<&str>) -> (String, String) {
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
@@ -273,6 +294,8 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
     (plusbuf, minusbuf)
 }
 
+
+/// Parses the metavar decalrations
 pub fn handle_metavar_decl(
     rules: &Vec<Rule>,
     block: &Vec<&str>,
