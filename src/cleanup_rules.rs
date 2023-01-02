@@ -1,4 +1,4 @@
-// Remove rules that cannot match due to false dependencies
+// Remove rules that cannot match due to false Dependencies
 // This should happen before free_vars
 // For full Coccinelle, this will be more complex, due to disjunctions
 // and <... ...>.  Disjunctions are ok if at least one branch is ok.
@@ -8,43 +8,48 @@
 // matching when virtual rules are used to combine multiple semantic
 // patches.
 
-use std::vec;
+use std::{vec, ops::Deref};
 use std::collections::HashSet;
 
 use parser::SyntaxKind;
 
 use crate::{
     util::{worktree},
-    wrap::{metatype,Rnode},
-    parse_cocci::{dep,mvar,rule}
+    wrap::{MetaVar,Rnode},
+    parse_cocci::{Dep,Rule}
 };
 
 type Tag = SyntaxKind;
 type Name = String;
 
-#[feature(box_patterns)]
-fn executable(dropped: &HashSet<Name>, dep: &dep) -> bool {
-    match dep {
-        dep::NoDep => true,
-        dep::FailDep => false,
-        dep::Dep(name) => !dropped.contains(name),
-        dep::AndDep(box(dep1, dep2)) =>
-            executable(dropped, dep1) && executable(dropped, dep2),
-        dep::OrDep(box(dep1, dep2)) =>
-            executable(dropped, dep1) || executable(dropped, dep2),
-        dep::AntiDep(_) => true // no idea if dep succeeds if executable
+fn executable(dropped: &HashSet<&Name>, Dep: &Dep) -> bool {
+    match Dep {
+        Dep::NoDep => true,
+        Dep::FailDep => false,
+        Dep::Dep(name) => !dropped.contains(name),
+        Dep::AndDep(dep) =>
+        {
+            let (Dep1, Dep2) = dep.deref();
+            executable(dropped, &Dep1) && executable(dropped, &Dep2)
+        },  
+        Dep::OrDep(dep) =>
+        {
+            let (Dep1, Dep2) = dep.deref();
+            executable(dropped, &Dep1) || executable(dropped, &Dep2)
+        },
+        Dep::AntiDep(_) => true // no idea if Dep succeeds if executable
     }
 }
 
-fn bindable(dropped: &HashSet<Name>, minus: &Rnode) -> bool {
+fn bindable(dropped: &HashSet<&Name>, minus: &mut Rnode) -> bool {
     let mut is_bindable = true;
     let work =
-        |node: &Rnode| {
+        |node: &mut Rnode| {
             if let Tag::PATH_EXPR = node.astnode.kind() {
-                match node.wrapper.metatype {
-                    metatype::NoMeta  => {}
-                    metatype::Exp(mv) | metatype::Id(mv) => {
-                        if dropped.contains(mv.rulename) {
+                match &node.wrapper.metavar {
+                    MetaVar::NoMeta  => {}
+                    MetaVar::Exp(mv) | MetaVar::Id(mv) => {
+                        if dropped.contains(&mv.1) {
                             is_bindable = false
                         }
                     }
@@ -55,13 +60,20 @@ fn bindable(dropped: &HashSet<Name>, minus: &Rnode) -> bool {
     is_bindable
 }
 
-pub fn cleanup_rules(rules: &mut Vec<rule>) {
-    let dropped = HashSet::new();
+pub fn cleanup_rules(rules: &mut Vec<Rule>) {
+    let mut dropped = HashSet::new();
 
-    for rule in rules {
-        if !executable(&dropped, rule.name) || !bindable(&dropped, rule.patch.minus) {
-            dropped.insert(rule.name);
-            rules.remove(rule);
+    let mut ins = vec![];
+    let mut ctr = 0;
+    for rule in rules.iter_mut() {
+        if !executable(&dropped, &rule.dependson) || !bindable(&dropped, &mut rule.patch.minus) {
+            dropped.insert(&rule.name);
+            ins.push(ctr);
         }
+        ctr+=1;
+    }
+
+    for i in 0..ins.len(){
+        rules.remove(ins[i] - i);
     }
 }
