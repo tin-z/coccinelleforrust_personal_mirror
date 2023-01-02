@@ -1,8 +1,10 @@
 use crate::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::Type;
+use syntax::ast::{Type};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
+
+type Minfo = (String, String);
 
 #[derive(PartialEq, Clone)]
 pub struct Rnode {
@@ -12,7 +14,7 @@ pub struct Rnode {
 }
 
 impl Rnode {
-    pub fn new_root(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Rnode>, 
+    pub fn new_root(wrapper: Wrap, syntax: SyntaxElement, 
         children_with_tokens: Vec<Rnode>) -> Rnode {
         Rnode {
             wrapper: wrapper,
@@ -137,11 +139,34 @@ impl Info {
     }
 }
 
-#[derive(Clone, PartialEq, Copy, Debug, Hash, Eq)]
-pub enum Metatype{
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
+pub enum MetaVar{
     NoMeta,
-    Exp,
-    Id
+    Exp(Minfo),
+    Id(Minfo)
+}
+
+impl MetaVar {
+    pub fn name(&self) -> &str{
+        match self{
+            MetaVar::NoMeta => { panic!("Should never happen"); }
+            MetaVar::Id(minfo) => { minfo.1.as_str() }
+            MetaVar::Exp(minfo) => { minfo.1.as_str() }
+        }
+    }
+
+    pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar{
+        let minfo = (String::from(rulename), String::from(name));
+        match ty{
+            "expression" => {
+                MetaVar::Exp(minfo)
+            }
+            "identifier" => {
+                MetaVar::Id(minfo)
+            }
+            _ => { MetaVar::NoMeta }
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -151,7 +176,7 @@ pub struct Wrap {
     pub mcodekind: Mcodekind,
     exp_ty: Option<Type>,
     bef_aft: DotsBefAft,
-    pub metatype: Metatype,
+    pub metavar: MetaVar,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
@@ -166,7 +191,7 @@ impl Wrap {
         mcodekind: Mcodekind,
         exp_ty: Option<Type>,
         bef_aft: DotsBefAft,
-        metatype: Metatype,
+        metavar: MetaVar,
         true_if_arg: bool,
         true_if_test: bool,
         true_if_test_exp: bool,
@@ -178,7 +203,7 @@ impl Wrap {
             mcodekind: mcodekind,
             exp_ty: exp_ty,
             bef_aft: bef_aft,
-            metatype: metatype,
+            metavar: metavar,
             true_if_arg: true_if_arg,
             true_if_test: true_if_test,
             true_if_test_exp: true_if_test_exp,
@@ -207,21 +232,7 @@ impl Wrap {
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
-    let mut nl: usize = 0;
-    /*
-    match node {
-        SyntaxElement::Node(node) => {
-            for s in node.children_with_tokens() {
-                s.as_token().map(|token| {
-                    if token.kind() == syntax::SyntaxKind::WHITESPACE {
-                        nl += token.to_string().matches('\n').count();
-                    }
-                });
-            }
-        }
-        _ => {}
-    }
-    */ //CHECK THSI IN THE MORNING
+    
     let pos_info: PositionInfo = PositionInfo::new(//all casted to usize because linecol returns u32
         sindex.line as usize,
         eindex.line as usize,
@@ -247,7 +258,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         Mcodekind::MIXED(),
         None, //will be filled later with type inference
         DotsBefAft {},
-        Metatype::NoMeta,
+        MetaVar::NoMeta,
         false,
         false,
         false,
