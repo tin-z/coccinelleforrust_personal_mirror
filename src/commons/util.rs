@@ -30,6 +30,20 @@ pub fn tuple_of_2<T>(v: &mut Vec<T>) -> [&mut T; 2] {
 }
 
 pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
+    if v.len() != 3 {
+        panic!("Should never occur. Length is - {:?}", v.len())
+    }
+    match &mut v[..3] {
+        [a, b, c] => [a, b, c],
+        _ => {
+            panic!("Does not have three elements")
+        }
+    }
+}
+
+
+pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
+
     match &mut v[..3] {
         [a, b, c] => [a, b, c],
         _ => {
@@ -43,7 +57,7 @@ pub fn worktree(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode)){
     //use async function to wrap the for loop
     //for other cases TODO
     f(&mut node);
-    for child in &mut node.children_with_tokens{
+    for child in &mut node.children{
         worktree(child, f);
     }
 }

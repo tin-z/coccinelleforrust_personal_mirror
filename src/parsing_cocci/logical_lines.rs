@@ -4,7 +4,7 @@ use super::{parse_cocci::Rule, wrap::Rnode};
 
 type Tag = SyntaxKind;
 pub fn set_logilines_aux(mut prevline: usize, node: &mut Rnode) {
-    if node.children_with_tokens.len() == 0 {
+    if node.children.len() == 0 {
         // this is only for testing will be removed after enough tests
         if node.kind() != Tag::WHITESPACE {
             assert!(node.astnode.to_string().matches('\n').count() == 0)
@@ -19,7 +19,7 @@ pub fn set_logilines_aux(mut prevline: usize, node: &mut Rnode) {
         node.wrapper.set_logilines_end(start);
     } else {
         node.wrapper.set_logilines_start(prevline);
-        for child in &mut node.children_with_tokens {
+        for child in &mut node.children {
             child.wrapper.set_logilines_start(prevline);
             set_logilines_aux(prevline, child);
             prevline = child.wrapper.getlogilinenos().1;

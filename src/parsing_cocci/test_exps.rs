@@ -23,7 +23,7 @@ fn process_exp(exp: &mut Rnode) {
     exp.wrapper.set_test_exps();
     match exp.astnode.kind() {
         Tag::PAREN_EXPR => {
-            let [_lp, exp, _rp] = tuple_of_3(&mut exp.children_with_tokens);
+            let [_lp, exp, _rp] = tuple_of_3(&mut exp.children);
             process_exp(exp);
         }
         _ => {}
@@ -33,15 +33,15 @@ fn process_exp(exp: &mut Rnode) {
 fn set_test_exps_aux(node: &mut Rnode) {
     match node.astnode.kind() {
         Tag::IF_EXPR => {
-            let [_if, cond] = tuple_of_2(&mut node.children_with_tokens);
+            let [_if, cond] = tuple_of_2(&mut node.children);
             process_exp(cond);
         }
         Tag::WHILE_EXPR => {
-            let [_while, cond] = tuple_of_2(&mut node.children_with_tokens);
+            let [_while, cond] = tuple_of_2(&mut node.children);
             process_exp(cond);
         }
         Tag::BIN_EXPR => {
-            let [lhs, op, rhs] = tuple_of_3(&mut node.children_with_tokens);
+            let [lhs, op, rhs] = tuple_of_3(&mut node.children);
             if is_relational(&op.astnode) {
                 process_exp(lhs);
                 process_exp(rhs);
@@ -49,7 +49,7 @@ fn set_test_exps_aux(node: &mut Rnode) {
         }
         Tag::PREFIX_EXPR => {
             //Have to be sure of this identity TODO
-            let [op, exp] = tuple_of_2(&mut node.children_with_tokens);
+            let [op, exp] = tuple_of_2(&mut node.children);
             if is_relational(&op.astnode) {
                 process_exp(exp);
             };

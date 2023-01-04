@@ -8,24 +8,24 @@ use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 pub struct Rnode {
     pub wrapper: Wrap,
     pub astnode: SyntaxElement,
-    pub children_with_tokens: Vec<Rnode>,
+    pub children: Vec<Rnode>,
 }
 
 impl Rnode {
     pub fn new_root(
         wrapper: Wrap,
         syntax: SyntaxElement,
-        children_with_tokens: Vec<Rnode>,
+        children: Vec<Rnode>,
     ) -> Rnode {
         Rnode {
             wrapper: wrapper,
             astnode: syntax,
-            children_with_tokens: children_with_tokens,
+            children: children,
         }
     }
 
-    pub fn set_children_with_tokens(&mut self, children: Vec<Rnode>) {
-        self.children_with_tokens = children
+    pub fn set_children(&mut self, children: Vec<Rnode>) {
+        self.children = children
     }
 
     pub fn tonode(self) -> SyntaxNode {
@@ -45,7 +45,7 @@ impl Rnode {
         println!("{}{:?}", pref, self.kind());
         let mut gg = pref.clone();
         gg.push_str(pref.as_str());
-        for child in &self.children_with_tokens {
+        for child in &self.children {
             child.print_tree(&mut gg)
         }
     }
@@ -349,11 +349,11 @@ pub fn wrap_root(contents: &str) -> Rnode {
     let root = SourceFile::parse(contents).tree();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
-        let children_with_tokens = df(&node);
+        let children = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
             astnode: node, //Change this to SyntaxElement
-            children_with_tokens: children_with_tokens,
+            children: children,
         };
         rnode
     };

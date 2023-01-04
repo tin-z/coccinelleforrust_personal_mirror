@@ -109,14 +109,14 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
     match node.kind() {
         Tag::PREFIX_EXPR => {
             //for NOT depends
-            let [cond, expr] = util::tuple_of_2(&mut dep.children_with_tokens);
+            let [cond, expr] = util::tuple_of_2(&mut dep.children);
             match cond.kind() {
                 Tag::BANG => Dep::AntiDep(Box::new(getdep(rules, lino, expr))),
                 _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
         }
         Tag::BIN_EXPR => {
-            let [lhs, cond, rhs] = util::tuple_of_3(&mut dep.children_with_tokens);
+            let [lhs, cond, rhs] = util::tuple_of_3(&mut dep.children);
             match cond.kind() {
                 Tag::AMP2 => {
                     //Recurses
@@ -145,7 +145,7 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
             }
         }
         Tag::PAREN_EXPR => {
-            let expr = &mut dep.children_with_tokens[1];
+            let expr = &mut dep.children[1];
             getdep(rules, lino, expr)
         }
         _ => syntaxerror!(lino, "malformed Rule", dep.astnode.to_string()),
@@ -154,9 +154,9 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
 
 fn get_blxpr(contents: &str) -> Rnode {
     wrap_root(contents)
-        .children_with_tokens
+        .children
         .swap_remove(0) //Fn
-        .children_with_tokens
+        .children
         .swap_remove(4) //BlockExpr
 }
 
@@ -165,9 +165,9 @@ fn get_expr(contents: &str) -> Rnode {
     //binary expression exists
 
     get_blxpr(contents) //BlockExpr
-        .children_with_tokens
+        .children
         .swap_remove(0) //StmtList
-        .children_with_tokens
+        .children
         .swap_remove(2) //TailExpr
 }
 
