@@ -8,15 +8,15 @@
 // matching when virtual rules are used to combine multiple semantic
 // patches.
 
-use std::{vec, ops::Deref};
 use std::collections::HashSet;
+use std::{ops::Deref, vec};
 
-use parser::SyntaxKind;
-use crate::util::worktree;
 use super::{
-    wrap::{MetaVar,Rnode},
-    parse_cocci::{Dep,Rule}
+    parse_cocci::{Dep, Rule},
+    wrap::{MetaVar, Rnode},
 };
+use crate::util::worktree;
+use parser::SyntaxKind;
 
 type Tag = SyntaxKind;
 type Name = String;
@@ -26,35 +26,36 @@ fn executable(dropped: &HashSet<&Name>, Dep: &Dep) -> bool {
         Dep::NoDep => true,
         Dep::FailDep => false,
         Dep::Dep(name) => !dropped.contains(name),
-        Dep::AndDep(dep) => //dep is deconstructed into dep1 dep2
+        Dep::AndDep(dep) =>
+        //dep is deconstructed into dep1 dep2
         {
             let (dep1, dep2) = dep.deref();
             executable(dropped, &dep1) && executable(dropped, &dep2)
-        },  
-        Dep::OrDep(dep) => //dep is deconstructed into dep1 dep2
+        }
+        Dep::OrDep(dep) =>
+        //dep is deconstructed into dep1 dep2
         {
             let (dep1, dep2) = dep.deref();
             executable(dropped, &dep1) || executable(dropped, &dep2)
-        },
-        Dep::AntiDep(_) => true // no idea if Dep succeeds if executable
+        }
+        Dep::AntiDep(_) => true, // no idea if Dep succeeds if executable
     }
 }
 
 fn bindable(dropped: &HashSet<&Name>, minus: &mut Rnode) -> bool {
     let mut is_bindable = true;
-    let mut work =
-        |node: &mut Rnode| {
-            if let Tag::PATH_EXPR = node.astnode.kind() {
-                match &node.wrapper.metavar {
-                    MetaVar::NoMeta  => {}
-                    MetaVar::Exp(mv) | MetaVar::Id(mv) => {
-                        if dropped.contains(&mv.1) {
-                            is_bindable = false
-                        }
+    let mut work = |node: &mut Rnode| {
+        if let Tag::PATH_EXPR = node.astnode.kind() {
+            match &node.wrapper.metavar {
+                MetaVar::NoMeta => {}
+                MetaVar::Exp(mv) | MetaVar::Id(mv) => {
+                    if dropped.contains(&mv.1) {
+                        is_bindable = false
                     }
                 }
-            };
+            }
         };
+    };
     worktree(minus, &mut work);
     is_bindable
 }
@@ -69,10 +70,10 @@ pub fn cleanup_rules(rules: &mut Vec<Rule>) {
             dropped.insert(&rule.name);
             ins.push(ctr);
         }
-        ctr+=1;
+        ctr += 1;
     }
 
-    for i in 0..ins.len(){
+    for i in 0..ins.len() {
         rules.remove(ins[i] - i);
     }
 }

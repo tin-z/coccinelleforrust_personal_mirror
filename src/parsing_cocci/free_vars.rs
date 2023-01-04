@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::vec;
 
 use super::parse_cocci::Rule;
-use super::wrap::{Befaft::*, Mcodekind::*, MetaVar, Replacement::*, Rnode, Keep_Binding};
+use super::wrap::{Befaft::*, Keep_Binding, Mcodekind::*, MetaVar, Replacement::*, Rnode};
 use crate::syntaxerror;
 use crate::util::worktree;
 
@@ -91,11 +91,12 @@ fn collect_plus_refs(mut root: &mut Rnode) -> HashSet<MetaVar> {
 fn classify_rule_variables(rule: &mut Rule, used_after: &mut Vec<MetaVar>) {
     let curname = &rule.name;
 
-    let (unitarynames, nonunitarynames) = collect_minus_refs_unitary_nonunitary(&mut rule.patch.minus);
+    let (unitarynames, nonunitarynames) =
+        collect_minus_refs_unitary_nonunitary(&mut rule.patch.minus);
     let inplus = collect_plus_refs(&mut rule.patch.minus);
 
-    let mut saved: HashSet<MetaVar> = inplus.clone();// Either this has to be cloned or 
-                                                     // !inplus.contains(&r) needs to be replaced b with !saved.contains(&r)
+    let mut saved: HashSet<MetaVar> = inplus.clone(); // Either this has to be cloned or
+                                                      // !inplus.contains(&r) needs to be replaced b with !saved.contains(&r)
     let mut unitary: HashSet<MetaVar> = HashSet::new();
     let mut nonunitary: HashSet<MetaVar> = HashSet::new();
 
@@ -135,16 +136,21 @@ fn classify_rule_variables(rule: &mut Rule, used_after: &mut Vec<MetaVar>) {
         }
     };
 
-    for r in saved.clone() {//cloning here because 
+    for r in saved.clone() {
+        //cloning here because
         collect(r);
     }
 
-    for r in nonunitary.clone() {//these are again collected below
+    for r in nonunitary.clone() {
+        //these are again collected below
         collect(r.clone());
     }
 
     // drop the local variables from used_after
-    if let Some(index) = used_after.iter().position(|value| value.getrulename() == curname) {
+    if let Some(index) = used_after
+        .iter()
+        .position(|value| value.getrulename() == curname)
+    {
         used_after.remove(index);
     }
 

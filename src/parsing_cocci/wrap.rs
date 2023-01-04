@@ -220,7 +220,7 @@ impl MetaVar {
         }
     }
 
-    pub fn getrulename(&self) -> &str{
+    pub fn getrulename(&self) -> &str {
         match self {
             Self::NoMeta => {
                 panic!("Should not occur.");

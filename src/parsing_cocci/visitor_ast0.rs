@@ -14,8 +14,7 @@ pub fn work_node<'a, D>(
                     children_with_tokens.push(work_node(do_stuff, child));
                 }
             }
-            SyntaxElement::Token(_token) => {
-            }
+            SyntaxElement::Token(_token) => {}
         }
         children_with_tokens
     })
