@@ -1,6 +1,6 @@
 use coccinelleforrust::{
     parsing_cocci::parse_cocci::{processcocci, self},
-    parsing_cocci::wrap::{wrap_root, Rnode, MetaVar},
+    parsing_cocci::{wrap::{wrap_root, Rnode, MetaVar}, logical_lines::set_logilines},
 };
 use std::fs;
 
@@ -24,7 +24,7 @@ fn main() {
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
 
-    let rules = processcocci(&contents);
+    let mut rules = processcocci(&contents);
     //aux(&rules[0].patch.minus);
     for rule in rules{
         println!("{}, ", rule.patch.minus.astnode.to_string());

@@ -288,6 +288,13 @@ impl Wrap {
         self.info.is_symbol_ident
     }
 
+    pub fn getlinenos(&self) -> (usize, usize) {
+        (
+            self.info.pos_info.line_start,
+            self.info.pos_info.line_end
+        )
+    }
+
     pub fn set_logilines_start(&mut self, lino: usize) {
         self.info.pos_info.logical_start = lino;
     }
