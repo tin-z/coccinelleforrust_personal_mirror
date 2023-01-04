@@ -4,8 +4,6 @@ use parser::SyntaxKind;
 use syntax::ast::Type;
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
-type Tag = SyntaxKind;
-
 #[derive(PartialEq, Clone)]
 pub struct Rnode {
     pub wrapper: Wrap,
@@ -162,13 +160,13 @@ impl Info {
 }
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
-pub enum Keep_Binding {
+pub enum KeepBinding {
     UNITARY,    //Need no info
     NONUNITARY, //Need an env entry
     SAVED,      //Need a witness
 }
 
-type Minfo = (String, String, Keep_Binding);
+type Minfo = (String, String, KeepBinding);
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum MetaVar {
@@ -191,12 +189,12 @@ impl MetaVar {
     pub fn gettype(&self) -> &str {
         match self {
             MetaVar::NoMeta => "None",
-            MetaVar::Id(minfo) => "identifier",
-            MetaVar::Exp(minfo) => "expression",
+            MetaVar::Id(_minfo) => "identifier",
+            MetaVar::Exp(_minfo) => "expression",
         }
     }
 
-    pub fn setbinding(&mut self, binding: Keep_Binding) {
+    pub fn setbinding(&mut self, binding: KeepBinding) {
         match self {
             Self::NoMeta => {
                 panic!("Should not occur.");
@@ -234,7 +232,7 @@ impl MetaVar {
         let minfo = (
             String::from(rulename),
             String::from(name),
-            Keep_Binding::UNITARY,
+            KeepBinding::UNITARY,
         );
         match ty {
             "expression" => MetaVar::Exp(minfo),

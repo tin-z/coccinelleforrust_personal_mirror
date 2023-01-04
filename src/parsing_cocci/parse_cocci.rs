@@ -12,7 +12,7 @@
 use std::{ops::Deref, vec};
 
 use super::wrap::{wrap_root, MetaVar, Rnode};
-use crate::{syntaxerror, util};
+use crate::{syntaxerror, commons::util};
 use parser::SyntaxKind;
 
 type Tag = SyntaxKind;

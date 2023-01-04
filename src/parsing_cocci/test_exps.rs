@@ -1,5 +1,5 @@
 use super::wrap::{Rnode, Wrap};
-use crate::util::{tuple_of_2, tuple_of_3, worktree};
+use crate::commons::util::{tuple_of_2, tuple_of_3, worktree};
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
 
@@ -30,7 +30,7 @@ fn process_exp(exp: &mut Rnode) {
     }
 }
 
-fn set_test_exps_aux(mut node: &mut Rnode) {
+fn set_test_exps_aux(node: &mut Rnode) {
     match node.astnode.kind() {
         Tag::IF_EXPR => {
             let [_if, cond] = tuple_of_2(&mut node.children_with_tokens);

@@ -15,7 +15,7 @@ use super::{
     parse_cocci::{Dep, Rule},
     wrap::{MetaVar, Rnode},
 };
-use crate::util::worktree;
+use crate::commons::util::worktree;
 use parser::SyntaxKind;
 
 type Tag = SyntaxKind;

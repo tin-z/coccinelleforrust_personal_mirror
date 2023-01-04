@@ -7,9 +7,9 @@ use std::collections::HashSet;
 use std::vec;
 
 use super::parse_cocci::Rule;
-use super::wrap::{Befaft::*, Keep_Binding, Mcodekind::*, MetaVar, Replacement::*, Rnode};
+use super::wrap::{Befaft::*, KeepBinding, Mcodekind::*, MetaVar, Replacement::*, Rnode};
 use crate::syntaxerror;
-use crate::util::worktree;
+use crate::commons::util::worktree;
 
 type Tag = SyntaxKind;
 type Name = String;
@@ -104,17 +104,17 @@ fn classify_rule_variables(rule: &mut Rule, used_after: &mut Vec<MetaVar>) {
     let mut check_nonunitary = |mut r: MetaVar| {
         if used_after.contains(&r) {
             saved.insert(r.clone());
-            r.setbinding(Keep_Binding::SAVED);
+            r.setbinding(KeepBinding::SAVED);
         } else {
             nonunitary.insert(r.clone());
-            r.setbinding(Keep_Binding::NONUNITARY);
+            r.setbinding(KeepBinding::NONUNITARY);
         }
     };
 
     for mut r in unitarynames {
         if r.getrulename() == curname && !inplus.contains(&r) && !used_after.contains(&r) {
             unitary.insert(r.clone());
-            r.setbinding(Keep_Binding::UNITARY)
+            r.setbinding(KeepBinding::UNITARY)
         } else {
             check_nonunitary(r);
         }
