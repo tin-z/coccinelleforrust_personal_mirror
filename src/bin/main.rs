@@ -1,8 +1,8 @@
 use coccinelleforrust::{
-    parse_cocci::{processcocci, self},
-    wrap::{wrap_root, Rnode, MetaVar},
-    logical_lines::set_logilines,
-    test_exps::set_test_exps, util::worktree
+    parsing_cocci::parse_cocci::{processcocci, self},
+    parsing_cocci::wrap::{wrap_root, Rnode, MetaVar},
+    parsing_cocci::logical_lines::set_logilines,
+    parsing_cocci::test_exps::set_test_exps, util::worktree
 };
 use std::fs;
 
@@ -21,7 +21,7 @@ fn aux(node: &Rnode){
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let contents = fs::read_to_string("./src/bin/test.rs").expect("This shouldnt be empty");
+    let contents = fs::read_to_string("../src/bin/test.rs").expect("This shouldnt be empty");
 
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
