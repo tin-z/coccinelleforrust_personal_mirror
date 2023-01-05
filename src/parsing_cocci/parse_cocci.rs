@@ -27,6 +27,15 @@ pub enum Dep {
     AntiDep(Box<Dep>),
 }
 
+fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule {
+    for rule in rules {
+        if rule.name.eq(rulename) {
+            return rule;
+        }
+    }
+    syntaxerror!(lino, "no such rule", rulename);
+}
+
 /// Given a metavar type and name, returns a MetaVar object
 fn makemetavar(
     rules: &Vec<Rule>,
@@ -55,9 +64,9 @@ fn makemetavar(
                 )
             }
         }
-        _ => {
-            syntaxerror!(lino, "Invalid meta-variable name", varname);
-        }
+        _ =>
+            syntaxerror!(lino, "Invalid meta-variable name", varname)
+        
     }
 }
 
@@ -93,14 +102,6 @@ pub struct Rule {
     pub freevars: Vec<Name>,
 }
 
-fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule {
-    for rule in rules {
-        if rule.name.eq(rulename) {
-            return rule;
-        }
-    }
-    syntaxerror!(lino, "no such rule", rulename);
-}
 
 // Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
@@ -173,7 +174,6 @@ fn get_expr(contents: &str) -> Rnode {
 
 /// Parses the depends on clause in the rule definition by calling getdep
 fn getdependson(rules: &Vec<Rule>, rule: &str, lino: usize) -> Dep {
-    //rule is trimmed
     let fnstr = format!("fn coccifn {{ {} }}", rule);
     getdep(rules, lino, &mut get_expr(fnstr.as_str()))
 }
@@ -218,7 +218,7 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
     p
 }
 
-/// Given all the info abuot name, depends, metavars and modifiers and context
+/// Given all the info about name, depends, metavars and modifiers and context
 /// it consolidates everything into a line preserved rule object
 fn buildrule(
     currrulename: &Name,
@@ -287,7 +287,7 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
     (plusbuf, minusbuf)
 }
 
-/// Parses the metavar decalrations
+/// Parses the metavar declarations
 pub fn handle_metavar_decl(
     rules: &Vec<Rule>,
     block: &Vec<&str>,
