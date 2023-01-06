@@ -1,0 +1,813 @@
+
+// grep only does or
+fn interpret_grep(strict: bool, x: Combine) -> Option<Combine> {
+    fn rec (collected: BTreeSet<String>, strict: bool, cmb: Combine) {
+        match cmb {
+            Elem(x) => collected.insert(x),
+            Not(x) => syntaxerror!(0, "not unexpected in grep arg"),
+            And(l) | Or(l) =>
+                for x in l {
+                    rec(collected, strict, x);
+                },
+            True =>
+                if strict {
+                    syntaxerror!(0, "True should not be in the final result")
+                }
+                else {
+                    collected.insert(String::from("True"))
+                },
+            | False =>
+                if strict {
+                    syntaxerror!(0, false_on_top_err)
+                }
+                else {
+                    collected.insert(String::from("False"))
+                }
+        }
+    }
+    match x {
+        True => None,
+        False if strict =>
+            syntaxerror!(0, false_on_top_err),
+        _ => {
+            let collected = BTreeSet::new();
+            rec(collected, strict, x);
+            Some(collected)
+        }
+    }
+}
+
+static max_cnf:int = 5;
+
+fn interpret_cocci_git_grep (strict: bool, x: Combine) -> Option<Combine> {
+    // convert to cnf
+    fn opt_union_set(mut longer: BTreeSet<BTreeSet<String>>, shorter: BTreeSet<BTreeSet<String>>) {
+        for x in shorter {
+            if !longer.iter().any(|y| x.is_subset(y)) {
+                longer.insert(x)
+            }
+        }
+    }
+    fn mk_false() -> BTreeSet<BTreeSet<String>> {
+        BTreeSet::from([BTreeSet::new()])
+    }
+    fn cnf (strict: bool, dep: Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
+        match dep {
+            Elem(x) => Ok(BTreeSet::from([BTreeSet::from([x])])),
+            Not(x) => syntaxerror!(0, "not unexpected in coccigrep arg"),
+            And(l) => {
+                let l = l.deref();
+                if l.is_empty() {
+                    syntaxerror!(0, "and should not be empty")
+                }
+                let mut res = BTreeSet::new();
+                l.iter().for_each(|x| opt_union_set(res, cnf(strict, x)));
+                Ok(res)
+            }
+            Or(l) => {
+                let l = l.deref();
+                let l = l.iter().map(|x| cnf(strict, x)).collect();
+                let icount = l.iter().filter(|x| x.len <= 1).count();
+                if icount > max_cnf {
+                    Err(())
+                }
+                else {
+                    if l.is_empty() {
+                        Ok(mk_false())
+                    }
+                    else {
+                        let mut res = BTreeSet::new();
+                        for x in l {
+                            let mut innerres = BTreeSet::new();
+                            for y in x {
+                                for z in res {
+                                    innerres.insert(z.union(y))
+                                }
+                            }
+                            opt_union_set(res, innerres)
+                        }
+                        Ok(res)
+                    }
+                }
+            }
+            True => Ok(BTreeSet::new()),
+            False => {
+                if strict {
+                    syntaxerror!(0, false_on_top_err)
+                }
+                else {
+                    Ok(mk_false())
+                }
+            }
+        }
+    }
+    fn optimize (l : BTreeSet<BTreeSet<String>>) {
+        let l = l.iter().map(|x| (x.len(), x)).collect();
+        let l = l.sort().reverse().map(|(_,x)| x).collect;
+        let mut res = BTreeSet<BTreeSet<String>>::new();
+        for cur in l {
+            if !res.any(|x| cur.is_subset(x)) {
+                res.insert(cur)
+            }
+        }
+    }
+    fn atoms (dep: Combine) -> BTreeSet<String> {
+        fn rec (dep: Combine, acc: BTreeSet<String>) {
+            match dep {
+                Elem(x) => acc.insert(x),
+                Not(x) => syntaxerror!(0, "not unexpected in atoms"),
+                And(l) | Or(l) => {
+                    for x in l {
+                        rec(c, acc)
+                    }
+                }
+                True | False => {}
+            }
+        }
+        let acc = BTreeSet::new();
+        rec(dep, acc)
+    }
+    fn wordify(x: String) -> String {
+        format!("\\b{x}\\b")
+    }
+    match x {
+        True => None,
+        False if strict => syntaxerror!(0, false_on_top_err),
+        _ => {
+            let res = {
+                fn orify(l: BTreeSet<String>) -> String {
+                    let str = str_concat_fn(l, wordify, &"\\|");
+                    Regex::new(str.as_str()).unwrap()
+                }
+                let res1 = orify(atoms(x)); // all atoms
+                let res = cnf(strict, x)?;
+                let res = optimize(res);
+                let res = /*Cocci_grep.split*/ res; // Must fix!!!
+                let res2 = res.map(orify).collect(); // atoms in conjunction
+                let res3 =
+                    res.map(|x| format!("\\( -e {} \\)", x.join(" -e "))).collect();
+                Ok((res1,res2,res3))
+            };
+            match res {
+                OK(x) => Some(x),
+                Err(_) => None
+            }
+        }
+    }
+}
+
+fn interpret_idutils(dep: Combine) -> Option<Combine> {
+    match dep {
+        True => None,
+        x => Some(x)
+    }
+}
+
+fn build_and(x: Combine, y: Combine) -> Combine {
+    if x == y {
+        x
+    }
+    else {
+        match (x,y) {
+            (True,x) | (x,True) => x,
+            (False,x) | (x,False) => False,
+            (And(l1),And(l2)) => And(Box::new(l1.union(l2))),
+            (x,Or(l)) if l.deref().contains(x) => x,
+            (Or(l),x) if l.deref().contains(x) => x,
+            (Or(l1),Or(l2)) if !(l1.deref().clone().intersect(l2.deref()).is_empty()) => {
+                let l1 = l1.deref();
+                let l2 = l2.deref();
+                fn foldors(start: Combine, ors: BTreeSet<Combine>) -> BTreeSet<Combine> {
+                    let mut res = start;
+                    ors.iter().for_each(|x| build_or(res, x));
+                    res
+                }
+                let inner =
+                    build_and
+                        (foldors(False, l1.clone().difference(l2)),
+                         foldors(False, l2.clone().difference(l1)));
+                foldors(inner, l1.intersect(l2))
+            }
+            (x,And(l)) | (And(l),x) => {
+                if l.deref.contains(x) {
+                    And(l)
+                }
+                else {
+                    let l = l.deref();
+                    let others =
+                        l.filter(|x| {if let Or(l) = x { !l.deref.contains(x) } else { true }});
+                    And(Box::new(others.insert(x)))
+                }
+            }
+            (x,y) => And(Box::from([x,y]))
+        }
+    }
+}
+
+fn build_or(x: Combine, y: Combine) -> Combine {
+    if x == y {
+        x
+    }
+    else {
+        match (x,y) {
+            (True,x) | (x,True) => True,
+            (False,x) | (x,False) => x,
+            (Or(l1),Or(l2)) => Or(Box::new(l1.union(l2))),
+            (x,And(l)) if l.deref().contains(s) => x,
+            (And(l),x) if l.deref().contains(s) => x,
+            (And(l1),And(l2)) if !(l1.deref().clone().intersect(l2.deref()).is_empty()) => {
+                let l1 = l1.deref();
+                let l2 = l2.deref();
+                fn foldands(start: Combine, ands: BTreeSet<Combine>) -> BTreeSet<Combine> {
+                    let mut res = start;
+                    ands.iter().for_each(|x| build_and(res, x));
+                    res
+                }
+                let inner =
+                    build_and
+                        (foldands(True, l1.clone().difference(l2)),
+                         foldands(True, l2.clone().difference(l1)));
+                foldands(inner, l1.intersect(l2))
+            }
+            (x,Or(l)) | (Or(l),x) => {
+                if l.deref.contains(x) {
+                    And(l)
+                }
+                else {
+                    let l = l.deref();
+                    let others =
+                        l.filter(|x| {if let And(l) = x { !l.deref.contains(x) } else { true }});
+                    Or(Box::new(others.insert(x)))
+                }
+            }
+            (x,y) => Or(Box::from([x,y]))
+        }
+    }
+}
+
+fn keep(x: String) { Elem(x) }
+fn drop(x: String) { True }
+/*
+let do_get_constants constants keywords env (neg_pos,_) =
+  let donothing r k e = k e in
+  let option_default = True in
+  let bad_default = False in
+  let bind = build_and in
+  let inherited ((nm1,_) as x) =
+    (* ignore virtuals, can never match *)
+    if nm1 = "virtual" then bad_default
+    (* perhaps inherited, but value not required, so no constraints *)
+    else if List.mem x neg_pos then option_default
+    else (try List.assoc nm1 env with Not_found -> False) in
+  let minherited name = inherited (Ast.unwrap_mcode name) in
+  let mcode _ x =
+    List.fold_left bind option_default
+      (List.map
+         (function
+             Ast.MetaPos(name,constraints,_,keep,inh) -> minherited name
+           | Ast.MetaCom(name,constraints,keep,inh) -> minherited name)
+         (Ast.get_pos_var x)) in
+
+  (* if one branch gives no information, then we have to take anything *)
+  let disj_union_all = List.fold_left build_or False in
+
+  (*get inheritance information from fresh variable construction information*)
+  (* can't do anything with DisjRuleElem, don't know which will be used *)
+  (* expect that the same info will be in branches, which after disjdistr
+     should be atomic *)
+  let fresh_info re =
+    match Ast.unwrap re with
+      Ast.DisjRuleElem(res) -> option_default
+    | _ ->
+        let fresh = Ast.get_fresh re in
+        List.fold_left
+          (function prev ->
+            function
+                (_,Ast.NoVal) -> prev
+              | (_,Ast.StringSeed _) -> prev
+              | (_,Ast.ListSeed l) ->
+                  List.fold_left
+                    (function prev ->
+                      function
+                          Ast.SeedString _ -> prev
+                        | Ast.SeedId name ->
+                            bind (inherited name) prev)
+                    prev l
+              | (_,Ast.ScriptSeed (_, _, params, _, _)) ->
+                  List.fold_left
+                    (fun prev (meta_name, _) -> bind (inherited meta_name) prev)
+                    prev params)
+          option_default fresh in
+
+  let rec cstr r k c =
+    match c with
+      Ast.CstrFalse | Ast.CstrExit -> False
+    | Ast.CstrTrue -> True
+    | Ast.CstrAnd list ->
+        List.fold_left (fun accu c -> build_and accu (cstr r k c)) True list
+    | Ast.CstrOr list ->
+        List.fold_left (fun accu c -> build_or accu (cstr r k c)) False list
+    | Ast.CstrConstant (Ast.CstrString s) -> True
+    | Ast.CstrMeta_name mv -> inherited mv
+    | Ast.CstrScript (_, (_name, _lang, params, _pos, _code)) ->
+        List.fold_left (fun accu (mv, _) -> build_and accu (inherited mv)) True
+          params
+    | Ast.CstrSub list ->
+        List.fold_left (fun accu mv -> build_or accu (inherited mv)) False list
+    | Ast.CstrExpr e -> r.V.combiner_expression e
+    | Ast.CstrType ty -> r.V.combiner_fullType ty
+    | Ast.CstrNot _
+    | Ast.CstrConstant (Ast.CstrInt _)
+    | Ast.CstrRegexp _ | Ast.CstrOperator _ -> True in
+
+  let ident r k i =
+    match Ast.unwrap i with
+      Ast.Id(name) ->
+        bind (k i)
+          (match Ast.unwrap_mcode name with
+            "NULL" -> keywords "NULL"
+          | nm -> constants nm)
+    | Ast.MetaId(name,c,_,_)
+    | Ast.MetaFunc(name,c,_,_)
+    | Ast.MetaLocalFunc(name,c,_,_) ->
+        bind (cstr r k (Ast.cstr_push_not c)) (bind (k i) (minherited name))
+    | Ast.DisjId(ids) -> disj_union_all (List.map r.V.combiner_ident ids)
+    | _ -> k i in
+
+  let type_collect ty =
+    let add x res = build_and res x in
+    let add_ident ident =
+      match Ast.unwrap ident with
+        Ast.Id name -> add (constants (Ast.unwrap_mcode name))
+      | Ast.MetaId(name,_,_,_) -> add (minherited name)
+      | _ -> Common.id in
+    let structUnionName _ ident res =
+      Common.default res (fun ident' -> add_ident ident' res) ident in
+    let enumName _ _ ident res =
+      Common.default res (fun ident' -> add_ident ident' res) ident in
+    let pieces ty res =
+      Ast.fullType_fold
+        { Ast.empty_transformer with
+          Ast.decimal = Some (fun _ _ _ _ _ _ -> add (keywords "decimal"));
+          metaType =
+          Some (fun tyname _ _ _ -> add (inherited (Ast.unwrap_mcode tyname)));
+          typeName =
+          Some(fun tyname -> add (constants (Ast.unwrap_mcode tyname)));
+          enumName = Some enumName;
+          structUnionName = Some structUnionName
+        } ty res in
+    let rec loop ty =
+      match Ast.unwrap ty with
+        Ast.DisjType l ->
+          List.fold_left (fun prev ty -> build_or prev (loop ty)) False l
+      | _ -> pieces ty option_default in
+    loop ty in
+
+  (* no point to do anything special for records because glimpse is
+     word-oriented *)
+  let expression r k e =
+    match Ast.unwrap e with
+      Ast.Constant(const) ->
+        bind (k e)
+          (match Ast.unwrap_mcode const with
+            Ast.String(s,sz) -> (*constants s*)
+              (* not useful if the string contains non letters, etc *)
+              (* seems safer to ignore *)
+              option_default
+          | Ast.Char("\\0",sz) -> option_default (* glimpse doesn't like it *)
+          | Ast.Char(s,sz) -> option_default (* probably not chars either *)
+          (* the following were eg keywords "1", but not good for glimpse *)
+          | Ast.Int s -> option_default (* glimpse doesn't index integers *)
+          | Ast.Float s -> option_default (* probably not floats either *)
+          | Ast.DecimalConst _ -> option_default (* or decimals *))
+    | Ast.StringConstant(lq,str,rq,sz) -> option_default
+        (* Like the above constant case, this information is not likely indexed
+        let str = Ast.undots str in
+        (* pick up completely constant strings *)
+        let strs =
+          List.fold_left
+            (function strs ->
+              function frag ->
+                match (strs, Ast.unwrap frag) with
+                  (None,_) -> None
+                | (Some strs, Ast.ConstantFragment(str)) ->
+                    Some ((Ast.unwrap_mcode str)::strs)
+                | (Some strs, Ast.FormatFragment(pct,fmt)) ->
+                    let cstfmt =
+                      match Ast.unwrap fmt with
+                        Ast.ConstantFormat s -> Some (Ast.unwrap_mcode s)
+                      | _ -> None in
+                    (match cstfmt with
+                      Some f -> Some (f :: "%" :: strs)
+                    | _ -> None)
+                | (Some strs, Ast.Strdots _)
+                | (Some strs, Ast.MetaFormatList _) -> None)
+            (Some []) str in
+        bind (k e)
+          (match strs with
+            Some strs -> constants (String.concat "" (List.rev strs))
+          | None ->  option_default)
+        *)
+    | Ast.MetaExpr(name,_,_,Some type_list,_,_,_) ->
+        let types =
+          match type_list with
+            [] -> True (* no constraint *)
+          | _ -> (* at least one constraint must be satisfied *)
+              List.fold_left (fun prev ty -> build_or (type_collect ty) prev)
+                (type_collect(List.hd type_list)) (List.tl type_list) in
+        bind (k e) (bind (minherited name) types)
+    | Ast.MetaErr(name,_,_,_) | Ast.MetaExpr(name,_,_,_,_,_,_) ->
+        bind (k e) (minherited name)
+    | Ast.MetaExprList(name,Ast.MetaListLen (lenname,_,_,_),_,_,_) ->
+        bind (k e) (bind (minherited name) (minherited lenname))
+    | Ast.MetaExprList(name,_,_,_,_) -> minherited name
+    | Ast.SizeOfExpr(sizeof,exp) -> bind (keywords "sizeof") (k e)
+    | Ast.SizeOfType(sizeof,lp,ty,rp) -> bind (keywords "sizeof") (k e)
+    | Ast.Delete(delete,exp) -> bind (keywords "delete") (k e)
+    | Ast.DeleteArr(delete,lb,rb,exp) -> bind (keywords "delete") (k e)
+    | Ast.New(nw,pp_opt,lp_opt,ty,rp_opt,args_opt) -> bind (keywords "new") (k e)
+    | Ast.NestExpr(starter,expr_dots,ender,wc,false) -> option_default
+    | Ast.NestExpr(starter,expr_dots,ender,wc,true) ->
+        r.V.combiner_expression_dots expr_dots
+    | Ast.DisjExpr(exps) ->
+        disj_union_all (List.map r.V.combiner_expression exps)
+    | Ast.OptExp(exp) -> option_default
+    | Ast.Edots(_,_) -> option_default
+    | _ -> k e in
+
+  (* cases for metavariabes *)
+  let string_fragment r k ft =
+    match Ast.unwrap ft with
+      Ast.MetaFormatList(pct,name,Ast.MetaListLen (lenname,_,_,_),_,_,_) ->
+        bind (k ft) (bind (minherited name) (minherited lenname))
+    | Ast.MetaFormatList(pct,name,_,_,_,_) -> bind (k ft) (minherited name)
+    | _ -> k ft in
+
+  let string_format r k ft =
+    match Ast.unwrap ft with
+      Ast.MetaFormat(name,_,_,_) -> bind (k ft) (minherited name)
+    | _ -> k ft in
+
+  let fullType r k ft =
+    match Ast.unwrap ft with
+      Ast.DisjType(decls) ->
+        disj_union_all (List.map r.V.combiner_fullType decls)
+    | Ast.OptType(ty) -> option_default
+    | _ -> k ft in
+
+  let baseType ty = keywords (Ast.string_of_baseType ty) in
+
+  let typeC r k ty =
+    match Ast.unwrap ty with
+      Ast.BaseType(ty1,strings) -> bind (k ty) (baseType ty1)
+    | Ast.TypeOfExpr(sizeof,lp,e,rp) -> bind (keywords "typeof") (k ty)
+    | Ast.TypeOfType(sizeof,lp,t,rp) -> bind (keywords "typeof") (k ty)
+    | Ast.TypeName(name) -> bind (k ty) (constants (Ast.unwrap_mcode name))
+    | Ast.MetaType(name,_,_,_) -> bind (minherited name) (k ty)
+    | _ -> k ty in
+
+  let attr_arg r k a =
+    match Ast.unwrap a with
+      Ast.MetaAttr(name,_,_,_) -> bind (k a) (minherited name)
+    | Ast.MacroAttr(name) -> constants (Ast.unwrap_mcode name)
+    | Ast.MacroAttrArgs(attr,_,_,_) ->  constants (Ast.unwrap_mcode attr) in
+
+  let attribute r k a =
+    match Ast.unwrap a with
+      Ast.Attribute(attr) -> k a
+    | Ast.GccAttribute(attr_,_,_,arg,_,_) ->
+        bind (keywords (Ast.unwrap_mcode attr_)) (k a) in
+
+  let declaration r k d =
+    match Ast.unwrap d with
+      Ast.MetaDecl(name,_,_,_) ->
+        bind (k d) (minherited name)
+    | Ast.DisjDecl(decls) ->
+        disj_union_all (List.map r.V.combiner_declaration decls)
+    | Ast.OptDecl(decl) -> option_default
+    (* need things with explicit names too *)
+    | Ast.Init(_,_,midattr,_,endattr,_,_,_) | Ast.UnInit(_,_,midattr,_,endattr,_) ->
+        List.fold_left bind (k d)
+          (List.map r.V.combiner_attribute (midattr@endattr))
+    | _ -> k d in
+
+  let field r k d =
+    match Ast.unwrap d with
+      Ast.MetaField(name,_,_,_) ->
+        bind (k d) (minherited name)
+    | Ast.MetaFieldList(name,Ast.MetaListLen(lenname,_,_,_),_,_,_) ->
+        bind (minherited name) (bind (minherited lenname) (k d))
+    | _ -> k d in
+
+  let ann_field r k d =
+    match Ast.unwrap d with
+      Ast.DisjField(decls) ->
+        disj_union_all (List.map r.V.combiner_ann_field decls)
+    | Ast.OptField(decl) -> option_default
+    | _ -> k d in
+
+  let initialiser r k i =
+    match Ast.unwrap i with
+      Ast.OptIni(ini) -> option_default
+    | _ -> k i in
+
+  let parameter r k p =
+    match Ast.unwrap p with
+      Ast.OptParam(param) -> option_default
+    | Ast.MetaParam(name,_,_,_) -> bind (k p) (minherited name)
+    | Ast.MetaParamList(name,Ast.MetaListLen(lenname,_,_,_),_,_,_) ->
+        bind (minherited name) (bind (minherited lenname) (k p))
+    | Ast.MetaParamList(name,_,_,_,_) -> bind (k p) (minherited name)
+    | _ -> k p in
+
+  let define_parameter r k p =
+    match Ast.unwrap p with
+      Ast.MetaDParamList(name,Ast.MetaListLen(lenname,_,_,_),_,_,_) ->
+        bind (minherited name) (bind (minherited lenname) (k p))
+    | Ast.MetaDParamList(name,_,_,_,_) -> bind (k p) (minherited name)
+    | _ -> k p in
+
+  let rule_elem r k re =
+    bind (fresh_info re)
+    (match Ast.unwrap re with
+      Ast.MetaStmtList(name,Ast.MetaListLen (lenname,_,_,_),_,_,_) ->
+        bind (minherited name) (bind (minherited lenname) (k re))
+    | Ast.MetaRuleElem(name,_,_,_) | Ast.MetaStmt(name,_,_,_,_)
+    | Ast.MetaStmtList(name,_,_,_,_) -> bind (minherited name) (k re)
+    | Ast.WhileHeader(whl,lp,exp,rp) ->
+        bind (keywords "while") (k re)
+    | Ast.WhileTail(whl,lp,exp,rp,sem) ->
+        bind (keywords "do") (k re)
+    | Ast.ForHeader(fr,lp,first,rp) ->
+        bind (keywords "for") (k re)
+    | Ast.SwitchHeader(switch,lp,exp,rp) ->
+        bind (keywords "switch") (k re)
+    | Ast.Break(br,sem) ->
+        bind (keywords "break") (k re)
+    | Ast.Continue(cont,sem) ->
+        bind (keywords "continue") (k re)
+    | Ast.Goto(_,i,_) ->
+        bind (keywords "goto") (k re)
+    | Ast.Default(def,colon) ->
+        bind (keywords "default") (k re)
+    | Ast.Include(inc,s) ->
+        bind (k re)
+          (match Ast.unwrap_mcode s with
+            Ast.AnyInc -> True
+          | Ast.Local l | Ast.NonLocal l ->
+              let strings =
+                List.fold_left
+                  (function prev ->
+                    function
+                        (* just take the last thing, probably the most
+                           specific.  everything is necessary anyway. *)
+                        Ast.IncPath s -> [Elem s]
+                      | Ast.IncDots -> prev)
+                  [] l in
+              (match strings with
+                [] -> True
+              | x::xs -> List.fold_left bind x xs))
+    | Ast.Pragma(prg,id,body) ->
+        bind (keywords "pragma") (k re)
+    | Ast.DisjRuleElem(res) ->
+        disj_union_all (List.map r.V.combiner_rule_elem res)
+    | _ -> k re) in
+
+  let statement r k s =
+    match Ast.unwrap s with
+      Ast.Disj(stmt_dots) ->
+        disj_union_all (List.map r.V.combiner_statement_dots stmt_dots)
+    | Ast.Nest(starter,stmt_dots,ender,whn,false,_,_) -> option_default
+    | Ast.Nest(starter,stmt_dots,ender,whn,true,_,_) ->
+        r.V.combiner_statement_dots stmt_dots
+    | Ast.OptStm(s) -> option_default
+    | Ast.Dots(d,whn,_,_) -> option_default
+    | _ -> k s in
+
+  V.combiner bind option_default
+    mcode mcode mcode mcode mcode mcode mcode mcode mcode
+    mcode mcode mcode mcode mcode
+    donothing donothing donothing donothing donothing donothing donothing
+    ident expression string_fragment string_format donothing donothing
+    fullType typeC initialiser parameter define_parameter declaration donothing
+    field ann_field donothing rule_elem statement donothing attribute attr_arg
+    donothing donothing
+
+(* ------------------------------------------------------------------------ *)
+
+(* true means the rule should be analyzed, false means it should be ignored *)
+let rec dependencies env d =
+  let rec loop = function
+      Ast.Dep s -> (try List.assoc s env with Not_found -> False)
+    | Ast.AntiDep s -> True
+    | Ast.EverDep s -> (try List.assoc s env with Not_found -> False)
+    | Ast.NeverDep s -> True
+    | Ast.AndDep (d1,d2) -> build_and (loop d1) (loop d2)
+    | Ast.OrDep (d1,d2) -> build_or (loop d1) (loop d2)
+    | Ast.FileIn _ | Ast.NotFileIn _ -> True in
+  match d with
+    Ast.NoDep -> True
+  | Ast.FailDep -> False
+  | Ast.ExistsDep d | Ast.ForallDep d -> loop d
+
+(* ------------------------------------------------------------------------ *)
+
+let all_context =
+  let bind x y = x && y in
+  let option_default = true in
+
+  let donothing recursor k e = k e in
+
+  let process_mcodekind = function
+      Ast.CONTEXT(_,Ast.NOTHING) -> true
+    | _ -> false in
+
+  let mcode r e = process_mcodekind (Ast.get_mcodekind e) in
+
+  let end_info (_,_,_,mc) = process_mcodekind mc in
+
+  let initialiser r k e =
+    match Ast.unwrap e with
+      Ast.StrInitList(all_minus,_,_,_,_) ->
+        not all_minus && k e
+    | _ -> k e in
+
+  let annotated_decl decl =
+    match Ast.unwrap decl with
+      Ast.DElem(bef,_,_) -> bef in
+
+  let rule_elem r k e =
+    match Ast.unwrap e with
+      Ast.FunHeader(bef,_,_,_,_,_,_,_,_) -> bind (process_mcodekind bef) (k e)
+    | Ast.Decl decl ->
+        bind (process_mcodekind (annotated_decl decl)) (k e)
+    | Ast.ForHeader(fr,lp,Ast.ForDecl(decl,e2,sem2,e3),rp) ->
+        bind (process_mcodekind (annotated_decl decl)) (k e)
+    | Ast.ForHeader(fr,lp,Ast.ForRange(decl,e2),rp) ->
+        bind (process_mcodekind (annotated_decl decl)) (k e)
+    | _ -> k e in
+
+  let statement r k e =
+    match Ast.unwrap e with
+      Ast.IfThen(_,_,ei) | Ast.IfThenElse(_,_,_,_,ei)
+    | Ast.While(_,_,ei)  | Ast.For(_,_,ei)
+    | Ast.Iterator(_,_,ei) | Ast.FunDecl(_,_,_,_,ei) ->
+        bind (k e) (end_info ei)
+    | _ -> k e in
+
+  V.combiner bind option_default
+    mcode mcode mcode mcode mcode mcode mcode mcode mcode
+    mcode mcode mcode mcode mcode
+    donothing donothing donothing donothing donothing donothing donothing
+    donothing donothing donothing donothing donothing donothing donothing
+    donothing
+    initialiser donothing donothing donothing donothing donothing donothing
+    donothing rule_elem statement donothing donothing donothing donothing
+    donothing
+
+(* ------------------------------------------------------------------------ *)
+
+(* The whole "in_plus" idea is flawed.  If something is added in one rule and
+matched in a later one, we want to include files that originally contain
+the thing, so no point to keep track of what is added by earlier rules.
+The situation is something like a -> b v (b & c).  We don't actually need
+both b and c, but if we don't have b, then the only way that we can get it is
+for the first rule matching, in which case the formula is already true. *)
+let rule_fn nm tls env neg_pos =
+  (* tls seems like it is supposed to relate to multiple minirules.  If we
+     were to actually allow that, then the following could be inefficient,
+     because it could run sat on the same rule name (x) more than once. *)
+  List.fold_left
+    (function rest_info ->
+      function (cur,neg_pos) ->
+        let minuses =
+          let getter = do_get_constants keep drop env neg_pos in
+          getter.V.combiner_top_level cur in
+        (* the following is for eg -foo(2) +foo(x) then in another rule
+           -foo(10); don't want to consider that foo is guaranteed to be
+           created by the rule.  not sure this works completely: what if foo is
+           in both - and +, but in an or, so the cases aren't related?
+           not sure this whole thing is a good idea.  how do we know that
+           something that is only in plus is really freshly created? *)
+        let was_bot = minuses = True in
+        (* perhaps it should be build_and here?  we don't really have multiple
+           minirules anymore anyway. *)
+        match minuses with
+          True ->
+            let getter = do_get_constants drop keep env neg_pos in
+            let retry = getter.V.combiner_top_level cur in
+            (match retry with
+              True when not was_bot -> rest_info
+            | x -> build_or x rest_info)
+        | x -> build_or x rest_info)
+    False (List.combine tls neg_pos)
+
+let debug_deps nm deps res from_code =
+  if !Flag_parsing_cocci.debug_parse_cocci
+  then
+    begin
+      Printf.fprintf stderr "Rule: %s\n" nm;
+      Printf.fprintf stderr "Dependencies: %s\n"
+        (Common.format_to_string
+           (function _ -> Pretty_print_cocci.dependency deps));
+      Printf.fprintf stderr "Result: %s\n" (dep2c res);
+      (match from_code with
+        Some deps ->
+          Printf.fprintf stderr "Result_from_code: %s\n" (dep2c deps)
+      | None -> ());
+      Printf.fprintf stderr "\n";
+    end
+
+let run rules neg_pos_vars =
+  let (info,_,_) =
+    List.fold_left
+      (function (rest_info,env,locals(*dom of env*)) ->
+        function
+            (Ast.ScriptRule (nm,_,deps,mv,_,_,_),_) ->
+              let extra_deps =
+                List.fold_left
+                  (function prev ->
+                    function
+                        (_,("virtual",_),_,_) -> prev
+                      | (_,(rule,_),_,Ast.NoMVInit) -> Ast.Dep rule :: prev
+                      | (_,(rule,_),_,_) ->
+                          (* default initializer, so no dependency *)
+                          prev)
+                  [] mv in
+              let extra_deps =
+                match extra_deps with
+                  [] -> deps
+                | x::xs ->
+                    let extra_deps =
+                      List.fold_left (fun prev x -> Ast.AndDep(x,prev)) x xs in
+                    match deps with
+                      Ast.NoDep -> Ast.ExistsDep(extra_deps)
+                    | Ast.FailDep -> Ast.FailDep
+                    | Ast.ExistsDep d ->
+                        Ast.ExistsDep(Ast.AndDep(d,extra_deps))
+                    | Ast.ForallDep d ->
+                        Ast.ForallDep(Ast.AndDep(d,extra_deps)) in
+              let dependencies = dependencies env extra_deps in
+              debug_deps nm extra_deps dependencies None;
+              (match dependencies with
+                False ->
+                  (rest_info, (nm,True)::env, nm::locals)
+              | dependencies ->
+                  (build_or dependencies rest_info, env, locals))
+          | (Ast.InitialScriptRule (_,_,deps,_,_,_),_)
+          | (Ast.FinalScriptRule (_,_,deps,_,_,_),_) ->
+              (* initialize and finalize dependencies are irrelevant to
+                 get_constants *)
+              (* only possible metavariables are virtual *)
+              (rest_info, env, locals)
+          | (Ast.CocciRule (nm,(dep,_,_),cur,_,_),neg_pos_vars) ->
+              let dependencies = dependencies env dep in
+              (match dependencies with
+                False -> (rest_info,env,locals)
+              | dependencies ->
+                  let cur_info =
+                    rule_fn nm cur ((nm,True)::env) neg_pos_vars in
+                  let re_cur_info = build_and dependencies cur_info in
+                  debug_deps nm dep dependencies (Some cur_info);
+                  if List.for_all all_context.V.combiner_top_level cur
+                  then (rest_info,(nm,re_cur_info)::env,nm::locals)
+                  else
+                    (* no constants if dependent on another rule; then we need
+                       to find the constants of that rule *)
+                    (* why does env not use re_cur_info? *)
+                    (build_or re_cur_info rest_info,
+                     (nm,cur_info)::env,locals)))
+      (False,[],[])
+      (List.combine (rules : Ast.rule list) neg_pos_vars) in
+  info
+
+(* The return value is a tuple of four components.
+1. A list of all words, regardless of & and |, for use with grep (or only)
+2. A list of single strings using the glimpse ; and ,  operators
+3. A triple of 1 and of a CNF representation, both as regexps, and of the
+CNF as a list of git grep strings.  coccigrep uses 1 for basic scanning and
+then the CNF regexp for more refined scanning.  git grep uses the second
+CNF representation.
+4. An arbitrary formula, usable by the support for idutils *)
+
+let get_constants rules neg_pos_vars virt =
+  if !Flag.worth_trying_opt
+  then
+    begin
+    let res = run rules neg_pos_vars in
+    let grep =
+      interpret_grep true res virt in (* useful because in string form *)
+    let coccigrep = interpret_cocci_git_grep true res virt in
+    match !Flag.scanner with
+      Flag.NoScanner ->
+        (grep,None,coccigrep,None)
+    | Flag.Glimpse ->
+        (grep,interpret_glimpse true res virt,coccigrep,None)
+    | Flag.IdUtils ->
+        (grep,None,coccigrep,interpret_idutils res)
+    | Flag.CocciGrep | Flag.GitGrep -> (grep,None,coccigrep,None)
+    | Flag.PatchDiff | Flag.PatchDiffRange _ ->
+        (None, None, None, None)
+    end
+  else (None,None,None,None)
+*/
