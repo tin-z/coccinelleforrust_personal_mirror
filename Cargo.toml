@@ -10,3 +10,4 @@ syntax = { path = "src/rust-analyzer/crates/syntax" }
 parser = { path = "src/rust-analyzer/crates/parser" }
 ide-db = { path = "src/rust-analyzer/crates/ide-db" }
 either = "1.8.0"
+regex = { git = "https://github.com/rust-lang/regex" }  

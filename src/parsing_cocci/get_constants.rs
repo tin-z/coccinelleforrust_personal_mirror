@@ -45,6 +45,8 @@ pub enum Combine {
     Or(Box<BTreeSet<Combine>>),
     Not(Box<Combine>),
 }
+use Combine::*;
+
 
 static false_on_top_err: &str =
     &"No rules apply.  Perhaps your semantic patch doesn't contain any +/-/* code, or you have a failed dependency.";
