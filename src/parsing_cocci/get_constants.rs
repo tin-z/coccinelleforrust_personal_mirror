@@ -59,12 +59,12 @@ fn str_concat_fn<T>(lst: &BTreeSet<T>, op: &dyn Fn(&T) -> String, bet: &str) -> 
 
 fn dep2c (dep: &Combine) -> String {
     match dep {
-        Combine::And(l) => format!("({})", str_concat_fn(l.deref(), &|x| dep2c(x), &"&")),
-        Combine::Or(l)  => format!("({})", str_concat_fn(l.deref(), &|x| dep2c(x), &"|")),
-        Combine::Not(x) => format!("!({})", dep2c(x)),
-        Combine::Elem(x) => x.to_string(),
-        Combine::False => String::from("false"),
-        Combine::True => String::from("true")
+        And(l) => format!("({})", str_concat_fn(&l, dep2, &"&")),
+        Or(l) => format!("({})", str_concat_fn(&l, dep2, &"|")),
+        Not(x) => format!("!({})", dep2c(x)),
+        Elem(x) => x,
+        False => String::from("false"),
+        True => String::from("true")
     }
 }
 
