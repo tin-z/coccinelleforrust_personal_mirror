@@ -59,10 +59,10 @@ fn str_concat_fn<T>(lst: &BTreeSet<T>, op: &dyn Fn(&T) -> String, bet: &str) -> 
 
 fn dep2c (dep: &Combine) -> String {
     match dep {
-        And(l) => format!("({})", str_concat_fn(&l, dep2, &"&")),
-        Or(l) => format!("({})", str_concat_fn(&l, dep2, &"|")),
+        And(l) => format!("({})", str_concat_fn(&l, &dep2c, &"&")),
+        Or(l) => format!("({})", str_concat_fn(&l, &dep2c, &"|")),
         Not(x) => format!("!({})", dep2c(x)),
-        Elem(x) => x,
+        Elem(x) => x.to_string(),
         False => String::from("false"),
         True => String::from("true")
     }
@@ -72,31 +72,31 @@ fn dep2c (dep: &Combine) -> String {
 fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<&String>> {
     fn rec<'a> (collected: &mut BTreeSet<&'a String>, strict: bool, cmb: &'a Combine) {
         match cmb {
-            Combine::Elem(x) => { collected.insert(x); }
-            Combine::Not(_) => syntaxerror!(0, "not unexpected in grep arg"),
-            Combine::And(l) | Combine::Or(l) =>
+            Elem(x) => { collected.insert(x); }
+            Not(_) => syntaxerror!(0, "not unexpected in grep arg"),
+            And(l) | Or(l) =>
                 for x in l.iter() {
                     rec(collected, strict, x);
                 },
-            Combine::True =>
+            True =>
                 if strict {
                     syntaxerror!(0, "True should not be in the final result")
                 }
                 else {
-                    collected.insert(&String.from("True"));
+                    collected.insert(&String::from("True"));
                 },
-            Combine::False =>
+            False =>
                 if strict {
                     syntaxerror!(0, false_on_top_err)
                 }
                 else {
-                    collected.insert(&String.from("False"));
+                    collected.insert(&String::from("False"));
                 }
         }
     }
     match x {
-        Combine::True => None,
-        Combine::False if strict =>
+        True => None,
+        False if strict =>
             syntaxerror!(0, false_on_top_err),
         _ => {
             let mut collected = BTreeSet::new();
@@ -107,20 +107,20 @@ fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<&String>> {
 }
 
 static max_cnf: i32 = 5;
-
-fn interpret_cocci_git_grep (strict: bool, x: Combine) -> Option<Combine> {
+/*
+fn interpret_cocci_git_grep (strict: bool, x: &Combine) -> Option<(Regex, Vec<Regex>, Vec<String>)> {
     // convert to cnf
-    fn opt_union_set(mut longer: BTreeSet<BTreeSet<String>>, shorter: BTreeSet<BTreeSet<String>>) {
+    fn opt_union_set(mut longer: BTreeSet<BTreeSet<&String>>, shorter: BTreeSet<BTreeSet<&String>>) {
         for x in shorter {
-            if !longer.iter().any(|y| x.is_subset(y)) {
-                longer.insert(x)
+            if !(longer.iter().any(|y| x.is_subset(y))) {
+                longer.insert(x);
             }
         }
     }
-    fn mk_false() -> BTreeSet<BTreeSet<String>> {
+    fn mk_false() -> BTreeSet<BTreeSet<&'static String>> {
         BTreeSet::from([BTreeSet::new()])
     }
-    fn cnf (strict: bool, dep: Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
+    fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<&String>>,()> {
         match dep {
             Combine::Elem(x) => Ok(BTreeSet::from([BTreeSet::from([x])])),
             Combine::Not(x) => syntaxerror!(0, "not unexpected in coccigrep arg"),
@@ -130,12 +130,12 @@ fn interpret_cocci_git_grep (strict: bool, x: Combine) -> Option<Combine> {
                     syntaxerror!(0, "and should not be empty")
                 }
                 let mut res = BTreeSet::new();
-                l.iter().for_each(|x| opt_union_set(res, cnf(strict, x)));
+                l.iter().for_each(|x| opt_union_set(res, cnf(strict, x)?));
                 Ok(res)
             }
             Combine::Or(l) => {
                 let l = l.deref();
-                let l = l.iter().map(|x| cnf(strict, x)).collect();
+                let l = l.iter().map(|x| cnf(strict, x)?)?.collect();
                 let icount = l.iter().filter(|x| x.len <= 1).count();
                 if icount > max_cnf {
                     Err(())
@@ -170,18 +170,19 @@ fn interpret_cocci_git_grep (strict: bool, x: Combine) -> Option<Combine> {
             }
         }
     }
-    fn optimize (l : BTreeSet<BTreeSet<String>>) {
+    fn optimize (l : BTreeSet<BTreeSet<&String>>) -> BTreeSet<BTreeSet<&String>> {
         let l = l.iter().map(|x| (x.len(), x)).collect();
         let l = l.sort().reverse().map(|(_,x)| x).collect;
-        let mut res = BTreeSet<BTreeSet<String>>::new();
+        let mut res = BTreeSet::<BTreeSet<&String>>::new();
         for cur in l {
             if !res.any(|x| cur.is_subset(x)) {
                 res.insert(cur)
             }
         }
+        res
     }
-    fn atoms (dep: &Combine) -> BTreeSet<String> {
-        fn rec (dep: &Combine, acc: BTreeSet<String>) {
+    fn atoms (dep: &Combine) -> BTreeSet<&String> {
+        fn rec (dep: &Combine, acc: BTreeSet<&String>) {
             match dep {
                 Combine::Elem(x) => acc.insert(x),
                 Combine::Not(x) => syntaxerror!(0, "not unexpected in atoms"),
@@ -196,31 +197,32 @@ fn interpret_cocci_git_grep (strict: bool, x: Combine) -> Option<Combine> {
         let acc = BTreeSet::new();
         rec(dep, acc)
     }
-    fn wordify(x: String) -> String {
+    fn wordify(x: &String) -> String {
         format!("\\b{x}\\b")
     }
     match x {
         True => None,
         False if strict => syntaxerror!(0, false_on_top_err),
         _ => {
-            let res = {
-                fn orify(l: BTreeSet<String>) -> String {
+            let resfn = || { // allow use of ?
+                fn orify(l: BTreeSet<&String>) -> Regex {
                     let str = str_concat_fn(l, wordify, &"\\|");
                     Regex::new(str.as_str()).unwrap()
                 }
-                let res1 = orify(atoms(&x)); // all atoms
+                let res1: Regex = orify(atoms(&x)); // all atoms
                 let res = cnf(strict, x)?;
                 let res = optimize(res);
                 let res = /*Cocci_grep.split*/ res; // Must fix!!!
-                let res2 = res.map(orify).collect(); // atoms in conjunction
-                let res3 =
-                    res.map(|x| format!("\\( -e {} \\)", x.join(" -e "))).collect();
+                let res2: Vec<Regex> = res.iter().map(orify).collect(); // atoms in conjunction
+                let res3: Vec<String> =
+                    res.iter().map(|x| format!("\\( -e {} \\)", x.join(" -e "))).collect();
                 Ok((res1,res2,res3))
             };
-            match res {
+            match resfn() {
                 Ok(x) => Some(x),
                 Err(_) => None
             }
         }
     }
 }
+*/
