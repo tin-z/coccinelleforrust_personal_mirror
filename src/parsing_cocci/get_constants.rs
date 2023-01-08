@@ -69,10 +69,10 @@ fn dep2c (dep: &Combine) -> String {
 }
 
 // grep only does or
-fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<&String>> {
-    fn rec<'a> (collected: &mut BTreeSet<&'a String>, strict: bool, cmb: &'a Combine) {
+fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
+    fn rec (collected: &mut BTreeSet<String>, strict: bool, cmb: &Combine) {
         match cmb {
-            Elem(x) => { collected.insert(x); }
+            Elem(x) => { collected.insert(x.to_string()); }
             Not(_) => syntaxerror!(0, "not unexpected in grep arg"),
             And(l) | Or(l) =>
                 for x in l.iter() {
@@ -83,14 +83,14 @@ fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<&String>> {
                     syntaxerror!(0, "True should not be in the final result")
                 }
                 else {
-                    collected.insert(&String::from("True"));
+                    collected.insert(String::from("True"));
                 },
             False =>
                 if strict {
                     syntaxerror!(0, false_on_top_err)
                 }
                 else {
-                    collected.insert(&String::from("False"));
+                    collected.insert(String::from("False"));
                 }
         }
     }
