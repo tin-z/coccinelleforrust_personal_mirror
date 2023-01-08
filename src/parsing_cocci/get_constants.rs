@@ -68,7 +68,10 @@ fn dep2c (dep: &Combine) -> String {
     }
 }
 
+// ---------------------------------------------------------------------------------------
+// interpretation for use with grep
 // grep only does or
+
 fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
     fn rec (collected: &mut BTreeSet<String>, strict: bool, cmb: &Combine) {
         match cmb {
@@ -106,74 +109,92 @@ fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
     }
 }
 
-static max_cnf: i32 = 5;
-/*
-fn interpret_cocci_git_grep (strict: bool, x: &Combine) -> Option<(Regex, Vec<Regex>, Vec<String>)> {
-    // convert to cnf
-    fn opt_union_set(mut longer: BTreeSet<BTreeSet<&String>>, shorter: BTreeSet<BTreeSet<&String>>) {
-        for x in shorter {
-            if !(longer.iter().any(|y| x.is_subset(y))) {
-                longer.insert(x);
-            }
+// ---------------------------------------------------------------------------------------
+// interpretation for use with git grep
+
+// convert to cnf, give up if the result is too complex
+static max_cnf: usize = 5;
+
+fn opt_union_set(longer: &mut BTreeSet<BTreeSet<String>>, shorter: BTreeSet<BTreeSet<String>>) {
+    for x in shorter {
+        if !(longer.iter().any(|y| x.is_subset(y))) {
+            longer.insert(x);
         }
     }
-    fn mk_false() -> BTreeSet<BTreeSet<&'static String>> {
-        BTreeSet::from([BTreeSet::new()])
-    }
-    fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<&String>>,()> {
-        match dep {
-            Combine::Elem(x) => Ok(BTreeSet::from([BTreeSet::from([x])])),
-            Combine::Not(x) => syntaxerror!(0, "not unexpected in coccigrep arg"),
-            Combine::And(l) => {
-                let l = l.deref();
-                if l.is_empty() {
-                    syntaxerror!(0, "and should not be empty")
-                }
-                let mut res = BTreeSet::new();
-                l.iter().for_each(|x| opt_union_set(res, cnf(strict, x)?));
-                Ok(res)
+}
+
+fn mk_false() -> BTreeSet<BTreeSet<String>> {
+    BTreeSet::from([BTreeSet::new()])
+}
+
+fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
+    match dep {
+        Elem(x) => Ok(BTreeSet::from([BTreeSet::from([x.to_string()])])),
+        Not(_) => syntaxerror!(0, "not unexpected in coccigrep arg"),
+        And(l) => {
+            let l = l.deref();
+            if l.is_empty() {
+                syntaxerror!(0, "and should not be empty")
             }
-            Combine::Or(l) => {
-                let l = l.deref();
-                let l = l.iter().map(|x| cnf(strict, x)?)?.collect();
-                let icount = l.iter().filter(|x| x.len <= 1).count();
-                if icount > max_cnf {
-                    Err(())
-                }
-                else {
-                    if l.is_empty() {
-                        Ok(mk_false())
-                    }
-                    else {
-                        let mut res = BTreeSet::new();
-                        for x in l {
-                            let mut innerres = BTreeSet::new();
-                            for y in x {
-                                for z in res {
-                                    innerres.insert(z.union(y))
-                                }
-                            }
-                            opt_union_set(res, innerres)
-                        }
-                        Ok(res)
-                    }
-                }
+            let mut res = BTreeSet::new();
+            for x in l.iter() {
+                opt_union_set(&mut res, cnf(strict, x)?)
             }
-            Combine::True => Ok(BTreeSet::new()),
-            Combine::False => {
-                if strict {
-                    syntaxerror!(0, false_on_top_err)
-                }
-                else {
+            Ok(res)
+        }
+        Or(l) => {
+            let l = l.deref();
+            let mut ors = Vec::new();
+            for x in l {
+                ors.push(cnf(strict, x)?)
+            }
+            let icount = ors.iter().filter(|x| x.len() <= 1).count();
+            if icount > max_cnf {
+                Err(())
+            }
+            else {
+                if ors.len() == 0 {
                     Ok(mk_false())
                 }
+                else {
+                    let fst = ors.swap_remove(0);
+                    let mut prev = fst.clone();
+                    for cur in ors {
+                        let curval: Vec<BTreeSet<BTreeSet<String>>> =
+                            cur.iter().map(|x| {
+                                prev.iter().map(|y| {
+                                    x.union(&y).cloned().collect()
+                                }).collect()
+                            }).collect();
+                        // drain prev
+                        prev.clear();
+                        // prev is now empty; reuse it
+                        for x in curval {
+                            opt_union_set(&mut prev, x);
+                        }
+                    }
+                    Ok(prev)
+                }
+            }
+        }
+        True => Ok(BTreeSet::new()),
+        False => {
+            if strict {
+                syntaxerror!(0, false_on_top_err)
+            }
+            else {
+                Ok(mk_false())
             }
         }
     }
-    fn optimize (l : BTreeSet<BTreeSet<&String>>) -> BTreeSet<BTreeSet<&String>> {
+}
+
+/*
+fn interpret_cocci_git_grep (strict: bool, x: &Combine) -> Option<(Regex, Vec<Regex>, Vec<String>)> {
+    fn optimize (l : BTreeSet<BTreeSet<String>>) -> BTreeSet<BTreeSet<String>> {
         let l = l.iter().map(|x| (x.len(), x)).collect();
         let l = l.sort().reverse().map(|(_,x)| x).collect;
-        let mut res = BTreeSet::<BTreeSet<&String>>::new();
+        let mut res = BTreeSet::<BTreeSet<String>>::new();
         for cur in l {
             if !res.any(|x| cur.is_subset(x)) {
                 res.insert(cur)
@@ -181,31 +202,31 @@ fn interpret_cocci_git_grep (strict: bool, x: &Combine) -> Option<(Regex, Vec<Re
         }
         res
     }
-    fn atoms (dep: &Combine) -> BTreeSet<&String> {
-        fn rec (dep: &Combine, acc: BTreeSet<&String>) {
+    fn atoms (dep: &Combine) -> BTreeSet<String> {
+        fn rec (dep: &Combine, acc: BTreeSet<String>) {
             match dep {
-                Combine::Elem(x) => acc.insert(x),
-                Combine::Not(x) => syntaxerror!(0, "not unexpected in atoms"),
-                Combine::And(l) | Combine::Or(l) => {
-                    for x in l {
+                Elem(x) => { acc.insert(x); }
+                Not(x) => syntaxerror!(0, "not unexpected in atoms"),
+                And(l) | Or(l) => {
+                    for x in l.deref() {
                         rec(x, acc)
                     }
                 }
-                Combine::True | Combine::False => {}
+                True | False => {}
             }
         }
         let acc = BTreeSet::new();
         rec(dep, acc)
     }
     fn wordify(x: &String) -> String {
-        format!("\\b{x}\\b")
+        format!("\\b{}\\b", x.to_string())
     }
     match x {
         True => None,
         False if strict => syntaxerror!(0, false_on_top_err),
         _ => {
             let resfn = || { // allow use of ?
-                fn orify(l: BTreeSet<&String>) -> Regex {
+                fn orify(l: BTreeSet<String>) -> Regex {
                     let str = str_concat_fn(l, wordify, &"\\|");
                     Regex::new(str.as_str()).unwrap()
                 }
