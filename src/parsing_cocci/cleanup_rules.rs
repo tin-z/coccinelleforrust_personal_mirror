@@ -13,7 +13,7 @@ use std::{ops::Deref, vec};
 
 use super::{
     parse_cocci::{Dep, Rule},
-    wrap::{MetaVar, Rnode},
+    ast0::{MetaVar, Rnode},
 };
 use crate::commons::util::worktree;
 use parser::SyntaxKind;

@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::vec;
 
 use super::parse_cocci::Rule;
-use super::wrap::{Befaft::*, KeepBinding, Mcodekind::*, MetaVar, Replacement::*, Rnode};
+use super::ast0::{Befaft::*, KeepBinding, Mcodekind::*, MetaVar, Replacement::*, Rnode};
 use crate::syntaxerror;
 use crate::commons::util::worktree;
 

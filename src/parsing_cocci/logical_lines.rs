@@ -1,8 +1,5 @@
-use parser::SyntaxKind;
+use super::{parse_cocci::Rule, ast0::Rnode};
 
-use super::{parse_cocci::Rule, wrap::Rnode};
-
-type Tag = SyntaxKind;
 pub fn set_logilines_aux(mut prevline: usize, node: &mut Rnode, mut bnos: usize) -> usize{
     if node.children.len() == 0 {
         // this is only for testing will be removed after enough tests

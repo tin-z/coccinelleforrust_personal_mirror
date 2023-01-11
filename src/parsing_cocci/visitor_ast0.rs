@@ -18,7 +18,6 @@ pub fn work_node<'a, D>(
                     if node.kind() != Tag::WHITESPACE {
                         children.push(work_node(do_stuff, child));
                     }
-                    //children.push(node);
                 }
             }
             SyntaxElement::Token(_token) => {}

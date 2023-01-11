@@ -57,7 +57,7 @@ fn str_concat_fn<T>(lst: &BTreeSet<T>, op: &dyn Fn(&T) -> String, bet: &str) -> 
     strs.join(format!(" {bet} ").as_str())
 }
 
-fn dep2c (dep: &Combine) -> String {
+fn dep2c<'a> (dep: &'a Combine) -> String {
     match dep {
         And(l) => format!("({})", str_concat_fn(&l, &dep2c, &"&")),
         Or(l) => format!("({})", str_concat_fn(&l, &dep2c, &"|")),
@@ -158,7 +158,7 @@ fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
                 }
                 else {
                     let fst = ors.swap_remove(0);
-                    let mut prev = fst.clone();
+                    let mut prev = fst;
                     for cur in ors {
                         let curval: Vec<BTreeSet<BTreeSet<String>>> =
                             cur.iter().map(|x| {

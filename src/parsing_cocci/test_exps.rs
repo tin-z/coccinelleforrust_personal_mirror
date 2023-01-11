@@ -1,4 +1,4 @@
-use super::wrap::{Rnode, Wrap};
+use super::ast0::{Rnode, Wrap};
 use crate::commons::util::{tuple_of_2, tuple_of_3, worktree};
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
