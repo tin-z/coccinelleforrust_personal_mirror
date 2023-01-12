@@ -1,4 +1,4 @@
-use crate::parsing_cocci::wrap::Rnode;
+use crate::parsing_cocci::ast0::Rnode;
 
 #[macro_export]
 macro_rules! syntaxerror {

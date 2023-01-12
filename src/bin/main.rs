@@ -1,6 +1,6 @@
 use coccinelleforrust::{
     parsing_cocci::parse_cocci::{processcocci, self},
-    parsing_cocci::{wrap::{wrap_root, Rnode, MetaVar}, logical_lines::set_logilines},
+    parsing_cocci::{ast0::{wrap_root, Rnode, MetaVar}, logical_lines::set_logilines},
 };
 use std::fs;
 

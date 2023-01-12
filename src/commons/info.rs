@@ -1,3 +1,4 @@
+#[derive(Clone, PartialEq)]
 pub struct PositionInfo {
     pub line_start: usize,
     pub line_end: usize,
