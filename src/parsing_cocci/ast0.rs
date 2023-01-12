@@ -257,7 +257,6 @@ pub struct Wrap {
 }
 
 impl Wrap {
-    //Since we are hashing this with Syntax eventually, do we really need the node f
     pub fn new(
         info: Info,
         index: usize,
