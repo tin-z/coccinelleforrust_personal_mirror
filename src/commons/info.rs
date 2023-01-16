@@ -27,3 +27,12 @@ impl PositionInfo {
         }
     }
 }
+
+pub struct ParseInfo {
+    str: String,
+    charpos: usize,
+
+    line: usize,
+    column: usize,
+    file: String
+  }

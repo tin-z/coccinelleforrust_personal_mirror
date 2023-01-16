@@ -24,10 +24,9 @@
     after the . or -> is probably unusual. *)
 */
 
-use regex::Regex;
 use std::collections::BTreeSet;
 use std::ops::Deref;
-use crate::{syntaxerror, commons::util};
+use crate::{syntaxerror};
 
 // -----------------------------------------------------------------------
 // This phase collects everything.  One can then filter out what it not

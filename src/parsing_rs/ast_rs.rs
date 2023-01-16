@@ -4,13 +4,10 @@ type VirtualPosition = (info::PositionInfo, usize);
 
 pub enum ParseInfo {
     /* Present both in ast and list of tokens */
-    OriginTok(info::PositionInfo),
+    OriginTok(info::ParseInfo),
     /* Present only in ast and generated after parsing. Used mainly
     * by Julia, to add stuff at virtual places, beginning of func or decl */
-    FakeTok(String, VirtualPosition),
-    /* Present both in ast and list of tokens.  */
-    ExpandedTok(info::PositionInfo, VirtualPosition),
-    AbstractLineTok(info::PositionInfo)
+    FakeTok(String, VirtualPosition)
 }
 
 pub enum Danger {
