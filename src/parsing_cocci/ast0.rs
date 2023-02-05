@@ -5,26 +5,27 @@ use syntax::ast::Type;
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
-pub struct Rnode {
+/// Semantic Path Node
+pub struct Snode {
     pub wrapper: Wrap,
     pub astnode: SyntaxElement,
-    pub children: Vec<Rnode>,
+    pub children: Vec<Snode>,
 }
 
-impl Rnode {
+impl Snode {
     pub fn new_root(
         wrapper: Wrap,
         syntax: SyntaxElement,
-        children: Vec<Rnode>,
-    ) -> Rnode {
-        Rnode {
+        children: Vec<Snode>,
+    ) -> Snode {
+        Snode {
             wrapper: wrapper,
             astnode: syntax,
             children: children,
         }
     }
 
-    pub fn set_children(&mut self, children: Vec<Rnode>) {
+    pub fn set_children(&mut self, children: Vec<Snode>) {
         self.children = children
     }
 
@@ -100,15 +101,15 @@ pub enum Count {
 
 #[derive(Clone, PartialEq)]
 pub enum Replacement {
-    REPLACEMENT(Vec<Vec<Rnode>>),
+    REPLACEMENT(Vec<Vec<Snode>>),
     NOREPLACEMENT,
 }
 
 #[derive(Clone, PartialEq)]
 pub enum Befaft {
-    BEFORE(Vec<Vec<Rnode>>),
-    AFTER(Vec<Vec<Rnode>>),
-    BEFOREAFTER(Vec<Vec<Rnode>>, Vec<Vec<Rnode>>),
+    BEFORE(Vec<Vec<Snode>>),
+    AFTER(Vec<Vec<Snode>>),
+    BEFOREAFTER(Vec<Vec<Snode>>, Vec<Vec<Snode>>),
     NOTHING,
 }
 
@@ -350,13 +351,13 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
 }
 
 //for wrapping
-pub fn wrap_root(contents: &str) -> Rnode {
+pub fn wrap_root(contents: &str) -> Snode {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
-        let rnode = Rnode {
+        let rnode = Snode {
             wrapper: wrapped,
             astnode: node, //Change this to SyntaxElement
             children: children,

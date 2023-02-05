@@ -11,7 +11,7 @@
 /// (+/-) code
 use std::{ops::Deref, vec};
 
-use super::ast0::{wrap_root, MetaVar, Rnode};
+use super::ast0::{wrap_root, MetaVar, Snode};
 use crate::{syntaxerror, commons::util};
 use parser::SyntaxKind;
 
@@ -71,13 +71,13 @@ fn makemetavar(
 }
 
 pub struct Patch {
-    pub minus: Rnode,
-    pub plus: Rnode,
+    pub minus: Snode,
+    pub plus: Snode,
 }
 
 impl Patch {
-    fn setmetavars_aux(node: &mut Rnode, metavars: &Vec<MetaVar>) {
-        let mut work = |node: &mut Rnode| match node.kind() {
+    fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
+        let mut work = |node: &mut Snode| match node.kind() {
             Tag::NAME_REF => {
                 let stmp = node.astnode.to_string();
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
@@ -104,7 +104,7 @@ pub struct Rule {
 
 
 // Given the depends clause it converts it into a Dep object
-fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
+fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
     let node = &dep.astnode;
     dep.print_tree(&mut String::from("-"));
     match node.kind() {
@@ -153,7 +153,7 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Rnode) -> Dep {
     }
 }
 
-fn get_blxpr(contents: &str) -> Rnode {
+fn get_blxpr(contents: &str) -> Snode {
     wrap_root(contents)
         .children
         .swap_remove(0) //Fn
@@ -161,7 +161,7 @@ fn get_blxpr(contents: &str) -> Rnode {
         .swap_remove(4) //BlockExpr
 }
 
-fn get_expr(contents: &str) -> Rnode {
+fn get_expr(contents: &str) -> Snode {
     //assumes that a
     //binary expression exists
 

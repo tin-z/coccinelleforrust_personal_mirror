@@ -1,4 +1,4 @@
-use super::ast0::{Rnode, Wrap};
+use super::ast0::{Snode, Wrap};
 use crate::commons::util::{tuple_of_2, tuple_of_3, worktree};
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
@@ -19,7 +19,7 @@ fn is_relational(node: &SyntaxElement) -> bool {
     }
 }
 
-fn process_exp(exp: &mut Rnode) {
+fn process_exp(exp: &mut Snode) {
     exp.wrapper.set_test_exps();
     match exp.astnode.kind() {
         Tag::PAREN_EXPR => {
@@ -30,7 +30,7 @@ fn process_exp(exp: &mut Rnode) {
     }
 }
 
-fn set_test_exps_aux(node: &mut Rnode) {
+fn set_test_exps_aux(node: &mut Snode) {
     match node.astnode.kind() {
         Tag::IF_EXPR => {
             let [_if, cond] = tuple_of_2(&mut node.children);
@@ -58,6 +58,6 @@ fn set_test_exps_aux(node: &mut Rnode) {
     }
 }
 
-pub fn set_test_exps(mut root: Rnode) {
+pub fn set_test_exps(mut root: Snode) {
     worktree(&mut root, &mut |x| set_test_exps_aux(x));
 }

@@ -28,6 +28,7 @@ impl PositionInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct ParseInfo {
     str: String,
     charpos: usize,

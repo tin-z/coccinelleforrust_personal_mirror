@@ -1,4 +1,4 @@
-use crate::parsing_cocci::ast0::Rnode;
+use crate::parsing_cocci::ast0::Snode;
 
 #[macro_export]
 macro_rules! syntaxerror {
@@ -53,7 +53,7 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 }
 
 
-pub fn worktree(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode)){
+pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)){
     //use async function to wrap the for loop
     //for other cases TODO
     f(&mut node);

@@ -1,7 +1,11 @@
+use parser::SyntaxKind;
+use syntax::SyntaxElement;
+
 use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
 type VirtualPosition = (info::PositionInfo, usize);
 
+#[derive(Clone)]
 pub enum ParseInfo {
     /* Present both in ast and list of tokens */
     OriginTok(info::ParseInfo),
@@ -10,6 +14,7 @@ pub enum ParseInfo {
     FakeTok(String, VirtualPosition)
 }
 
+#[derive(Clone)]
 pub enum Danger {
     DangerStart,
     DangerEnd,
@@ -17,6 +22,7 @@ pub enum Danger {
     NoDanger
 }
 
+#[derive(Clone)]
 pub struct Wrap {
     info: ParseInfo,
     index: usize,
@@ -39,4 +45,23 @@ impl Wrap {
         }
     }
 
+}
+
+#[derive(Clone)]
+pub struct Rnode {
+    pub wrapper: Wrap,
+    pub astnode: SyntaxElement,//Not SyntaxNode because we need to take
+                           //care of the whitespaces
+    pub children: Vec<Rnode>
+}
+
+impl Rnode {
+
+    pub fn kind(&self) -> SyntaxKind {
+        self.astnode.kind()
+    }
+
+    pub fn unwrap(&self) -> (SyntaxKind, &[Rnode]) {
+        (self.kind(), &self.children[..])
+    }
 }
