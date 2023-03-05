@@ -3,7 +3,7 @@ use syntax::SyntaxElement;
 
 use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
-type VirtualPosition = (info::PositionInfo, usize);
+type VirtualPosition = (info::ParseInfo, usize);
 
 #[derive(Clone)]
 pub enum ParseInfo {
@@ -24,7 +24,7 @@ pub enum Danger {
 
 #[derive(Clone)]
 pub struct Wrap {
-    info: ParseInfo,
+    pub info: ParseInfo,
     index: usize,
     cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,

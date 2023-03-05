@@ -31,7 +31,7 @@ impl PositionInfo {
 #[derive(Clone)]
 pub struct ParseInfo {
     str: String,
-    charpos: usize,
+    pub charpos: usize,
 
     line: usize,
     column: usize,

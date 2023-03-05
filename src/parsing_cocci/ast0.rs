@@ -366,3 +366,8 @@ pub fn wrap_root(contents: &str) -> Snode {
     };
     work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
 }
+
+pub enum Fixpos {
+    Real(usize),
+    Virt(usize, usize)
+}

@@ -1,6 +1,12 @@
 use crate::parsing_cocci::ast0::Snode;
 
 #[macro_export]
+macro_rules! fail {
+    
+}
+
+
+#[macro_export]
 macro_rules! syntaxerror {
     ($lino: expr, $err:expr) => {
         panic!("{:?} at line:{:?}",
