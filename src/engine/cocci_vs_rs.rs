@@ -1,5 +1,6 @@
 use itertools::{izip};
 use parser::SyntaxKind;
+use syntax::TextRange;
 
 use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, fail, parsing_cocci::ast0::{Fixpos, Mcodekind}, commons::info::ParseInfo};
 
@@ -33,15 +34,14 @@ fn workon(node1: &Snode, node2: &mut Rnode) {
     //check for metavars
 
 }
-
-fn loopnodes(node1: &Snode, node2: &mut Rnode) {
+// We can use Result Object Error ass error codes when it fails
+fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rnode), usize>{
     if node1.kind() != node2.kind() {
-        fail!();// just acts as fail for now. Will replace this with
-                 // Result<> after sructure is finalized
+        return Err(0)
     }
    
     if node1.children.len() != node2.children.len() {
-        fail!();
+        return Err(0)
     }
     let zipped = izip!(node1.children, node2.children);
     for (a, b) in zipped {
@@ -58,7 +58,7 @@ fn loopnodes(node1: &Snode, node2: &mut Rnode) {
             (a1, _, a2, _) |  
             (_, a1, _, a2)
                 if !a1 && !a2=> { 
-                    fail!();
+                    return Err(0)
             },
             _ => {
                 workon(&a, &mut b);
@@ -66,9 +66,34 @@ fn loopnodes(node1: &Snode, node2: &mut Rnode) {
             }
         }
     }
+    return Ok((node1, node2));
+}
+
+//Example function for manual traversal
+fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rnode), usize> {
+    // Analogous to manually popping out elements like
+    // match c1::children1, c2::children2
+    if node1.kind() != node2.kind() {
+        return Err(0)
+    }
+   
+    if node1.children.len() != node2.children.len() {
+        return Err(0)
+    }
+
+    //For example we are working on the if node
+    match (node1.children, node2.children) {
+        ([aifk,aexpr1, aelsek, aexpr2],
+        [bifk, bexpr1, belsek, bexpr2]) => {
+            
+        }
+        _ => {}
+    }
+    tokenf(node1, node2)
 }
 
 /// Test function
 pub fn equal_expr(nodeA: Rnode, nodeB: Rnode) {
     
 }
+
