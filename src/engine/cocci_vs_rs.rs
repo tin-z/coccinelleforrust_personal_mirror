@@ -32,38 +32,40 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode){//this is
 }
 fn workon(node1: &Snode, node2: &mut Rnode) {
     //check for metavars
+    match 
 
 }
 // We can use Result Object Error ass error codes when it fails
 fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rnode), usize>{
-    if node1.kind() != node2.kind() {
-        return Err(0)
-    }
-   
     if node1.children.len() != node2.children.len() {
         return Err(0)
     }
     let zipped = izip!(node1.children, node2.children);
     for (a, b) in zipped {
-        match (a.kind().is_keyword(), b.kind().is_punct(),
-        a.kind().is_keyword(), b.kind().is_punct()) {
-            (a1, _, a2, _) | // both keywords 
-            (_, a1, _, a2) //both puncts
-                if a1 && a2 => { 
-                    // (the _ because i am not sure 
-                    //if a keyword exists that is somehow also a punctuation, 
-                    //so subject to change)
-                    tokenf(node1, node2);
-            },
-            (a1, _, a2, _) |  
-            (_, a1, _, a2)
-                if !a1 && !a2=> { 
-                    return Err(0)
-            },
-            _ => {
-                workon(&a, &mut b);
-                loopnodes(node1, node2);
+        let akind = a.kind();
+        let bkind = b.kind();
+        let aisk = akind.is_keyword();
+        let aisp = akind.is_punct();
+        let bisk = bkind.is_keyword();
+        let bisp = bkind.is_punct();
+
+        if akind != bkind {
+            return Err(0)
+        }
+        else if aisk || aisp || bisk || bisp {
+            if aisk && bisk || aisp && bisp {
+                // (the _ because i am not sure 
+                //if a keyword exists that is somehow also a punctuation, 
+                //so subject to change)
+                tokenf(node1, node2); 
             }
+            else {
+                return Err(0);
+            }
+        }
+        else {
+            workon(&a, &mut b); 
+            loopnodes(&mut a, &mut b);
         }
     }
     return Ok((node1, node2));
@@ -73,18 +75,15 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rno
 fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rnode), usize> {
     // Analogous to manually popping out elements like
     // match c1::children1, c2::children2
-    if node1.kind() != node2.kind() {
-        return Err(0)
-    }
-   
-    if node1.children.len() != node2.children.len() {
+    if node1.kind() != node2.kind() ||
+       node1.children.len() != node2.children.len() {
         return Err(0)
     }
 
     //For example we are working on the if node
-    match (node1.children, node2.children) {
+    match (&node1.children[..], &node2.children[..]) {
         ([aifk,aexpr1, aelsek, aexpr2],
-        [bifk, bexpr1, belsek, bexpr2]) => {
+         [bifk, bexpr1, belsek, bexpr2]) => {
             
         }
         _ => {}
