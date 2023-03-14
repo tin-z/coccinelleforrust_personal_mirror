@@ -5,6 +5,7 @@ use syntax::TextRange;
 use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, fail, parsing_cocci::ast0::{Fixpos, Mcodekind}, commons::info::ParseInfo};
 
 type Tag = SyntaxKind;
+type CheckResult<'a> = Result<(&'a Snode, &'a mut Rnode), usize>;
 
 fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
     match mck {
@@ -30,13 +31,30 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode){//this is
 
 
 }
-fn workon(node1: &Snode, node2: &mut Rnode) {
-    //check for metavars
-    match 
+fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a>{
+    // Metavar checking will be done inside the match
+    // block below
+
+    let kind = node1.kind();
+    assert!(kind==node2.kind());
+    match kind {// Each kind of node will  be
+                // treated specifically and special
+                // treatment will be "handed" out as
+                // necessary
+        Tag::IF_EXPR => {
+            let [aifk,aexpr1, aelsek, aexpr2] = &mut node1.children[..];
+            let [bifk, bexpr1, belsek, bexpr2] = &mut node2.children[..];
+            // All the tokens will be treated seperately by loopnodes
+            
+        }
+        _ => {
+            
+        }
+    }
 
 }
 // We can use Result Object Error ass error codes when it fails
-fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rnode), usize>{
+fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a>{
     if node1.children.len() != node2.children.len() {
         return Err(0)
     }
@@ -52,7 +70,9 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rno
         if akind != bkind {
             return Err(0)
         }
-        else if aisk || aisp || bisk || bisp {
+        else if aisk || aisp || bisk || bisp {// if anyone is a keyword, then it
+                                              // either it must be treated with tokenf
+                                              // or fail
             if aisk && bisk || aisp && bisp {
                 // (the _ because i am not sure 
                 //if a keyword exists that is somehow also a punctuation, 
@@ -64,7 +84,10 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rno
             }
         }
         else {
-            workon(&a, &mut b); 
+            if let Err(a) = 
+            workon(&a, &mut b) {
+                return Err(a);
+            }; 
             loopnodes(&mut a, &mut b);
         }
     }
@@ -72,7 +95,7 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rno
 }
 
 //Example function for manual traversal
-fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a Rnode), usize> {
+fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
     // Analogous to manually popping out elements like
     // match c1::children1, c2::children2
     if node1.kind() != node2.kind() ||
@@ -81,14 +104,16 @@ fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(&'a Snode, &'a 
     }
 
     //For example we are working on the if node
-    match (&node1.children[..], &node2.children[..]) {
+    match (&mut node1.children[..], &mut node2.children[..]) {
         ([aifk,aexpr1, aelsek, aexpr2],
          [bifk, bexpr1, belsek, bexpr2]) => {
-            
+            tokenf(aifk, bifk);
+            //...
+            Ok((node1, node2));// NOT COMPLETED
         }
         _ => {}
     }
-    tokenf(node1, node2)
+    Err(1);
 }
 
 /// Test function
