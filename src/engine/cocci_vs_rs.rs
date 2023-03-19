@@ -1,6 +1,6 @@
 use itertools::izip;
 use parser::SyntaxKind;
-use syntax::TextRange;
+use syntax::{TextRange, ast::Meta};
 
 use crate::{
     commons::info::ParseInfo,
@@ -12,6 +12,17 @@ use crate::{
 
 type Tag = SyntaxKind;
 type CheckResult<'a> = Result<(&'a Snode, &'a mut Rnode), usize>;
+type MetavarBinding = ((String, String), Tag);
+
+struct Tin {
+    binding: MetavarBinding,
+    binding0: MetavarBinding
+}
+
+type Tout<'a> = Vec<((&'a Snode, &'a mut Rnode), MetavarBinding)>;
+
+
+
 
 fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
     match mck {
@@ -34,12 +45,17 @@ fn is_fake(node1: &mut Rnode) -> bool {
     false
 }
 
-fn tokenf<'a, Tin, Tout>(node1: &'a Snode, node2: &'a mut Rnode) -> impl Fn(Tin) -> Tout {
-    //this is
-    //Should I replace Snode and Rnode with generic types?
-    //transformation.ml's tokenf
-    //info_to_fixpos
-    let retfunc = |tin: Tin| -> Tout {
+fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode) -> impl FnMut(Tin) -> Tout<'a> {
+    // this is
+    // Tout will have the generic types in itself
+    // ie ('a * 'b) tout //Ocaml syntax
+    // Should I replace Snode and Rnode with generic types?
+    // transformation.ml's tokenf
+    // info_to_fixpos
+    fn retfunc<'a>(tin: Tin) -> Tout<'a> {
+        /*
+
+        This will be used later(hopefully)
         let pos = match node2.wrapper.info {
             crate::parsing_rs::ast_rs::ParseInfo::OriginTok(pi) => Fixpos::Real(pi.charpos),
             crate::parsing_rs::ast_rs::ParseInfo::FakeTok(_, (pi, offset)) => {
@@ -54,6 +70,8 @@ fn tokenf<'a, Tin, Tout>(node1: &'a Snode, node2: &'a mut Rnode) -> impl Fn(Tin)
             if is_fake(node2) { None } else { Some(node2) },
             finish,
         )
+        */
+        vec![((node1, node2), tin.binding)]
     };
     retfunc
 }
