@@ -1,6 +1,6 @@
 use itertools::izip;
 use parser::SyntaxKind;
-use syntax::{TextRange, ast::Meta};
+use syntax::{ast::Meta, TextRange};
 
 use crate::{
     commons::info::ParseInfo,
@@ -11,18 +11,16 @@ use crate::{
 };
 
 type Tag = SyntaxKind;
-type CheckResult<'a> = Result<(&'a Snode, &'a mut Rnode), usize>;
+type MatchedNodes<'a> = (&'a Snode, &'a mut Rnode);
+type CheckResult<'a> = Result<MatchedNodes<'a>, usize>;
 type MetavarBinding = ((String, String), Tag);
 
 struct Tin {
     binding: MetavarBinding,
-    binding0: MetavarBinding
+    binding0: MetavarBinding,
 }
 
-type Tout<'a> = Vec<((&'a Snode, &'a mut Rnode), MetavarBinding)>;
-
-
-
+type Tout<'a> = Vec<(MatchedNodes<'a>, MetavarBinding)>;
 
 fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
     match mck {
@@ -45,35 +43,18 @@ fn is_fake(node1: &mut Rnode) -> bool {
     false
 }
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode) -> impl FnMut(Tin) -> Tout<'a> {
+fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: Tin) -> Tout<'a> {
     // this is
     // Tout will have the generic types in itself
     // ie ('a * 'b) tout //Ocaml syntax
     // Should I replace Snode and Rnode with generic types?
     // transformation.ml's tokenf
     // info_to_fixpos
-    fn retfunc<'a>(tin: Tin) -> Tout<'a> {
-        /*
+    vec![((node1, node2), tin.binding)]
+}
 
-        This will be used later(hopefully)
-        let pos = match node2.wrapper.info {
-            crate::parsing_rs::ast_rs::ParseInfo::OriginTok(pi) => Fixpos::Real(pi.charpos),
-            crate::parsing_rs::ast_rs::ParseInfo::FakeTok(_, (pi, offset)) => {
-                Fixpos::Virt(pi.charpos, offset)
-            }
-        };
-        //Fixpos code
-        let finish = |tin: Tin| {};
-        pos_variables(
-            tin,
-            node1,
-            if is_fake(node2) { None } else { Some(node2) },
-            finish,
-        )
-        */
-        vec![((node1, node2), tin.binding)]
-    };
-    retfunc
+fn bind<'a, U, F: Fn(U) -> Tout<'a>>(inp: Vec<U>, f: F) {
+    inp.into_iter().map(f);
 }
 
 fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
