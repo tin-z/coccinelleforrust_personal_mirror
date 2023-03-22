@@ -1,4 +1,6 @@
-use itertools::izip;
+use std::vec;
+
+use itertools::{izip, Itertools};
 use parser::SyntaxKind;
 use syntax::{ast::Meta, TextRange};
 
@@ -11,8 +13,8 @@ use crate::{
 };
 
 type Tag = SyntaxKind;
-type MatchedNodes<'a> = (&'a Snode, &'a mut Rnode);
-type CheckResult<'a> = Result<MatchedNodes<'a>, usize>;
+type MatchedNode<'a> = (&'a Snode, &'a mut Rnode);
+type CheckResult<'a> = Result<MatchedNode<'a>, usize>;
 type MetavarBinding = ((String, String), Tag);
 
 struct Tin {
@@ -20,7 +22,33 @@ struct Tin {
     binding0: MetavarBinding,
 }
 
-type Tout<'a> = Vec<(MatchedNodes<'a>, MetavarBinding)>;
+//Name is subject to change obv
+struct MatchedNodes<'a>(Vec<(&'a Snode, &'a mut Rnode)>);
+
+impl<'a> IntoIterator for MatchedNodes<'a> {
+    type Item = (&'a Snode, &'a mut Rnode);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> MatchedNodes<'a> {
+    fn bind<F: Fn(MatchedNode, Tin) -> Tout<'a>>(self, f: F, tin: Tin) -> Tout<'a> {
+        let mut ret = vec![];
+        for i in self {
+            ret.push(f(i, tin));
+        }
+        ret.into_iter().flatten().collect_vec()
+    }
+
+    fn empty() -> MatchedNodes<'a> {
+        MatchedNodes(vec![])
+    }
+}
+
+type Tout<'a> = Vec<(MatchedNode<'a>, MetavarBinding)>;
 
 fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
     match mck {
@@ -29,14 +57,6 @@ fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
         Mcodekind::CONTEXT(befaft) => {}
         Mcodekind::MIXED(befaft) => {}
     }
-}
-
-fn pos_variables<'a, Tin, Tout>(
-    tin: Tin,
-    node1: &'a Snode,
-    node2: Option<&'a mut Rnode>,
-    /*finish's type*/
-) -> Tout {
 }
 
 fn is_fake(node1: &mut Rnode) -> bool {
@@ -53,11 +73,7 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: Tin) -> Tout<'a> {
     vec![((node1, node2), tin.binding)]
 }
 
-fn bind<'a, U, F: Fn(U) -> Tout<'a>>(inp: Vec<U>, f: F) {
-    inp.into_iter().map(f);
-}
-
-fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
+fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(), usize> {
     // Metavar checking will be done inside the match
     // block below
 
@@ -75,13 +91,17 @@ fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
         }
         _ => {}
     }
+    return Ok(())
 }
 // We can use Result Object Error ass error codes when it fails
-fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
+fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
     if node1.children.len() != node2.children.len() {
-        return Err(0);
+        return fail!();
+        //this is basically failing
     }
+
     let zipped = izip!(node1.children, node2.children);
+    let mut prev: Tout;
     for (a, b) in zipped {
         let akind = a.kind();
         let bkind = b.kind();
@@ -89,9 +109,8 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
         let aisp = akind.is_punct();
         let bisk = bkind.is_keyword();
         let bisp = bkind.is_punct();
-
         if akind != bkind {
-            return Err(0);
+            return fail!();
         } else if aisk || aisp || bisk || bisp {
             // if anyone is a keyword, then it
             // either it must be treated with tokenf
@@ -100,20 +119,22 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
                 // (the _ because i am not sure
                 //if a keyword exists that is somehow also a punctuation,
                 //so subject to change)
-                tokenf(node1, node2);
+                tokenf(node1, node2, tin);
             } else {
-                return Err(0);
+                return fail!();
             }
         } else {
             if let Err(a) = workon(&a, &mut b) {
-                return Err(a);
-            }; //if error will propagate
-            loopnodes(&mut a, &mut b);
+                return fail!();
+            } //if an error occurs will propagate
+            loopnodes(&mut a, &mut b, tin);
         }
     }
-    return Ok((node1, node2));
+    return vec![((node1, node2), tin.binding)];
 }
 
+
+/*
 //Example function for manual traversal
 fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
     // Analogous to manually popping out elements like
@@ -133,6 +154,8 @@ fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
     }
     Err(1)
 }
+*/
+
 
 /// Test function
 pub fn equal_expr(nodeA: Rnode, nodeB: Rnode) {}
