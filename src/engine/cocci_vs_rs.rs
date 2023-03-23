@@ -74,7 +74,7 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: Tin) -> Tout<'a> {
     vec![((node1, node2), tin.binding)]
 }
 
-fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(), usize> {
+fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> usize {
     // Metavar checking will be done inside the match
     // block below
 
@@ -92,18 +92,18 @@ fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> Result<(), usize> {
         }
         _ => {}
     }
-    return Ok(())
+    return 1;
 }
 // We can use Result Object Error ass error codes when it fails
 fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
-    if node1.children.len() != node2.children.len() {
-        return fail!();
-        //this is basically failing
+    // It has to be checked before if these two node tags match
+    if node1.kind()!=node2.kind() || 
+       node1.children.len() != node2.children.len() {
+        fail!();
     }
 
     let zipped = izip!(node1.children, node2.children);
     let mut prev: Tout;
-    let mut modchildren: (MatchedNode, MetavarBinding);
     for (mut a, mut b) in zipped {
         let akind = a.kind();
         let bkind = b.kind();
@@ -123,17 +123,16 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
                 fail!();
             }
         } else {
-            if let Err(a) = workon(&a, &mut b) {
+            if workon(&a, &mut b) == 0|| 
+               loopnodes(&a, &mut b, tin).len()==0 {
                 fail!();
-            } //if an error occurs will propagate
-            loopnodes(&mut a, &mut b, tin);
+            } 
+            //if an error occurs it will propagate
             // Not recreating the list of children
             // because the nodes are modified in place
         }
     }
     return vec![((node1, node2), tin.binding)];
-    // The returning is optional because all nodes are
-    // modified in place
 }
 
 
