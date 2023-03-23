@@ -104,7 +104,7 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
     let zipped = izip!(node1.children, node2.children);
     let mut prev: Tout;
     let mut modchildren: (MatchedNode, MetavarBinding);
-    for (a, b) in zipped {
+    for (mut a, mut b) in zipped {
         let akind = a.kind();
         let bkind = b.kind();
         let aisk = akind.is_keyword();
@@ -112,7 +112,7 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
         let bisk = bkind.is_keyword();
         let bisp = bkind.is_punct();
         if akind != bkind {
-            return fail!();
+            fail!();
         } else if aisk || aisp || bisk || bisp {
             // if anyone is a keyword, then it
             // either it must be treated with tokenf
@@ -120,11 +120,11 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
             if aisk && bisk || aisp && bisp {
                 tokenf(node1, node2, tin);
             } else {
-                return fail!();
+                fail!();
             }
         } else {
             if let Err(a) = workon(&a, &mut b) {
-                return fail!();
+                fail!();
             } //if an error occurs will propagate
             loopnodes(&mut a, &mut b, tin);
             // Not recreating the list of children
