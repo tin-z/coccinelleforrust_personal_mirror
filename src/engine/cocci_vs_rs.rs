@@ -2,6 +2,7 @@ use std::vec;
 
 use itertools::{izip, Itertools};
 use parser::SyntaxKind;
+use regex::Match;
 use syntax::{ast::Meta, TextRange};
 
 use crate::{
@@ -102,6 +103,7 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
 
     let zipped = izip!(node1.children, node2.children);
     let mut prev: Tout;
+    let mut modchildren: (MatchedNode, MetavarBinding);
     for (a, b) in zipped {
         let akind = a.kind();
         let bkind = b.kind();
@@ -116,9 +118,6 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
             // either it must be treated with tokenf
             // or fail
             if aisk && bisk || aisp && bisp {
-                // (the _ because i am not sure
-                //if a keyword exists that is somehow also a punctuation,
-                //so subject to change)
                 tokenf(node1, node2, tin);
             } else {
                 return fail!();
@@ -128,9 +127,13 @@ fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
                 return fail!();
             } //if an error occurs will propagate
             loopnodes(&mut a, &mut b, tin);
+            // Not recreating the list of children
+            // because the nodes are modified in place
         }
     }
     return vec![((node1, node2), tin.binding)];
+    // The returning is optional because all nodes are
+    // modified in place
 }
 
 
