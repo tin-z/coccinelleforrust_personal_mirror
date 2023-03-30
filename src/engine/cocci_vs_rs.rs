@@ -94,47 +94,57 @@ fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> usize {
     }
     return 1;
 }
-// We can use Result Object Error ass error codes when it fails
-fn loopnodes<'a>(node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
-    // It has to be checked before if these two node tags match
-    if node1.kind()!=node2.kind() || 
-       node1.children.len() != node2.children.len() {
-        fail!();
-    }
 
-    let zipped = izip!(node1.children, node2.children);
-    let mut prev: Tout;
-    for (mut a, mut b) in zipped {
-        let akind = a.kind();
-        let bkind = b.kind();
-        let aisk = akind.is_keyword();
-        let aisp = akind.is_punct();
-        let bisk = bkind.is_keyword();
-        let bisp = bkind.is_punct();
-        if akind != bkind {
-            fail!();
-        } else if aisk || aisp || bisk || bisp {
-            // if anyone is a keyword, then it
-            // either it must be treated with tokenf
-            // or fail
-            if aisk && bisk || aisp && bisp {
-                tokenf(node1, node2, tin);
-            } else {
-                fail!();
-            }
-        } else {
-            if workon(&a, &mut b) == 0|| 
-               loopnodes(&a, &mut b, tin).len()==0 {
-                fail!();
-            } 
-            //if an error occurs it will propagate
-            // Not recreating the list of children
-            // because the nodes are modified in place
-        }
-    }
-    return vec![((node1, node2), tin.binding)];
+struct Looper<'a> {
+    tokenf: fn(&'a Snode, &'a mut Rnode, tin: Tin) -> Tout<'a>,
+    workon: fn(&'a Snode, &'a mut Rnode) -> usize,//this is basically what >>=/bind does
 }
 
+impl<'a> Looper<'a> {
+    fn loopnodes(&self, node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
+        // It has to be checked before if these two node tags match
+        if node1.kind()!=node2.kind() || 
+           node1.children.len() != node2.children.len() {
+            fail!();
+        }
+    
+        let zipped = izip!(node1.children, node2.children);
+        let mut prev: Tout;
+        for (a, mut b) in zipped {
+            let akind = a.kind();
+            let bkind = b.kind();
+            let aisk = akind.is_keyword();
+            let aisp = akind.is_punct();
+            let bisk = bkind.is_keyword();
+            let bisp = bkind.is_punct(); 
+            if akind != bkind {
+                fail!();
+            } else if aisk || aisp || bisk || bisp {
+                // if anyone is a keyword, then it
+                // either it must be treated with tokenf
+                // or fail
+                if aisk && bisk || aisp && bisp {
+                    tokenf(node1, node2, tin);
+                } else {
+                    fail!();
+                }
+            } else {
+                if self::workon(&a, &mut b) == 0 || 
+                   self.loopnodes(&a, &mut b, tin).len()==0 {
+                    fail!();
+                } 
+                //if an error occurs it will propagate
+                // Not recreating the list of children
+                // because the nodes are modified in place
+            }
+        }
+        return vec![((node1, node2), tin.binding)];
+    }
+    
+    
+}
+
+// We can use Result Object Error ass error codes when it fails
 
 /*
 //Example function for manual traversal
