@@ -19,12 +19,18 @@ type CheckResult<'a> = Result<MatchedNode<'a>, usize>;
 type MetavarBinding = ((String, String), Tag);
 
 struct Tin {
-    binding: MetavarBinding,
-    binding0: MetavarBinding,
+    binding: Vec<MetavarBinding>,
+    binding0: Vec<MetavarBinding>,
 }
 
 //Name is subject to change obv
 struct MatchedNodes<'a>(Vec<(&'a Snode, &'a mut Rnode)>);
+
+enum MetavarMatch{
+    Fail,
+    Maybe,
+    Match
+}
 
 impl<'a> IntoIterator for MatchedNodes<'a> {
     type Item = (&'a Snode, &'a mut Rnode);
@@ -49,7 +55,7 @@ impl<'a> MatchedNodes<'a> {
     }
 }
 
-type Tout<'a> = Vec<(MatchedNode<'a>, MetavarBinding)>;
+type Tout<'a> = Vec<(MatchedNode<'a>, Vec<MetavarBinding>)>;
 
 fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
     match mck {
@@ -64,7 +70,7 @@ fn is_fake(node1: &mut Rnode) -> bool {
     false
 }
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: Tin) -> Tout<'a> {
+fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: &Tin) -> Tout<'a> {
     // this is
     // Tout will have the generic types in itself
     // ie ('a * 'b) tout //Ocaml syntax
@@ -74,34 +80,13 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: Tin) -> Tout<'a> {
     vec![((node1, node2), tin.binding)]
 }
 
-fn workon<'a>(node1: &Snode, node2: &mut Rnode) -> usize {
-    // Metavar checking will be done inside the match
-    // block below
-
-    let kind = node1.kind();
-    assert!(kind == node2.kind());
-    match kind {
-        // Each kind of node will  be
-        // treated specifically and special
-        // treatment will be "handed" out as
-        // necessary
-        Tag::IF_EXPR => {
-            let [aifk, aexpr1, aelsek, aexpr2] = &mut node1.children[..];
-            let [bifk, bexpr1, belsek, bexpr2] = &mut node2.children[..];
-            // All the tokens will be treated seperately by loopnodes
-        }
-        _ => {}
-    }
-    return 1;
-}
-
 struct Looper<'a> {
-    tokenf: fn(&'a Snode, &'a mut Rnode, tin: Tin) -> Tout<'a>,
-    workon: fn(&'a Snode, &'a mut Rnode) -> usize,//this is basically what >>=/bind does
+    tokenf: fn(&'a Snode, &'a mut Rnode, tin: &Tin) -> Tout<'a>,
+    workontmp: fn(&'a Snode, &'a mut Rnode) -> usize,//this is basically what >>=/bind does
 }
 
 impl<'a> Looper<'a> {
-    fn loopnodes(&self, node1: &Snode, node2: &mut Rnode, tin: Tin) -> Tout<'a> {
+    fn loopnodes(&self, node1: &Snode, node2: &mut Rnode, tin: &Tin) -> Tout<'a> {
         // It has to be checked before if these two node tags match
         if node1.kind()!=node2.kind() || 
            node1.children.len() != node2.children.len() {
@@ -124,13 +109,13 @@ impl<'a> Looper<'a> {
                 // either it must be treated with tokenf
                 // or fail
                 if aisk && bisk || aisp && bisp {
-                    tokenf(node1, node2, tin);
+                    (self.tokenf)(node1, node2, tin);
                 } else {
                     fail!();
                 }
             } else {
-                if self::workon(&a, &mut b) == 0 || 
-                   self.loopnodes(&a, &mut b, tin).len()==0 {
+                if !self.workon(node1, node2, &tin) && 
+                self.loopnodes(&a, &mut b, &tin).len()==0 {
                     fail!();
                 } 
                 //if an error occurs it will propagate
@@ -140,7 +125,44 @@ impl<'a> Looper<'a> {
         }
         return vec![((node1, node2), tin.binding)];
     }
-    
+
+    fn workon(&self, node1: &Snode, node2: &mut Rnode, tin: &Tin) -> bool {
+        // Metavar checking will be done inside the match
+        // block below
+        // to note: node1 and node2 are of the same SyntaxKind
+        match node1.wrapper.metavar {
+            crate::parsing_cocci::ast0::MetaVar::NoMeta => {
+                if node2.children.len() == 0 {//end of node
+                    return node1.astnode.to_string() == node2.astnode.to_string() 
+                }
+                return true;
+            },
+            crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
+                if  /* some condition where there may be a match */ false { 
+                    //this has not been filled because ast_cocci does not have proper support for
+                    //complex metavriables but when it does the check goes here
+                    return true;
+                }
+                else if /* there is a match */ false {
+                    // Bind variables to tin here
+                    return true;
+                }
+                else {//this should never occur
+                    panic!();
+                }
+            },
+            crate::parsing_cocci::ast0::MetaVar::Id(_) => {
+                // since these are already identifiers no
+                // extra checks are there
+                return 
+                        if node1.astnode.to_string() == node2.astnode.to_string() { 
+                            MetavarMatch::Match } 
+                        else { 
+                            MetavarMatch::Fail
+                        };
+            },
+        }
+    }   
     
 }
 
