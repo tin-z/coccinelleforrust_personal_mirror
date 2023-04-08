@@ -41,14 +41,18 @@ impl Snode {
         self.astnode.kind()
     }
 
-    pub fn print_tree(&self, pref: &mut String) {
-        //stticly debug function
+    fn print_tree_aux(&self, pref: &String) {
         println!("{}{:?}", pref, self.kind());
-        let mut gg = pref.clone();
-        gg.push_str(pref.as_str());
+        let mut newbuf = String::from(pref);
+        newbuf.push_str(&String::from("--"));
         for child in &self.children {
-            child.print_tree(&mut gg)
+            child.print_tree_aux(&newbuf)
         }
+    }
+
+    pub fn print_tree(&self) {
+        //stticly debug function
+        self.print_tree_aux(&String::from("--"));
     }
 }
 
@@ -167,7 +171,7 @@ pub enum KeepBinding {
     SAVED,      //Need a witness
 }
 
-type Minfo = (String, String, KeepBinding);
+type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum MetaVar {

@@ -1,5 +1,3 @@
-mod cleanup_rules;
-mod free_vars;
 pub mod logical_lines;
 pub mod parse_cocci;
 pub mod test_exps;

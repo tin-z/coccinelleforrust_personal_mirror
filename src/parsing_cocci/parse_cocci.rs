@@ -78,9 +78,11 @@ pub struct Patch {
 impl Patch {
     fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
         let mut work = |node: &mut Snode| match node.kind() {
-            Tag::NAME_REF => {
+            Tag::IDENT => {
+                
                 let stmp = node.astnode.to_string();
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
+                    println!("MetaVar found - {:?}", mvar);
                     node.wrapper.metavar = mvar.clone();
                 }
             }
@@ -106,7 +108,7 @@ pub struct Rule {
 // Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
     let node = &dep.astnode;
-    dep.print_tree(&mut String::from("-"));
+    dep.print_tree();
     match node.kind() {
         Tag::PREFIX_EXPR => {
             //for NOT depends
