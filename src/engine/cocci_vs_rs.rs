@@ -6,7 +6,7 @@ use regex::Match;
 use syntax::{ast::Meta, TextRange};
 
 use crate::{
-    commons::info::ParseInfo,
+    commons::{info::ParseInfo, util::isexpr},
     fail,
     parsing_cocci::ast0::Snode,
     parsing_cocci::ast0::{Fixpos, Mcodekind},
@@ -26,9 +26,9 @@ pub struct Tin<'a> {
 //Name is subject to change obv
 struct MatchedNodes<'a>(Vec<(&'a Snode, &'a mut Rnode)>);
 
-enum MetavarMatch{
+enum MetavarMatch<'a>{
     Fail,
-    Maybe,
+    Maybe(&'a Snode, &'a Rnode),
     Match
 }
 
@@ -108,9 +108,7 @@ impl<'a> Looper<'a> {
             let aisp = akind.is_punct();
             let bisk = bkind.is_keyword();
             let bisp = bkind.is_punct(); 
-            if akind != bkind {
-                fail!();
-            } else if aisk || aisp || bisk || bisp {
+            if aisk || aisp || bisk || bisp {
                 // if anyone is a keyword, then it
                 // either it must be treated with tokenf
                 // or fail
@@ -124,7 +122,7 @@ impl<'a> Looper<'a> {
                     MetavarMatch::Fail => {
                         fail!();
                     },
-                    MetavarMatch::Maybe => {
+                    MetavarMatch::Maybe(a, b) => {
                         tin.binding.append(&mut self.loopnodes(a, b).binding);
                     },
                     MetavarMatch::Match => {
@@ -140,7 +138,7 @@ impl<'a> Looper<'a> {
         return tin;
     }
 
-    fn workon(&self, node1: &'a Snode, node2: &'a Rnode) -> MetavarMatch {
+    fn workon(&self, node1: &'a Snode, node2: &'a Rnode) -> MetavarMatch<'a> {
         println!("{:?}", node1.kind());
         // Metavar checking will be done inside the match
         // block below
@@ -154,26 +152,33 @@ impl<'a> Looper<'a> {
                         return MetavarMatch::Fail;
                     }
                 }
-                return MetavarMatch::Maybe;//not sure
+                return MetavarMatch::Maybe(node1, node2);//not sure
             },
             crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
-                println!("hello");
+
+                println!("lonelyyyyyyyyyyyyyyyyyyyyyyyy");
                 if  node1.wrapper.metavar.getname() == node1.astnode.to_string() { 
                     // this means it is not complex node
                     // A complex node is defined as anything
                     // which is not a single metavariable
                     return MetavarMatch::Match;
                 }
-                return MetavarMatch::Maybe;
+                else {
+                    //This means there is a complex metavariable
+                    if !(node1.isexpr() && node2.isexpr()) {
+                        return MetavarMatch::Fail;
+                    }
+                    return  MetavarMatch::Maybe(node1, node2);
+                }
             },
             crate::parsing_cocci::ast0::MetaVar::Id(info) => {
                 // since these are already identifiers no
                 // extra checks are there
                 if node1.wrapper.metavar.getname() == node2.astnode.to_string() { 
-                    return MetavarMatch::Maybe;//TODO
+                    return MetavarMatch::Maybe(node1, node2);//TODO
                 } 
                 else { 
-                    return MetavarMatch::Maybe// TODO
+                    return MetavarMatch::Maybe(node1, node2)// TODO
                 };
             },
         }

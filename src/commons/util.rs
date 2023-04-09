@@ -1,4 +1,6 @@
-use crate::parsing_cocci::ast0::Snode;
+use parser::SyntaxKind;
+
+use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
 
 #[macro_export]
 macro_rules! fail {
@@ -70,5 +72,49 @@ pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)){
     f(&mut node);
     for child in &mut node.children{
         worktree(child, f);
+    }
+}
+
+
+pub fn isexpr(node1: &Snode) -> bool {
+    use SyntaxKind::{*};
+
+    match node1.kind() {
+        TUPLE_EXPR
+        | ARRAY_EXPR
+        | PAREN_EXPR
+        | PATH_EXPR
+        | CLOSURE_EXPR
+        | IF_EXPR
+        | WHILE_EXPR
+        | LOOP_EXPR
+        | FOR_EXPR
+        | CONTINUE_EXPR
+        | BREAK_EXPR
+        | BLOCK_EXPR
+        | RETURN_EXPR
+        | YIELD_EXPR
+        | LET_EXPR
+        | UNDERSCORE_EXPR
+        | MACRO_EXPR
+        | MATCH_EXPR
+        | RECORD_EXPR
+        | RECORD_EXPR_FIELD_LIST
+        | RECORD_EXPR_FIELD
+        | BOX_EXPR
+        | CALL_EXPR
+        | INDEX_EXPR
+        | METHOD_CALL_EXPR
+        | FIELD_EXPR
+        | AWAIT_EXPR
+        | TRY_EXPR
+        | CAST_EXPR
+        | REF_EXPR
+        | PREFIX_EXPR
+        | RANGE_EXPR
+        | BIN_EXPR 
+        | EXPR_STMT
+        | LITERAL => { true }
+        _ => { false }
     }
 }

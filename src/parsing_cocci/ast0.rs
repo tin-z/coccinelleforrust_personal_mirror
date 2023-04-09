@@ -62,6 +62,51 @@ impl Snode {
         //stticly debug function
         self.print_tree_aux(&String::from("--"));
     }
+
+
+    pub fn isexpr(&self) -> bool {
+        use SyntaxKind::{*};
+
+        match self.kind() {
+            TUPLE_EXPR
+            | ARRAY_EXPR
+            | PAREN_EXPR
+            | PATH_EXPR
+            | CLOSURE_EXPR
+            | IF_EXPR
+            | WHILE_EXPR
+            | LOOP_EXPR
+            | FOR_EXPR
+            | CONTINUE_EXPR
+            | BREAK_EXPR
+            | BLOCK_EXPR
+            | RETURN_EXPR
+            | YIELD_EXPR
+            | LET_EXPR
+            | UNDERSCORE_EXPR
+            | MACRO_EXPR
+            | MATCH_EXPR
+            | RECORD_EXPR
+            | RECORD_EXPR_FIELD_LIST
+            | RECORD_EXPR_FIELD
+            | BOX_EXPR
+            | CALL_EXPR
+            | INDEX_EXPR
+            | METHOD_CALL_EXPR
+            | FIELD_EXPR
+            | AWAIT_EXPR
+            | TRY_EXPR
+            | CAST_EXPR
+            | REF_EXPR
+            | PREFIX_EXPR
+            | RANGE_EXPR
+            | BIN_EXPR 
+            | EXPR_STMT
+            | LITERAL => { true }
+            _ => { false }
+        }
+    }
+
 }
 
 #[derive(Clone, PartialEq)]
