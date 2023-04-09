@@ -16,11 +16,11 @@ use crate::{
 type Tag = SyntaxKind;
 type MatchedNode<'a> = (&'a Snode, &'a mut Rnode);
 type CheckResult<'a> = Result<MatchedNode<'a>, usize>;
-type MetavarBinding<'a> = (&'a Snode, &'a Rnode);
+pub type MetavarBinding<'a> = (&'a Snode, &'a Rnode);
 
-struct Tin<'a> {
-    binding: Vec<MetavarBinding<'a>>,
-    binding0: Vec<MetavarBinding<'a>>,
+pub struct Tin<'a> {
+    pub binding: Vec<MetavarBinding<'a>>,
+    pub binding0: Vec<MetavarBinding<'a>>,
 }
 
 //Name is subject to change obv
@@ -42,13 +42,14 @@ impl<'a> IntoIterator for MatchedNodes<'a> {
 }
 
 impl<'a> MatchedNodes<'a> {
+    /*
     fn bind<F: Fn(MatchedNode, Tin) -> Tout<'a>>(self, f: F, tin: Tin) -> Tout<'a> {
         let mut ret = vec![];
         for i in self {
             ret.push(f(i, tin));
         }
         ret.into_iter().flatten().collect_vec()
-    }
+    }*/
 
     fn empty() -> MatchedNodes<'a> {
         MatchedNodes(vec![])
@@ -80,22 +81,26 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: &'a Tin) -> Tout<'a> 
     vec![((node1, node2), &tin.binding)]
 }
 
-struct Looper<'a> {
-    tokenf: fn(&'a Snode, &'a mut Rnode, tin: &'a mut Tin) -> Tout<'a>,
-    workontmp: fn(&'a Snode, &'a mut Rnode) -> usize,//this is basically what >>=/bind does
+pub struct Looper<'a> {
+    tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>
 }
 
 impl<'a> Looper<'a> {
-    fn loopnodes(&self, node1: &'a Snode, node2: &'a mut Rnode) -> Tin {
+    pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a>{
+        Looper {
+            tokenf: tokenf
+        }
+    }
+    pub fn loopnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tin {
         // It has to be checked before if these two node tags match
+        println!("{:?}", node1.kind());
         if node1.kind()!=node2.kind() || 
            node1.children.len() != node2.children.len() {
             fail!();
         }
     
-        let zipped = izip!(&node1.children, &mut node2.children);
-        let mut prev: Tout;
-        let mut tin = &mut Tin { binding: vec![], binding0: vec![] };
+        let zipped = izip!(&node1.children, &node2.children);
+        let mut tin = Tin { binding: vec![], binding0: vec![] };
         for (a, b) in zipped {
             let akind = a.kind();
             let bkind = b.kind();
@@ -110,16 +115,23 @@ impl<'a> Looper<'a> {
                 // either it must be treated with tokenf
                 // or fail
                 if aisk && bisk || aisp && bisp {
-                    (self.tokenf)(a, b, tin);
+                    tin.binding.append(&mut (self.tokenf)(a, b));
                 } else {
                     fail!();
                 }
             } else {
-                if !self.workon(a, b, tin) {
-                    fail!();
+                match self.workon(a, b) {
+                    MetavarMatch::Fail => {
+                        fail!();
+                    },
+                    MetavarMatch::Maybe => {
+                        tin.binding.append(&mut self.loopnodes(a, b).binding);
+                    },
+                    MetavarMatch::Match => {
+                        println!("Ohhlala");
+                        tin.binding.push((a, b));
+                    },
                 }
-
-                tin.binding.append(&mut self.loopnodes(a, b).binding);
                 //if an error occurs it will propagate
                 // Not recreating the list of children
                 // because the nodes are modified in place
@@ -128,36 +140,41 @@ impl<'a> Looper<'a> {
         return tin;
     }
 
-    fn workon(&self, node1: &'a Snode, node2: &'a mut Rnode, tin: &'a mut Tin) -> bool {
+    fn workon(&self, node1: &'a Snode, node2: &'a Rnode) -> MetavarMatch {
+        println!("{:?}", node1.kind());
         // Metavar checking will be done inside the match
         // block below
         // to note: node1 and node2 are of the same SyntaxKind
-        match node1.wrapper.metavar {
+        match &node1.wrapper.metavar {
             crate::parsing_cocci::ast0::MetaVar::NoMeta => {
-                if node2.children.len() == 0 {//end of node
-                    return node1.astnode.to_string() == node2.astnode.to_string() 
+                if node2.children.len() == 0 //end of node
+                {
+                    if node1.astnode.to_string() != node2.astnode.to_string() {
+                        //basically checks for tokens
+                        return MetavarMatch::Fail;
+                    }
                 }
-                return true;
+                return MetavarMatch::Maybe;//not sure
             },
             crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
+                println!("hello");
                 if  node1.wrapper.metavar.getname() == node1.astnode.to_string() { 
                     // this means it is not complex node
                     // A complex node is defined as anything
                     // which is not a single metavariable
-                    tin.binding.push((node1, node2));
+                    return MetavarMatch::Match;
                 }
-                return true;
+                return MetavarMatch::Maybe;
             },
             crate::parsing_cocci::ast0::MetaVar::Id(info) => {
                 // since these are already identifiers no
                 // extra checks are there
-                return 
-                        if node1.wrapper.metavar.getname() == node2.astnode.to_string() { 
-                            true
-                        } 
-                        else { 
-                            false
-                        };
+                if node1.wrapper.metavar.getname() == node2.astnode.to_string() { 
+                    return MetavarMatch::Maybe;//TODO
+                } 
+                else { 
+                    return MetavarMatch::Maybe// TODO
+                };
             },
         }
     }   

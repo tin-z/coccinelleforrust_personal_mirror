@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
@@ -10,6 +12,12 @@ pub struct Snode {
     pub wrapper: Wrap,
     pub astnode: SyntaxElement,
     pub children: Vec<Snode>,
+}
+
+impl Debug for Snode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Snode").field("astnode", &self.astnode.to_string()).field("children", &self.children).finish()
+    }
 }
 
 impl Snode {

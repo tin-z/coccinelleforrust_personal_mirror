@@ -1,9 +1,7 @@
 @ rule32 @      
-expression e;
+expression e1, e2;
 @@  
 
-let u: u32 = 8;
-if e { 
-    panic!();
- }
-+fun(3);
+if e1 { 
+    e2
+}

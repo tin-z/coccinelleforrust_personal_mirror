@@ -3,7 +3,10 @@ use crate::parsing_cocci::ast0::Snode;
 #[macro_export]
 macro_rules! fail {
     () => {
-        return vec![]
+        return Tin {
+            binding: vec![],
+            binding0: vec![]
+        };
     }
 }
 

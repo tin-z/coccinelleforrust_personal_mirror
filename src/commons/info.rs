@@ -37,3 +37,15 @@ pub struct ParseInfo {
     column: usize,
     file: String
   }
+
+impl ParseInfo {
+    pub fn new(str: String, charpos: usize, line: usize, col: usize, file: String) -> ParseInfo {
+        ParseInfo {
+            str: str,
+            charpos: charpos,
+            line: line,
+            column: col,
+            file: file
+        }
+    }
+}

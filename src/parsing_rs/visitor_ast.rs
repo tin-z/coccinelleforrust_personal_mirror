@@ -15,7 +15,9 @@ pub fn work_node<'a, D>(
         match node {
             SyntaxElement::Node(node) => {
                 for child in node.children_with_tokens() {
+                    if child.kind() != Tag::WHITESPACE {
                         children.push(work_node(do_stuff, child));
+                    }
                     //children.push(node);
                 }
             }

@@ -78,7 +78,7 @@ pub struct Patch {
 impl Patch {
     fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
         let mut work = |node: &mut Snode| match node.kind() {
-            Tag::IDENT => {
+            Tag::PATH_EXPR => {
                 
                 let stmp = node.astnode.to_string();
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
@@ -90,6 +90,7 @@ impl Patch {
         };
         util::worktree(node, &mut work);
     }
+
     fn setmetavars(&mut self, metavars: &Vec<MetaVar>) {
         Patch::setmetavars_aux(&mut self.plus, metavars);
         Patch::setmetavars_aux(&mut self.minus, metavars);

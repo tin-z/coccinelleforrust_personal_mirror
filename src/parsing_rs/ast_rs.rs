@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
 
@@ -63,5 +65,27 @@ impl Rnode {
 
     pub fn unwrap(&self) -> (SyntaxKind, &[Rnode]) {
         (self.kind(), &self.children[..])
+    }
+}
+
+impl Rnode {
+    fn print_tree_aux(&self, pref: &String) {
+        println!("{}{:?}", pref, self.kind());
+        let mut newbuf = String::from(pref);
+        newbuf.push_str(&String::from("--"));
+        for child in &self.children {
+            child.print_tree_aux(&newbuf)
+        }
+    }
+
+    pub fn print_tree(&self) {
+        //stticly debug function
+        self.print_tree_aux(&String::from("--"));
+    }
+}
+
+impl Debug for Rnode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Rnode").field("astnode", &self.astnode.to_string()).field("children", &self.children).finish()
     }
 }
