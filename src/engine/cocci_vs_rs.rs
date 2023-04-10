@@ -122,19 +122,10 @@ impl<'a> Looper<'a> {
                 return MetavarMatch::Maybe(node1, node2);//not sure
             },
             crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
-                if  node1.wrapper.metavar.getname() == node1.astnode.to_string() { 
                     // this means it is not complex node
                     // A complex node is defined as anything
                     // which is not a single metavariable
                     return MetavarMatch::Match;
-                }
-                else {
-                    //This means there is a complex metavariable
-                    if !(node1.isexpr() && node2.isexpr()) {
-                        return MetavarMatch::Fail;
-                    }
-                    return  MetavarMatch::Maybe(node1, node2);
-                }
             },
             crate::parsing_cocci::ast0::MetaVar::Id(info) => {
                 // since these are already identifiers no

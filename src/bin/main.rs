@@ -31,8 +31,8 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let patchstring = fs::read_to_string("./src/tests/test3.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test3.rs").expect("This shouldnt be empty");
+    let patchstring = fs::read_to_string("./src/tests/test2.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test2.rs").expect("This shouldnt be empty");
 
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
