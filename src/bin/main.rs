@@ -2,7 +2,7 @@ use coccinelleforrust::{
     parsing_cocci::parse_cocci::{processcocci, self},
     parsing_cocci::{ast0::{wrap_root, Snode, MetaVar}, logical_lines::set_logilines}, 
     parsing_rs::{parse_rs::processrs, ast_rs::Rnode}, 
-    engine::cocci_vs_rs::{Tin, MetavarBinding, Looper},
+    engine::cocci_vs_rs::{Tout, MetavarBinding, Looper},
 };
 use std::fs;
 
@@ -31,8 +31,8 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let patchstring = fs::read_to_string("./src/bin/test2.rs").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/bin/test3.rs").expect("This shouldnt be empty");
+    let patchstring = fs::read_to_string("./src/tests/test3.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test3.rs").expect("This shouldnt be empty");
 
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
@@ -41,8 +41,10 @@ fn main() {
     let mut rnode = processrs(&rustcode);
 
     //rules[0].patch.plus.print_tree();
-    rnode.print_tree();
+    //rnode.print_tree();
     let looper = Looper::new(tokenf);
     let g = looper.loopnodes(&rules[0].patch.plus, &rnode);
-    println!("{:?}", g.binding);
+    for (a, b) in g.binding {
+        println!("{:?} -> {:?}", a.astnode.to_string(), b.astnode.to_string());
+    }
 }

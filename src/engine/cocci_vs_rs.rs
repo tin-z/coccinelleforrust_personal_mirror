@@ -18,13 +18,11 @@ type MatchedNode<'a> = (&'a Snode, &'a mut Rnode);
 type CheckResult<'a> = Result<MatchedNode<'a>, usize>;
 pub type MetavarBinding<'a> = (&'a Snode, &'a Rnode);
 
-pub struct Tin<'a> {
+pub struct Tout<'a> {
+    failed: bool,
     pub binding: Vec<MetavarBinding<'a>>,
     pub binding0: Vec<MetavarBinding<'a>>,
 }
-
-//Name is subject to change obv
-struct MatchedNodes<'a>(Vec<(&'a Snode, &'a mut Rnode)>);
 
 enum MetavarMatch<'a>{
     Fail,
@@ -32,31 +30,7 @@ enum MetavarMatch<'a>{
     Match
 }
 
-impl<'a> IntoIterator for MatchedNodes<'a> {
-    type Item = (&'a Snode, &'a mut Rnode);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<'a> MatchedNodes<'a> {
-    /*
-    fn bind<F: Fn(MatchedNode, Tin) -> Tout<'a>>(self, f: F, tin: Tin) -> Tout<'a> {
-        let mut ret = vec![];
-        for i in self {
-            ret.push(f(i, tin));
-        }
-        ret.into_iter().flatten().collect_vec()
-    }*/
-
-    fn empty() -> MatchedNodes<'a> {
-        MatchedNodes(vec![])
-    }
-}
-
-type Tout<'a> = Vec<(MatchedNode<'a>, &'a Vec<MetavarBinding<'a>>)>;
+//type Tout<'a> = Vec<(MatchedNode<'a>, &'a Vec<MetavarBinding<'a>>)>;
 
 fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
     match mck {
@@ -71,16 +45,6 @@ fn is_fake(node1: &mut Rnode) -> bool {
     false
 }
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a mut Rnode, tin: &'a Tin) -> Tout<'a> {
-    // this is
-    // Tout will have the generic types in itself
-    // ie ('a * 'b) tout //Ocaml syntax
-    // Should I replace Snode and Rnode with generic types?
-    // transformation.ml's tokenf
-    // info_to_fixpos
-    vec![((node1, node2), &tin.binding)]
-}
-
 pub struct Looper<'a> {
     tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>
 }
@@ -91,28 +55,27 @@ impl<'a> Looper<'a> {
             tokenf: tokenf
         }
     }
-    pub fn loopnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tin {
+
+    pub fn loopnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tout {
         // It has to be checked before if these two node tags match
-        println!("{:?}", node1.kind());
+        //println!("{:?}", node1.kind());
         if node1.kind()!=node2.kind() || 
            node1.children.len() != node2.children.len() {
             fail!();
         }
     
         let zipped = izip!(&node1.children, &node2.children);
-        let mut tin = Tin { binding: vec![], binding0: vec![] };
+        let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
         for (a, b) in zipped {
             let akind = a.kind();
             let bkind = b.kind();
             let aisk = akind.is_keyword();
-            let aisp = akind.is_punct();
             let bisk = bkind.is_keyword();
-            let bisp = bkind.is_punct(); 
-            if aisk || aisp || bisk || bisp {
+            if aisk || bisk {
                 // if anyone is a keyword, then it
                 // either it must be treated with tokenf
                 // or fail
-                if aisk && bisk || aisp && bisp {
+                if aisk && bisk {
                     tin.binding.append(&mut (self.tokenf)(a, b));
                 } else {
                     fail!();
@@ -123,10 +86,15 @@ impl<'a> Looper<'a> {
                         fail!();
                     },
                     MetavarMatch::Maybe(a, b) => {
-                        tin.binding.append(&mut self.loopnodes(a, b).binding);
+                        let tin_tmp = self.loopnodes(a, b);
+                        if !tin_tmp.failed {
+                            tin.binding.append(&mut self.loopnodes(a, b).binding);
+                        }
+                        else{
+                            return tin_tmp;
+                        }
                     },
                     MetavarMatch::Match => {
-                        println!("Ohhlala");
                         tin.binding.push((a, b));
                     },
                 }
@@ -139,7 +107,6 @@ impl<'a> Looper<'a> {
     }
 
     fn workon(&self, node1: &'a Snode, node2: &'a Rnode) -> MetavarMatch<'a> {
-        println!("{:?}", node1.kind());
         // Metavar checking will be done inside the match
         // block below
         // to note: node1 and node2 are of the same SyntaxKind
@@ -155,8 +122,6 @@ impl<'a> Looper<'a> {
                 return MetavarMatch::Maybe(node1, node2);//not sure
             },
             crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
-
-                println!("lonelyyyyyyyyyyyyyyyyyyyyyyyy");
                 if  node1.wrapper.metavar.getname() == node1.astnode.to_string() { 
                     // this means it is not complex node
                     // A complex node is defined as anything
