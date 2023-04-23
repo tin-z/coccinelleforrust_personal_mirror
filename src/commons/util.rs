@@ -55,7 +55,6 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
 pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 
     match &mut v[..3] {
@@ -66,7 +65,6 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
 pub fn worktree(mut node: &mut Snode, f: &mut impl FnMut(&mut Snode)){
     //use async function to wrap the for loop
     //for other cases TODO
@@ -75,7 +73,6 @@ pub fn worktree(mut node: &mut Snode, f: &mut impl FnMut(&mut Snode)){
         worktree(child, f);
     }
 }
-
 
 pub fn isexpr(node1: &Snode) -> bool {
     use SyntaxKind::{*};
