@@ -74,6 +74,15 @@ pub fn worktree(mut node: &mut Snode, f: &mut impl FnMut(&mut Snode)){
     }
 }
 
+pub fn worktree_pure<'a>(mut node: &'a Snode, f: &mut impl FnMut(&'a Snode)){
+    //use async function to wrap the for loop
+    //for other cases TODO
+    f(node);
+    for child in &node.children{
+        worktree_pure(child, f);
+    }
+}
+
 pub fn isexpr(node1: &Snode) -> bool {
     use SyntaxKind::{*};
 
