@@ -67,7 +67,7 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 }
 
 
-pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)){
+pub fn worktree(mut node: &mut Snode, f: &mut impl FnMut(&mut Snode)){
     //use async function to wrap the for loop
     //for other cases TODO
     f(&mut node);
