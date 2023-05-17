@@ -8,26 +8,26 @@ use parser::SyntaxKind;
 use syntax::ast::Type;
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq)]
 /// Semantic Path Node
-pub struct Snode {
-    pub wrapper: Wrap,
+pub struct Snode<'a> {
+    pub wrapper: Wrap<'a>,
     pub astnode: SyntaxElement,
-    pub children: Vec<Snode>,
+    pub children: Vec<Snode<'a>>,
 }
 
-impl Debug for Snode {
+impl<'a> Debug for Snode<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Snode").field("astnode", &self.astnode.to_string()).field("children", &self.children).finish()
     }
 }
 
-impl Snode {
+impl<'a> Snode<'a> {
     pub fn new_root(
-        wrapper: Wrap,
+        wrapper: Wrap<'a>,
         syntax: SyntaxElement,
-        children: Vec<Snode>,
-    ) -> Snode {
+        children: Vec<Snode<'a>>,
+    ) -> Snode<'a> {
         Snode {
             wrapper: wrapper,
             astnode: syntax,
@@ -35,7 +35,7 @@ impl Snode {
         }
     }
 
-    pub fn set_children(&mut self, children: Vec<Snode>) {
+    pub fn set_children(&mut self, children: Vec<Snode<'a>>) {
         self.children = children
     }
 
@@ -158,54 +158,54 @@ pub enum Count {
     MINUS,
 }
 
-#[derive(Clone, PartialEq)]
-pub enum Replacement {
-    REPLACEMENT(Vec<Vec<Snode>>),
+#[derive(PartialEq)]
+pub enum Replacement<'a> {
+    REPLACEMENT(Vec<Vec<Snode<'a>>>),
     NOREPLACEMENT,
 }
 
-#[derive(Clone, PartialEq)]
-pub enum Befaft {
-    BEFORE(Vec<Vec<Snode>>),
-    AFTER(Vec<Vec<Snode>>),
-    BEFOREAFTER(Vec<Vec<Snode>>, Vec<Vec<Snode>>),
+#[derive(PartialEq)]
+pub enum Befaft<'a> {
+    BEFORE(Vec<Vec<Snode<'a>>>),
+    AFTER(Vec<Vec<Snode<'a>>>),
+    BEFOREAFTER(Vec<Vec<Snode<'a>>>, Vec<Vec<Snode<'a>>>),
     NOTHING,
 }
 
-#[derive(Clone, PartialEq)]
-pub enum Mcodekind {
-    MINUS(Replacement),
+#[derive( PartialEq)]
+pub enum Mcodekind<'a> {
+    MINUS(Replacement<'a>),
     PLUS(Count),
-    CONTEXT(Befaft),
-    MIXED(Befaft),
+    CONTEXT(Befaft<'a>),
+    MIXED(Befaft<'a>),
 }
 
 #[derive(Clone, PartialEq)]
 pub struct DotsBefAft {}
 
-#[derive(Clone, PartialEq)]
-pub struct Info {
+#[derive(PartialEq)]
+pub struct Info<'a> {
     pos_info: PositionInfo,
     attachable_start: bool,
     attachable_end: bool,
-    mcode_start: Vec<Mcodekind>,
-    mcode_end: Vec<Mcodekind>,
+    mcode_start: Vec<Mcodekind<'a>>,
+    mcode_end: Vec<Mcodekind<'a>>,
     strings_before: Vec<(Dummy, PositionInfo)>,
     strings_after: Vec<(Dummy, PositionInfo)>,
     is_symbol_ident: bool,
 }
 
-impl Info {
+impl<'a> Info<'a> {
     pub fn new(
         pos_info: PositionInfo,
         attachable_start: bool,
         attachable_end: bool,
-        mcode_start: Vec<Mcodekind>,
-        mcode_end: Vec<Mcodekind>,
+        mcode_start: Vec<Mcodekind<'a>>,
+        mcode_end: Vec<Mcodekind<'a>>,
         strings_before: Vec<(Dummy, PositionInfo)>,
         strings_after: Vec<(Dummy, PositionInfo)>,
         is_symbol_ident: bool,
-    ) -> Info {
+    ) -> Info<'a> {
         Info {
             pos_info: pos_info,
             attachable_start: attachable_start,
@@ -230,7 +230,6 @@ type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MetaVar {
-    NoMeta,
     Exp(Minfo),
     Id(Minfo),
 }
@@ -238,9 +237,6 @@ pub enum MetaVar {
 impl MetaVar {
     pub fn getname(&self) -> &str {
         match self {
-            MetaVar::NoMeta => {
-                panic!("Should never happen");
-            }
             MetaVar::Id(minfo) => minfo.1.as_str(),
             MetaVar::Exp(minfo) => minfo.1.as_str(),
         }
@@ -248,7 +244,6 @@ impl MetaVar {
 
     pub fn gettype(&self) -> &str {
         match self {
-            MetaVar::NoMeta => "None",
             MetaVar::Id(_minfo) => "identifier",
             MetaVar::Exp(_minfo) => "expression",
         }
@@ -256,9 +251,6 @@ impl MetaVar {
 
     pub fn setbinding(&mut self, binding: KeepBinding) {
         match self {
-            Self::NoMeta => {
-                panic!("Should not occur.");
-            }
             Self::Exp(minfo) => {
                 minfo.2 = binding;
             }
@@ -270,9 +262,6 @@ impl MetaVar {
 
     pub fn getminfo(&self) -> &Minfo {
         match self {
-            Self::NoMeta => {
-                panic!("Should not occur.");
-            }
             Self::Exp(minfo) => &minfo,
             Self::Id(minfo) => &minfo,
         }
@@ -280,9 +269,6 @@ impl MetaVar {
 
     pub fn getrulename(&self) -> &str {
         match self {
-            Self::NoMeta => {
-                panic!("Should not occur.");
-            }
             Self::Exp(minfo) => &minfo.0,
             Self::Id(minfo) => &minfo.0,
         }
@@ -297,38 +283,38 @@ impl MetaVar {
         match ty {
             "expression" => MetaVar::Exp(minfo),
             "identifier" => MetaVar::Id(minfo),
-            _ => MetaVar::NoMeta,
+            _ => panic!("Should not occur.")
         }
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub struct Wrap {
-    info: Info,
+#[derive(PartialEq)]
+pub struct Wrap<'a> {
+    info: Info<'a>,
     index: usize,
-    pub mcodekind: Mcodekind,
+    pub mcodekind: Mcodekind<'a>,
     exp_ty: Option<Type>,
     bef_aft: DotsBefAft,
-    pub metavar: MetaVar,
+    pub metavar: Option<&'a MetaVar>,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
 }
 
-impl Wrap {
+impl<'a> Wrap<'a> {
     pub fn new(
-        info: Info,
+        info: Info<'a>,
         index: usize,
-        mcodekind: Mcodekind,
+        mcodekind: Mcodekind<'a>,
         exp_ty: Option<Type>,
         bef_aft: DotsBefAft,
-        metavar: MetaVar,
+        metavar: Option<&'a MetaVar>,
         true_if_arg: bool,
         true_if_test: bool,
         true_if_test_exp: bool,
         iso_info: Vec<(String, Dummy)>,
-    ) -> Wrap {
+    ) -> Wrap<'a> {
         Wrap {
             info: info,
             index: index,
@@ -370,7 +356,7 @@ impl Wrap {
     }
 }
 
-pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
+pub fn fill_wrap<'a>(lindex: &LineIndex, node: &SyntaxElement) -> Wrap<'a> {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
     let eindex: LineCol = lindex.line_col(node.text_range().end());
 
@@ -400,7 +386,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         Mcodekind::MIXED(Befaft::NOTHING),
         None, //will be filled later with type inference
         DotsBefAft {},
-        MetaVar::NoMeta,
+        None,
         false,
         false,
         false,
@@ -410,18 +396,19 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
 }
 
 //for wrapping
-pub fn wrap_root(contents: &str) -> Snode {
+pub fn wrap_root<'a>(contents: &str) -> Snode<'a> {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).syntax_node();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
-        let wrapped = fill_wrap(&lindex, &node);
-        let children = df(&node);
-        let rnode = Snode {
-            wrapper: wrapped,
-            astnode: node, //Change this to SyntaxElement
-            children: children,
-        };
-        rnode
+    let wrap_node = 
+        &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode<'a>>| -> Snode<'a> {
+            let wrapped = fill_wrap(&lindex, &node);
+            let children = df(&node);
+            let rnode = Snode {
+                wrapper: wrapped,
+                astnode: node, //Change this to SyntaxElement
+                children: children,
+            };
+            rnode
     };
     work_node(wrap_node, SyntaxElement::Node(root))
 }

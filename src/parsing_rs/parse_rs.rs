@@ -7,7 +7,7 @@ use super::ast_rs;
 use super::ast_rs::{Rnode, Wrap};
 
 
-pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
+pub fn fill_wrap<'a>(lindex: &LineIndex, node: &SyntaxElement) -> Wrap<'a> {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
 
     let parse_info = ParseInfo::new(

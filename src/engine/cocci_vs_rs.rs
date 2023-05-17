@@ -14,9 +14,9 @@ use crate::{
 };
 
 type Tag = SyntaxKind;
-type MatchedNode<'a> = (&'a Snode, &'a mut Rnode);
+type MatchedNode<'a> = (&'a Snode<'a>, &'a mut Rnode<'a>);
 type CheckResult<'a> = Result<MatchedNode<'a>, usize>;
-pub type MetavarBinding<'a> = (&'a Snode, &'a Rnode);
+pub type MetavarBinding<'a> = (&'a Snode<'a>, &'a Rnode<'a>);
 
 pub struct Tout<'a> {
     failed: bool,
@@ -26,7 +26,7 @@ pub struct Tout<'a> {
 
 enum MetavarMatch<'a>{
     Fail,
-    Maybe(&'a Snode, &'a Rnode),
+    Maybe(&'a Snode<'a>, &'a Rnode<'a>),
     Match
 }
 
@@ -113,8 +113,8 @@ impl<'a> Looper<'a> {
 
         //TODO take care of disjunctions like (2|3) > e1
         //TODO take care of matching bound metavars 
-        match &node1.wrapper.metavar {
-            crate::parsing_cocci::ast0::MetaVar::NoMeta => {
+        match node1.wrapper.metavar {
+            None => {
                 if node2.children.len() == 0 //end of node
                 {
                     if node1.astnode.to_string() != node2.astnode.to_string() {
@@ -124,16 +124,16 @@ impl<'a> Looper<'a> {
                 }
                 return MetavarMatch::Maybe(node1, node2);//not sure
             },
-            crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
+            Some(crate::parsing_cocci::ast0::MetaVar::Exp(info)) => {
                     // this means it is not complex node
                     // A complex node is defined as anything
                     // which is not a single metavariable
                     return MetavarMatch::Match;
             },
-            crate::parsing_cocci::ast0::MetaVar::Id(info) => {
+            Some(crate::parsing_cocci::ast0::MetaVar::Id(info)) => {
                 // since these are already identifiers no
                 // extra checks are there
-                if node1.wrapper.metavar.getname() == node2.astnode.to_string() { 
+                if info.1 == node2.astnode.to_string() { 
                     return MetavarMatch::Maybe(node1, node2);//TODO
                 } 
                 else { 
