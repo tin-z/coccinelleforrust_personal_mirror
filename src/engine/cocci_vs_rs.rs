@@ -110,6 +110,9 @@ impl<'a> Looper<'a> {
         // Metavar checking will be done inside the match
         // block below
         // to note: node1 and node2 are of the same SyntaxKind
+
+        //TODO take care of disjunctions like (2|3) > e1
+        //TODO take care of matching bound metavars 
         match &node1.wrapper.metavar {
             crate::parsing_cocci::ast0::MetaVar::NoMeta => {
                 if node2.children.len() == 0 //end of node

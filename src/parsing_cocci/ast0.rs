@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use crate::parsing_rs::ast_rs::Rnode;
+
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
@@ -226,7 +228,7 @@ pub enum KeepBinding {
 
 type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MetaVar {
     NoMeta,
     Exp(Minfo),
