@@ -412,7 +412,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
 //for wrapping
 pub fn wrap_root(contents: &str) -> Snode {
     let lindex = LineIndex::new(contents);
-    let root = SourceFile::parse(contents).tree();
+    let root = SourceFile::parse(contents).syntax_node();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
@@ -423,7 +423,7 @@ pub fn wrap_root(contents: &str) -> Snode {
         };
         rnode
     };
-    work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
+    work_node(wrap_node, SyntaxElement::Node(root))
 }
 
 pub enum Fixpos {

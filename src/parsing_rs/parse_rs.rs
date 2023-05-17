@@ -30,7 +30,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
 
 pub fn processrs(contents: &str) -> Rnode {
     let lindex = LineIndex::new(contents);
-    let root = SourceFile::parse(contents).tree();
+    let root = SourceFile::parse(contents).syntax_node();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
@@ -41,5 +41,5 @@ pub fn processrs(contents: &str) -> Rnode {
         };
         rnode
     };
-    work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
+    work_node(wrap_node, SyntaxElement::Node(root))
 }
