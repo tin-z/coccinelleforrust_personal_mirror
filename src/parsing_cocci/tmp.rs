@@ -1,15 +1,20 @@
 struct A{}
-struct B<'a>{
+struct B{
     pub a: A,
-    pub b: Option<&'a A>
 }
 
-fn tt<'a>(a: A) -> B<'a>{
-    let aa = A{};
+impl<'a> B{
+    fn gg(&mut self, jj: &mut A){
+
+    }
+}
+
+fn tt<'a>(a: A) -> B{
+    let mut aa = A{};
+    let mut aa2 = A{};
     let mut bb = B{
         a: aa,
-        b: None
     };
-    bb.b = Some(&bb.a);
+    bb.gg(&mut aa2);
     bb
 }
