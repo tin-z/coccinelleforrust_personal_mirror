@@ -55,7 +55,6 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
 pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 
     match &mut v[..3] {
@@ -67,7 +66,7 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
 }
 
 
-pub fn worktree<'a>(node: &mut Snode, f: &mut dyn FnMut(&mut Snode<'a>)){
+pub fn worktree<'a>(node: &'a mut Snode, f: &mut dyn FnMut(&mut Snode)){
     //use async function to wrap the for loop
     //for other cases TODO
     f(node);
@@ -76,6 +75,14 @@ pub fn worktree<'a>(node: &mut Snode, f: &mut dyn FnMut(&mut Snode<'a>)){
     }
 }
 
+pub fn worktree_pure<'a>(node: &'a Snode, f: &mut impl FnMut(&'a Snode)){
+    //use async function to wrap the for loop
+    //for other cases TODO
+    f(node);
+    for child in &node.children{
+        worktree_pure(child, f);
+    }
+}
 
 pub fn isexpr(node1: &Snode) -> bool {
     use SyntaxKind::{*};
