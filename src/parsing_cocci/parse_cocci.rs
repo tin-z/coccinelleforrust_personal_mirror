@@ -39,37 +39,45 @@ fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a
 
 /// Given a metavar type and name, returns a MetaVar object
 fn getmetavarref<'a>(
+    rules: &Vec<Rule>,
     rulename: &Name,
     varname: &Name,
     metatype: &str,
     lino: usize,
-    metavars: &'a mut Vec<MetaVar>
-) -> &'a MetaVar {
+) -> MetaVar<'a> {
     let split = varname.split(".").collect::<Vec<&str>>();
     match (split.get(0), split.get(1), split.get(2)) {
         (Some(var), None, None) => {
             
-            metavars.push(MetaVar::new(rulename, var, metatype));
-            return &metavars.last().unwrap();
+            MetaVar::new(rulename, var, metatype)
 
         }
         (Some(rulen), Some(varn), None) => {
-            
-            // find meta var that this references, and return  that reference 
-            if let Some(mvar) = metavars.iter().find(|x| {
-                return x.getname()==varn.deref() && 
-                    x.getrulename()==rulen.deref() && 
-                    x.gettype()==metatype;
-            }) {
-                return mvar;
+            if let Some(rule) = rules.iter().find(|x| x.name==rulen.deref()) {
+                // find meta var that this references, and return  that reference 
+                if let Some(mvar) = rule.metavars.iter().find(|x| {
+                    return x.getname()==varn.deref() && 
+                        x.getrulename()==rulen.deref() && 
+                        x.gettype()==metatype;
+                }) {
+                    return MetaVar::Inherited(mvar);
+                }
+                else {
+                    syntaxerror!(
+                        lino,
+                        format!("no such metavariable in rule {}", rulename),
+                        varname
+                    )
+                }
             }
             else {
                 syntaxerror!(
                     lino,
-                    format!("no such metavariable in rule {}", rulename),
+                    format!("No such rule {}", rulename),
                     varname
                 )
             }
+            
         }
         _ => syntaxerror!(lino, "Invalid meta-variable name", varname),
     }
@@ -104,7 +112,7 @@ impl<'a> Patch<'a> {
 pub struct Rule<'a> {
     pub name: Name,
     pub dependson: Dep,
-    pub metavars: Vec<&'a MetaVar>,
+    pub metavars: &'a Vec<MetaVar<'a>>,
     pub patch: Patch<'a>,
     pub freevars: Vec<Name>,
 }
@@ -113,7 +121,7 @@ impl<'a> Rule<'a> {
     pub fn new(
         name: Name,
         dependson: Dep,
-        metavars: Vec<&'a MetaVar>,
+        metavars: &Vec<MetaVar>,
         patch: Patch<'a>,
         freevars: Vec<Name>,
     ) -> Rule<'a> {
@@ -247,7 +255,7 @@ fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch<'a> {
 fn buildrule<'a>(
     currrulename: &Name,
     currdepends: Dep,
-    metavars: Vec<&'a MetaVar>,
+    metavars: &Vec<MetaVar>,
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
@@ -313,14 +321,14 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
 
 /// Parses the metavar declarations
 pub fn handle_metavar_decl<'a>(
+    rules: &'a Vec<Rule>,
     block: &Vec<&str>,
     rulename: &Name,
-    lino: usize,
-    gmetavars: &'a mut Vec<MetaVar>
-) -> (Vec<&'a MetaVar>, usize) {
+    lino: usize
+) -> (Vec<MetaVar<'a>>, usize) {
     let mut offset: usize = 0;
     let mut blanks: usize = 0;
-    let mut metavars: Vec<&'a MetaVar> = vec![]; //stores the mvars encountered as of now
+    let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encountered as of now
 
     for line in block {
         offset += 1;
@@ -334,7 +342,7 @@ pub fn handle_metavar_decl<'a>(
             let var = var.trim().to_string();
             if var != "" {
                 if !metavars.iter().any(|x| x.getname() == var) {
-                    metavars.push(getmetavarref(rulename, &var, ty, lino, gmetavars));
+                    metavars.push(getmetavarref(rules, rulename, &var, ty, lino));
                 } else {
                     syntaxerror!(
                         offset + lino,
@@ -354,13 +362,13 @@ fn handleprepatch(contents: &str) {
     }
 }
 
-pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<MetaVar>) {
+pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
                       //mutable because I supply it with modifier statements
 
     let mut rules: Vec<Rule> = vec![];
-    let mut gmetavars: Vec<MetaVar> = vec![];
+    let mut gmetavars: Vec<Vec<MetaVar>> = vec![];
 
 
     //check for empty
@@ -383,7 +391,8 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<MetaVar>) {
         let (currrulename, currdepends) = handlerules(&rules, block1, lino);
 
         lino += 1;
-        let (metavars, blanks) = handle_metavar_decl(&block2, &currrulename, lino, &mut gmetavars);
+        let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
+        gmetavars.push(metavars);
         println!("lino1 - {}", lino);
         //metavars
         lino += block2.len();
@@ -401,7 +410,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<MetaVar>) {
         let rule = buildrule(
             &currrulename,
             currdepends,
-            metavars,
+            &gmetavars.last().unwrap(),
             blanks,
             &pbufmod,
             &mbufmod,

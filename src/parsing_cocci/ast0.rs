@@ -5,10 +5,10 @@ use crate::parsing_rs::ast_rs::Rnode;
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::Type;
-use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
+use syntax::ast::{Type, Meta};
+use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken, NodeOrToken};
 
-#[derive(PartialEq)]
+#[derive()]
 /// Semantic Path Node
 pub struct Snode<'a> {
     pub wrapper: Wrap<'a>,
@@ -152,19 +152,19 @@ impl PositionInfo {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, )]
 pub enum Count {
     ONE,
     MINUS,
 }
 
-#[derive(PartialEq)]
+#[derive()]
 pub enum Replacement<'a> {
     REPLACEMENT(Vec<Vec<Snode<'a>>>),
     NOREPLACEMENT,
 }
 
-#[derive(PartialEq)]
+#[derive()]
 pub enum Befaft<'a> {
     BEFORE(Vec<Vec<Snode<'a>>>),
     AFTER(Vec<Vec<Snode<'a>>>),
@@ -172,7 +172,7 @@ pub enum Befaft<'a> {
     NOTHING,
 }
 
-#[derive( PartialEq)]
+#[derive()]
 pub enum Mcodekind<'a> {
     MINUS(Replacement<'a>),
     PLUS(Count),
@@ -183,7 +183,7 @@ pub enum Mcodekind<'a> {
 #[derive(Clone, PartialEq)]
 pub struct DotsBefAft {}
 
-#[derive(PartialEq)]
+#[derive()]
 pub struct Info<'a> {
     pos_info: PositionInfo,
     attachable_start: bool,
@@ -228,74 +228,85 @@ pub enum KeepBinding {
 
 type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MetaVar {
-    Exp(Minfo),
-    Id(Minfo),
+#[derive(Clone, Debug)]
+pub enum MetaVar<'a> {
+    Exp(Minfo, Option<&'a Snode<'a>>),
+    Id(Minfo, Option<&'a Snode<'a>>),
+    Inherited(&'a MetaVar<'a>)
 }
 
-impl MetaVar {
+impl<'a> MetaVar<'a> {
     pub fn getname(&self) -> &str {
         match self {
-            MetaVar::Id(minfo) => minfo.1.as_str(),
-            MetaVar::Exp(minfo) => minfo.1.as_str(),
+            MetaVar::Id(minfo, _) => minfo.1.as_str(),
+            MetaVar::Exp(minfo, _) => minfo.1.as_str(),
+            MetaVar::Inherited(meta) => meta.getname(),
         }
     }
 
     pub fn gettype(&self) -> &str {
         match self {
-            MetaVar::Id(_minfo) => "identifier",
-            MetaVar::Exp(_minfo) => "expression",
+            MetaVar::Id(_minfo, _) => "identifier",
+            MetaVar::Exp(_minfo, _) => "expression",
+            MetaVar::Inherited(_meta) => "inherited",
         }
     }
 
     pub fn setbinding(&mut self, binding: KeepBinding) {
         match self {
-            Self::Exp(minfo) => {
+            Self::Exp(minfo, _) => {
                 minfo.2 = binding;
             }
-            Self::Id(minfo) => {
+            Self::Id(minfo, _) => {
                 minfo.2 = binding;
             }
+            _ => { panic!("Cannot mutate inherited values.") }
         }
     }
 
     pub fn getminfo(&self) -> &Minfo {
         match self {
-            Self::Exp(minfo) => &minfo,
-            Self::Id(minfo) => &minfo,
+            Self::Exp(minfo, _) => &minfo,
+            Self::Id(minfo, _) => &minfo,
+            MetaVar::Inherited(meta) => meta.getminfo(),
         }
     }
 
     pub fn getrulename(&self) -> &str {
         match self {
-            Self::Exp(minfo) => &minfo.0,
-            Self::Id(minfo) => &minfo.0,
+            Self::Exp(minfo, _) => &minfo.0,
+            Self::Id(minfo, _) => &minfo.0,
+            Self::Inherited(meta) => meta.getrulename(),
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar {
+    pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar<'a> {
         let minfo = (
             String::from(rulename),
             String::from(name),
             KeepBinding::UNITARY,
         );
         match ty {
-            "expression" => MetaVar::Exp(minfo),
-            "identifier" => MetaVar::Id(minfo),
+            "expression" => MetaVar::Exp(minfo, None),
+            "identifier" => MetaVar::Id(minfo, None),
             _ => panic!("Should not occur.")
         }
     }
+
+//    pub fn makeinherited(rulename: &str, name: &str) -> MetaVar<'a> {
+//        MetaVar::Inherited()
+//    }
+
 }
 
-#[derive(PartialEq)]
+#[derive()]
 pub struct Wrap<'a> {
     info: Info<'a>,
     index: usize,
     pub mcodekind: Mcodekind<'a>,
     exp_ty: Option<Type>,
     bef_aft: DotsBefAft,
-    pub metavar: Option<&'a MetaVar>,
+    pub metavar: Option<&'a MetaVar<'a>>,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
