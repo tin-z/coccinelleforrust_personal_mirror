@@ -9,10 +9,10 @@
 ///
 /// _context_
 /// (+/-) code
-use std::{ops::Deref, vec, mem::take};
+use std::{mem::take, ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode};
-use crate::{syntaxerror, commons::util};
+use crate::{commons::util, syntaxerror};
 use parser::SyntaxKind;
 
 type Tag = SyntaxKind;
@@ -64,9 +64,7 @@ fn makemetavar(
                 )
             }
         }
-        _ =>
-            syntaxerror!(lino, "Invalid meta-variable name", varname)
-        
+        _ => syntaxerror!(lino, "Invalid meta-variable name", varname),
     }
 }
 
@@ -79,11 +77,9 @@ impl<'a> Patch<'a> {
     fn setmetavars_aux(node: &mut Snode, metavars: &'a Vec<MetaVar>) {
         let mut work = |node: &mut Snode<'a>| match node.kind() {
             Tag::PATH_EXPR => {
-                
                 let stmp = node.astnode.to_string();
-                if let Some(mvar) = metavars.iter().find(
-                    |x| x.getname() == stmp) {
-                        println!("MetaVar found - {:?}", mvar);
+                if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
+                    println!("MetaVar found - {:?}", mvar);
                     node.wrapper.metavar = Some(mvar);
                 }
             }
@@ -92,7 +88,7 @@ impl<'a> Patch<'a> {
         util::worktree(node, &mut work);
     }
 
-    fn setmetavars(&mut self, metavars: &'a Vec<MetaVar>) {
+    fn setmetavars(&'a mut self, metavars: &'a Vec<MetaVar>) {
         Patch::setmetavars_aux(&mut self.plus, metavars);
         Patch::setmetavars_aux(&mut self.minus, metavars);
     }
@@ -106,6 +102,25 @@ pub struct Rule<'a> {
     pub freevars: Vec<Name>,
 }
 
+impl<'a> Rule<'a> {
+    pub fn new(
+        name: Name,
+        dependson: Dep,
+        metavars: Vec<MetaVar>,
+        patch: Patch<'a>,
+        freevars: Vec<Name>,
+    ) -> Rule<'a> {
+        let mut rule = Rule {
+            name,
+            dependson,
+            metavars,
+            patch,
+            freevars,
+        };
+        rule.patch.setmetavars(&rule.metavars);
+        rule
+    }
+}
 
 // Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
@@ -211,15 +226,13 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 }
 
 /// Turns values from handlemods into a patch object
-fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch<'a> {
+fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch<'a> {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
     let mut p = Patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
     };
-
-    p.setmetavars(metavars);
     p
 }
 
@@ -249,14 +262,14 @@ fn buildrule<'a>(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
-    let rule = Rule {
-        name: Name::from(currrulename),
-        dependson: currdepends,
-        metavars: metavars,
-        patch: currpatch,
-        freevars: vec![],
-    };
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline);
+    let rule = Rule::new(
+        Name::from(currrulename),
+        currdepends,
+        metavars,
+        currpatch,
+        vec![],
+    );
     rule
 }
 
