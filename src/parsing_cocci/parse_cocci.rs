@@ -39,7 +39,7 @@ fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a
 
 /// Given a metavar type and name, returns a MetaVar object
 fn getmetavarref<'a>(
-    rules: &Vec<Rule>,
+    rules: &Vec<Rule<'a>>,
     rulename: &Name,
     varname: &Name,
     metatype: &str,
@@ -121,7 +121,7 @@ impl<'a> Rule<'a> {
     pub fn new(
         name: Name,
         dependson: Dep,
-        metavars: &Vec<MetaVar>,
+        metavars: &'a Vec<MetaVar>,
         patch: Patch<'a>,
         freevars: Vec<Name>,
     ) -> Rule<'a> {
@@ -255,7 +255,7 @@ fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch<'a> {
 fn buildrule<'a>(
     currrulename: &Name,
     currdepends: Dep,
-    metavars: &Vec<MetaVar>,
+    metavars: &'a Vec<MetaVar>,
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
@@ -410,7 +410,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
         let rule = buildrule(
             &currrulename,
             currdepends,
-            &gmetavars.last().unwrap(),
+            gmetavars.last().as_ref().unwrap(),
             blanks,
             &pbufmod,
             &mbufmod,

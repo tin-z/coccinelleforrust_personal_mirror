@@ -9,7 +9,7 @@ use crate::{
     commons::{info::ParseInfo, util::isexpr},
     fail,
     parsing_cocci::ast0::Snode,
-    parsing_cocci::ast0::{Fixpos, Mcodekind},
+    parsing_cocci::ast0::{Fixpos, Mcodekind, MetaVar::*},
     parsing_rs::ast_rs::Rnode,
 };
 
@@ -124,13 +124,13 @@ impl<'a> Looper<'a> {
                 }
                 return MetavarMatch::Maybe(node1, node2);//not sure
             },
-            Some(crate::parsing_cocci::ast0::MetaVar::Exp(info)) => {
+            Some(Exp(info, node)) => {
                     // this means it is not complex node
                     // A complex node is defined as anything
                     // which is not a single metavariable
                     return MetavarMatch::Match;
             },
-            Some(crate::parsing_cocci::ast0::MetaVar::Id(info)) => {
+            Some(Id(info, node)) => {
                 // since these are already identifiers no
                 // extra checks are there
                 if info.1 == node2.astnode.to_string() { 
@@ -140,6 +140,9 @@ impl<'a> Looper<'a> {
                     return MetavarMatch::Maybe(node1, node2)// TODO
                 };
             },
+            Some(Inherited(metavar)) => {
+                MetavarMatch::Fail
+            }
         }
     }   
     

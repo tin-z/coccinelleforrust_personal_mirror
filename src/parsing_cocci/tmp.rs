@@ -44,3 +44,23 @@ fn borrow_mut_function(val_in: &mut NoLifetime) -> String {
 fn borrow_lifetime<'a>(val_in: &'a mut WithLifetime) -> &'a i32 {
     val_in.field
 }
+
+fn aux<'a>(a: &'a A) -> i32{
+    2
+}
+
+
+fn test<'a>() -> (Vec<A>, Vec<i32>){
+    let mut v:  Vec<A> = vec![];
+    let mut vr: Vec<&A> = vec![];
+    let mut hh = vec![];
+
+    v.push(A {  });
+    v.push(A {  });
+    v.push(A {  });
+
+    hh.push(aux(&v.last().unwrap()));
+    v.push(A {  });
+
+    return (v, hh);
+}
