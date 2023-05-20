@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::collections::{LinkedList, VecDeque};
+
 struct A{}
 struct B{
     pub a: A,
@@ -45,22 +48,42 @@ fn borrow_lifetime<'a>(val_in: &'a mut WithLifetime) -> &'a i32 {
     val_in.field
 }
 
-fn aux<'a>(a: &'a A) -> i32{
-    2
+struct C<'a> {
+    pub a: &'a i32
+}
+
+fn aux<'a>(a: &'a A, l: &'a i32) -> C<'a>{
+    C { a:l }
 }
 
 
-fn test<'a>() -> (Vec<A>, Vec<i32>){
-    let mut v:  Vec<A> = vec![];
-    let mut vr: Vec<&A> = vec![];
-    let mut hh = vec![];
+fn masin() {
+    let mut v = vec![1, 2, 3, 4, 5];
+    
+    
+    let (front, back) = v.split_last_mut().unwrap();
+    println!("Front part: {:?}", front);
+    
+    println!("Vector after push: {:?}", v);
+}
 
-    v.push(A {  });
-    v.push(A {  });
-    v.push(A {  });
+use std::rc::Rc;
 
-    hh.push(aux(&v.last().unwrap()));
-    v.push(A {  });
+fn maindd() {
+    let v = Rc::new(RefCell::new(VecDeque::from(vec![1, 2, 3, 4, 5])));
+    //let g = vec![];
 
-    return (v, hh);
+    for _ in 0..10 {
+        v.borrow_mut().push_back(6);
+        println!("VecDeque after push: {:?}", v.borrow());
+        
+
+        //let front = v.borrow().range(0..v.borrow().len() - 1).collect::<Vec<_>>();
+        //g.push(front);
+    }
+
+    // Print the contents of g
+    //for front in &g {
+      //  println!("Front: {:?}", front);
+    //}
 }

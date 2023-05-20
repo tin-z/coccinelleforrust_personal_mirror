@@ -9,7 +9,7 @@
 ///
 /// _context_
 /// (+/-) code
-use std::{mem::take, ops::Deref, vec};
+use std::{mem::take, ops::Deref, vec, rc::Rc};
 
 use super::ast0::{wrap_root, MetaVar, Snode};
 use crate::{commons::util, syntaxerror};
@@ -112,7 +112,7 @@ impl<'a> Patch<'a> {
 pub struct Rule<'a> {
     pub name: Name,
     pub dependson: Dep,
-    pub metavars: &'a Vec<MetaVar<'a>>,
+    pub metavars: Rc<&'a Vec<MetaVar<'a>>>,
     pub patch: Patch<'a>,
     pub freevars: Vec<Name>,
 }
@@ -121,7 +121,7 @@ impl<'a> Rule<'a> {
     pub fn new(
         name: Name,
         dependson: Dep,
-        metavars: &'a Vec<MetaVar>,
+        metavars: Rc<&'a Vec<MetaVar>>,
         patch: Patch<'a>,
         freevars: Vec<Name>,
     ) -> Rule<'a> {
@@ -255,7 +255,7 @@ fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch<'a> {
 fn buildrule<'a>(
     currrulename: &Name,
     currdepends: Dep,
-    metavars: &'a Vec<MetaVar>,
+    metavars: Rc<&'a Vec<MetaVar>>,
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
@@ -381,6 +381,8 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
                                    //if it fails we will find out in the next for loop
     ;
     let mut lastruleline = 0;
+    
+    let (_, gmetavarsref) = gmetavars.split_at_mut(0);
     for i in 0..nrules {
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
         let block2: Vec<&str> = blocks[i * 4 + 1].lines().collect(); //metavars
@@ -406,11 +408,12 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
         //modifiers
         lino += block4.len() - 1;
         let (pbufmod, mbufmod) = handlemods(&block4);
-
+        //let (prevgmeta, tmp) = gmetavars.split_at_mut(gmetavars.len()-1);
+        //gmetavarsref = tmp;
         let rule = buildrule(
             &currrulename,
             currdepends,
-            gmetavars.last().as_ref().unwrap(),
+            Rc::clone(gmetavars.last().as_ref().unwrap()),
             blanks,
             &pbufmod,
             &mbufmod,
