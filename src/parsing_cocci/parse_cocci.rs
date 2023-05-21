@@ -9,7 +9,7 @@
 ///
 /// _context_
 /// (+/-) code
-use std::{mem::take, ops::Deref, vec, rc::Rc};
+use std::{ops::Deref, vec, rc::Rc};
 
 use super::ast0::{wrap_root, MetaVar, Snode};
 use crate::{commons::util, syntaxerror};
@@ -28,6 +28,28 @@ pub enum Dep {
     AntiDep(Box<Dep>),
 }
 
+fn getrulemetavar<'a>(rules: &Vec<Rule<'a>>, rulename: &str, lino: usize, metatype: &str, var: &str) -> Rc<MetaVar<'a>> {
+    for rule in rules {
+        if rule.name.eq(rulename) {
+            if let Some(mvar) = rule
+                .metavars
+                .iter()
+                .map(|x| Rc::clone(x))
+                .find(|x| x.gettype() == metatype && x.getname() == var)
+            {
+                return mvar;
+            } else {
+                syntaxerror!(
+                    lino,
+                    format!("no such metavariable in rule {}", rule.name),
+                    var
+                )
+            }
+        }
+    }
+    syntaxerror!(lino, "no such rule", rulename);
+}
+
 fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a> {
     for rule in rules {
         if rule.name.eq(rulename) {
@@ -38,46 +60,19 @@ fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a
 }
 
 /// Given a metavar type and name, returns a MetaVar object
-fn getmetavarref<'a>(
+fn makemetavar<'a>(
     rules: &Vec<Rule<'a>>,
     rulename: &Name,
     varname: &Name,
     metatype: &str,
     lino: usize,
-) -> MetaVar<'a> {
+) -> Rc<MetaVar<'a>> {
     let split = varname.split(".").collect::<Vec<&str>>();
     match (split.get(0), split.get(1), split.get(2)) {
-        (Some(var), None, None) => {
-            
-            MetaVar::new(rulename, var, metatype)
-
-        }
-        (Some(rulen), Some(varn), None) => {
-            if let Some(rule) = rules.iter().find(|x| x.name==rulen.deref()) {
-                // find meta var that this references, and return  that reference 
-                if let Some(mvar) = rule.metavars.iter().find(|x| {
-                    return x.getname()==varn.deref() && 
-                        x.getrulename()==rulen.deref() && 
-                        x.gettype()==metatype;
-                }) {
-                    return MetaVar::Inherited(mvar);
-                }
-                else {
-                    syntaxerror!(
-                        lino,
-                        format!("no such metavariable in rule {}", rulename),
-                        varname
-                    )
-                }
-            }
-            else {
-                syntaxerror!(
-                    lino,
-                    format!("No such rule {}", rulename),
-                    varname
-                )
-            }
-            
+        (Some(var), None, None) => Rc::new(MetaVar::new(rulename, var, metatype)),
+        (Some(rulen), Some(var), None) => {
+            let var = var.deref();
+            return getrulemetavar(rules, rulen, lino, metatype, var);
         }
         _ => syntaxerror!(lino, "Invalid meta-variable name", varname),
     }
@@ -89,13 +84,14 @@ pub struct Patch<'a> {
 }
 
 impl<'a> Patch<'a> {
-    fn setmetavars_aux(node: &'a mut Snode<'a>, metavars: &'a Vec<MetaVar>) {
+    fn setmetavars_aux(node: &mut Snode<'a>, metavars: &Vec<Rc<MetaVar<'a>>>) {
         let mut work = |node: &mut Snode<'a>| match node.kind() {
             Tag::PATH_EXPR => {
-                let stmp = node.astnode.to_string();
+                
+                let stmp = node.astnode.to_string();    
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                     println!("MetaVar found - {:?}", mvar);
-                    node.wrapper.metavar = Some(mvar);
+                    node.wrapper.metavar = Some(Rc::clone(mvar));
                 }
             }
             _ => {}
@@ -103,38 +99,20 @@ impl<'a> Patch<'a> {
         util::worktree(node, &mut work);
     }
 
-    fn setmetavars(&'a mut self, metavars: &'a Vec<MetaVar>) {
-        Patch::setmetavars_aux(&mut self.plus, metavars);
-        Patch::setmetavars_aux(&mut self.minus, metavars);
+    fn setmetavars(&mut self, metavars: Vec<Rc<MetaVar<'a>>>) {
+        Patch::setmetavars_aux(&mut self.plus, &metavars);
+        Patch::setmetavars_aux(&mut self.minus, &metavars);
     }
 }
 
 pub struct Rule<'a> {
     pub name: Name,
     pub dependson: Dep,
-    pub metavars: Rc<&'a Vec<MetaVar<'a>>>,
+    pub metavars: Vec<Rc<MetaVar<'a>>>,
     pub patch: Patch<'a>,
     pub freevars: Vec<Name>,
 }
 
-impl<'a> Rule<'a> {
-    pub fn new(
-        name: Name,
-        dependson: Dep,
-        metavars: Rc<&'a Vec<MetaVar>>,
-        patch: Patch<'a>,
-        freevars: Vec<Name>,
-    ) -> Rule<'a> {
-        let mut rule = Rule {
-            name,
-            dependson,
-            metavars,
-            patch,
-            freevars,
-        };
-        rule
-    }
-}
 
 // Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
@@ -240,14 +218,15 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 }
 
 /// Turns values from handlemods into a patch object
-fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch<'a> {
+fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize, metavars: Vec<Rc<MetaVar<'a>>>) -> Patch<'a> {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
-    let mut p = Patch {
+    let mut patch = Patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
     };
-    p
+    patch.setmetavars(metavars);
+    patch
 }
 
 /// Given all the info about name, depends, metavars and modifiers and context
@@ -255,11 +234,11 @@ fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize) -> Patch<'a> {
 fn buildrule<'a>(
     currrulename: &Name,
     currdepends: Dep,
-    metavars: Rc<&'a Vec<MetaVar>>,
+    metavars: Vec<Rc<MetaVar<'a>>>,
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
-    lastruleline: usize
+    lastruleline: usize,
 ) -> Rule<'a> {
     //end of the previous rule
     let mut plusbuf = String::new();
@@ -276,14 +255,14 @@ fn buildrule<'a>(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    let mut currpatch = getpatch(&plusbuf, &minusbuf, lastruleline);
-    let rule = Rule::new(
-        Name::from(currrulename),
-        currdepends,
-        metavars,
-        currpatch,
-        vec![]
-    );
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, metavars.iter().map(|x| Rc::clone(x)).collect::<Vec<_>>());
+    let rule = Rule {
+        name: Name::from(currrulename),
+        dependson: currdepends,
+        metavars: metavars,
+        patch: currpatch,
+        freevars: vec![],
+    };
     rule
 }
 
@@ -321,14 +300,14 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
 
 /// Parses the metavar declarations
 pub fn handle_metavar_decl<'a>(
-    rules: &'a Vec<Rule>,
+    rules: &Vec<Rule<'a>>,
     block: &Vec<&str>,
     rulename: &Name,
-    lino: usize
-) -> (Vec<MetaVar<'a>>, usize) {
+    lino: usize,
+) -> (Vec<Rc<MetaVar<'a>>>, usize) {
     let mut offset: usize = 0;
     let mut blanks: usize = 0;
-    let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encountered as of now
+    let mut metavars: Vec<Rc<MetaVar>> = vec![]; //stores the mvars encounteres as of now
 
     for line in block {
         offset += 1;
@@ -342,7 +321,7 @@ pub fn handle_metavar_decl<'a>(
             let var = var.trim().to_string();
             if var != "" {
                 if !metavars.iter().any(|x| x.getname() == var) {
-                    metavars.push(getmetavarref(rules, rulename, &var, ty, lino));
+                    metavars.push(makemetavar(rules, rulename, &var, ty, lino));
                 } else {
                     syntaxerror!(
                         offset + lino,
@@ -362,27 +341,22 @@ fn handleprepatch(contents: &str) {
     }
 }
 
-pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
+pub fn processcocci(contents: &str) -> Vec<Rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
                       //mutable because I supply it with modifier statements
 
     let mut rules: Vec<Rule> = vec![];
-    let mut gmetavars: Vec<Vec<MetaVar>> = vec![];
-
-
     //check for empty
     if blocks.len() == 0 {
-        return (vec![], vec![]);
+        return vec![];
     }
     //handleprepatch(blocks.swap_remove(0)); //throwing away the first part before the first @
     handleprepatch(blocks.remove(0));
     let nrules = blocks.len() / 4; //this should always be an integer if case of a proper cocci file
                                    //if it fails we will find out in the next for loop
-    ;
+
     let mut lastruleline = 0;
-    
-    let (_, gmetavarsref) = gmetavars.split_at_mut(0);
     for i in 0..nrules {
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
         let block2: Vec<&str> = blocks[i * 4 + 1].lines().collect(); //metavars
@@ -394,7 +368,6 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
 
         lino += 1;
         let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
-        gmetavars.push(metavars);
         println!("lino1 - {}", lino);
         //metavars
         lino += block2.len();
@@ -408,21 +381,20 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, Vec<Vec<MetaVar>>) {
         //modifiers
         lino += block4.len() - 1;
         let (pbufmod, mbufmod) = handlemods(&block4);
-        //let (prevgmeta, tmp) = gmetavars.split_at_mut(gmetavars.len()-1);
-        //gmetavarsref = tmp;
+
         let rule = buildrule(
             &currrulename,
             currdepends,
-            Rc::clone(gmetavars.last().as_ref().unwrap()),
+            metavars,
             blanks,
             &pbufmod,
             &mbufmod,
-            lastruleline
+            lastruleline,
         );
         rules.push(rule);
 
         lastruleline = lino;
     }
-    (rules, gmetavars)
+    rules
     //flag_logilines(0, &mut root);
 }

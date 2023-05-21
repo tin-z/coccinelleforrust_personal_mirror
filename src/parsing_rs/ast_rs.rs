@@ -24,6 +24,7 @@ pub enum Danger {
     NoDanger
 }
 
+#[derive(Clone)]
 pub struct Wrap<'a> {
     pub info: ParseInfo,
     index: usize,
@@ -48,7 +49,7 @@ impl<'a> Wrap<'a> {
 
 }
 
-
+#[derive(Clone)]
 pub struct Rnode<'a> {
     pub wrapper: Wrap<'a>,
     pub astnode: SyntaxElement,//Not SyntaxNode because we need to take

@@ -113,37 +113,33 @@ impl<'a> Looper<'a> {
 
         //TODO take care of disjunctions like (2|3) > e1
         //TODO take care of matching bound metavars 
-        match node1.wrapper.metavar {
-            None => {
-                if node2.children.len() == 0 //end of node
-                {
-                    if node1.astnode.to_string() != node2.astnode.to_string() {
-                        //basically checks for tokens
-                        return MetavarMatch::Fail;
-                    }
-                }
-                return MetavarMatch::Maybe(node1, node2);//not sure
-            },
-            Some(Exp(info, node)) => {
-                    // this means it is not complex node
-                    // A complex node is defined as anything
-                    // which is not a single metavariable
+
+        if let Some(node) = &node1.wrapper.metavar {
+            match node.as_ref() {
+                Exp(info, snode) => {
                     return MetavarMatch::Match;
-            },
-            Some(Id(info, node)) => {
-                // since these are already identifiers no
-                // extra checks are there
-                if info.1 == node2.astnode.to_string() { 
-                    return MetavarMatch::Maybe(node1, node2);//TODO
-                } 
-                else { 
-                    return MetavarMatch::Maybe(node1, node2)// TODO
-                };
-            },
-            Some(Inherited(metavar)) => {
-                MetavarMatch::Fail
+                },
+                Id(info, snode) => {
+                    if info.1 == node2.astnode.to_string() { 
+                        return MetavarMatch::Maybe(node1, node2);//TODO
+                    } 
+                    else { 
+                        return MetavarMatch::Maybe(node1, node2)// TODO
+                    };
+                }
             }
         }
+        else {
+            if node2.children.len() == 0 //end of node
+            {
+                if node1.astnode.to_string() != node2.astnode.to_string() {
+                    //basically checks for tokens
+                    return MetavarMatch::Fail;
+                }
+            }
+            return MetavarMatch::Maybe(node1, node2);//not sure
+        }
+
     }   
     
 }

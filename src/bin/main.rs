@@ -7,13 +7,15 @@ use coccinelleforrust::{
 use std::fs;
 
 fn aux(node: &Snode){
-    if node.wrapper.metavar != MetaVar::NoMeta{
-        print!("{} -----------------------------> ", node.astnode.to_string());
-        println!("{:?}", node.wrapper.metavar);
-    }
-    else{
-        for child in &node.children{
-            aux(&child);
+    match node.wrapper.metavar {
+        None => {
+            print!("{} -----------------------------> ", node.astnode.to_string());
+            println!("{:?}", node.wrapper.metavar);
+        }
+        Some(_) => {
+            for child in &node.children{
+                aux(&child);
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::rc::Rc;
 
 use crate::parsing_rs::ast_rs::Rnode;
 
@@ -8,7 +9,7 @@ use parser::SyntaxKind;
 use syntax::ast::{Type, Meta};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken, NodeOrToken};
 
-#[derive()]
+#[derive(Clone)]
 /// Semantic Path Node
 pub struct Snode<'a> {
     pub wrapper: Wrap<'a>,
@@ -158,13 +159,13 @@ pub enum Count {
     MINUS,
 }
 
-#[derive()]
+#[derive(Clone)]
 pub enum Replacement<'a> {
     REPLACEMENT(Vec<Vec<Snode<'a>>>),
     NOREPLACEMENT,
 }
 
-#[derive()]
+#[derive(Clone)]
 pub enum Befaft<'a> {
     BEFORE(Vec<Vec<Snode<'a>>>),
     AFTER(Vec<Vec<Snode<'a>>>),
@@ -172,7 +173,7 @@ pub enum Befaft<'a> {
     NOTHING,
 }
 
-#[derive()]
+#[derive(Clone)]
 pub enum Mcodekind<'a> {
     MINUS(Replacement<'a>),
     PLUS(Count),
@@ -183,7 +184,7 @@ pub enum Mcodekind<'a> {
 #[derive(Clone, PartialEq)]
 pub struct DotsBefAft {}
 
-#[derive()]
+#[derive(Clone)]
 pub struct Info<'a> {
     pos_info: PositionInfo,
     attachable_start: bool,
@@ -230,9 +231,8 @@ type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
 
 #[derive(Clone, Debug)]
 pub enum MetaVar<'a> {
-    Exp(Minfo, Option<&'a Snode<'a>>),
-    Id(Minfo, Option<&'a Snode<'a>>),
-    Inherited(&'a MetaVar<'a>)
+    Exp(Minfo, Option<&'a Rnode<'a>>),
+    Id(Minfo, Option<&'a Rnode<'a>>),
 }
 
 impl<'a> MetaVar<'a> {
@@ -240,7 +240,6 @@ impl<'a> MetaVar<'a> {
         match self {
             MetaVar::Id(minfo, _) => minfo.1.as_str(),
             MetaVar::Exp(minfo, _) => minfo.1.as_str(),
-            MetaVar::Inherited(meta) => meta.getname(),
         }
     }
 
@@ -248,7 +247,6 @@ impl<'a> MetaVar<'a> {
         match self {
             MetaVar::Id(_minfo, _) => "identifier",
             MetaVar::Exp(_minfo, _) => "expression",
-            MetaVar::Inherited(_meta) => "inherited",
         }
     }
 
@@ -268,7 +266,6 @@ impl<'a> MetaVar<'a> {
         match self {
             Self::Exp(minfo, _) => &minfo,
             Self::Id(minfo, _) => &minfo,
-            MetaVar::Inherited(meta) => meta.getminfo(),
         }
     }
 
@@ -276,7 +273,6 @@ impl<'a> MetaVar<'a> {
         match self {
             Self::Exp(minfo, _) => &minfo.0,
             Self::Id(minfo, _) => &minfo.0,
-            Self::Inherited(meta) => meta.getrulename(),
         }
     }
 
@@ -286,10 +282,11 @@ impl<'a> MetaVar<'a> {
             String::from(name),
             KeepBinding::UNITARY,
         );
+
         match ty {
             "expression" => MetaVar::Exp(minfo, None),
             "identifier" => MetaVar::Id(minfo, None),
-            _ => panic!("Should not occur.")
+            ty => panic!("Should not be called with {}", ty)
         }
     }
 
@@ -299,14 +296,14 @@ impl<'a> MetaVar<'a> {
 
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct Wrap<'a> {
     info: Info<'a>,
     index: usize,
     pub mcodekind: Mcodekind<'a>,
     exp_ty: Option<Type>,
     bef_aft: DotsBefAft,
-    pub metavar: Option<&'a MetaVar<'a>>,
+    pub metavar: Option<Rc<MetaVar<'a>>>,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
@@ -320,7 +317,7 @@ impl<'a> Wrap<'a> {
         mcodekind: Mcodekind<'a>,
         exp_ty: Option<Type>,
         bef_aft: DotsBefAft,
-        metavar: Option<&'a MetaVar>,
+        metavar: Option<Rc<MetaVar<'a>>>,
         true_if_arg: bool,
         true_if_test: bool,
         true_if_test_exp: bool,
@@ -410,16 +407,15 @@ pub fn fill_wrap<'a>(lindex: &LineIndex, node: &SyntaxElement) -> Wrap<'a> {
 pub fn wrap_root<'a>(contents: &str) -> Snode<'a> {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).syntax_node();
-    let wrap_node = 
-        &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode<'a>>| -> Snode<'a> {
-            let wrapped = fill_wrap(&lindex, &node);
-            let children = df(&node);
-            let rnode = Snode {
-                wrapper: wrapped,
-                astnode: node, //Change this to SyntaxElement
-                children: children,
-            };
-            rnode
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode<'a>>| -> Snode<'a> {
+        let wrapped = fill_wrap(&lindex, &node);
+        let children = df(&node);
+        let rnode = Snode {
+            wrapper: wrapped,
+            astnode: node, //Change this to SyntaxElement
+            children: children,
+        };
+        rnode
     };
     work_node(wrap_node, SyntaxElement::Node(root))
 }
