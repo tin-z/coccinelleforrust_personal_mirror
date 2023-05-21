@@ -9,11 +9,12 @@
 ///
 /// _context_
 /// (+/-) code
-use std::{ops::Deref, vec};
+use std::{ops::Deref, vec, rc::Rc};
 
 use super::ast0::{wrap_root, MetaVar, Snode};
 use crate::{syntaxerror, commons::util};
 use parser::SyntaxKind;
+use syntax::ast::Meta;
 
 type Tag = SyntaxKind;
 type Name = String;
@@ -27,7 +28,7 @@ pub enum Dep {
     AntiDep(Box<Dep>),
 }
 
-fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule {
+fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a> {
     for rule in rules {
         if rule.name.eq(rulename) {
             return rule;
@@ -37,16 +38,16 @@ fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule {
 }
 
 /// Given a metavar type and name, returns a MetaVar object
-fn makemetavar(
-    rules: &Vec<Rule>,
+fn makemetavar<'a>(
+    rules: &'a Vec<Rule<'a>>,
     rulename: &Name,
     varname: &Name,
     metatype: &str,
     lino: usize,
-) -> MetaVar {
+) -> Rc<MetaVar<'a>> {
     let split = varname.split(".").collect::<Vec<&str>>();
     match (split.get(0), split.get(1), split.get(2)) {
-        (Some(var), None, None) => MetaVar::new(rulename, var, metatype),
+        (Some(var), None, None) => Rc::new(MetaVar::new(rulename, var, metatype)),
         (Some(rulen), Some(var), None) => {
             let var = var.deref();
             let rule = getrule(rules, &rulen, lino);
@@ -55,7 +56,7 @@ fn makemetavar(
                 .iter()
                 .find(|x| x.gettype() == metatype && x.getname() == var)
             {
-                return mvar.clone();
+                return Rc::clone(mvar);
             } else {
                 syntaxerror!(
                     lino,
@@ -70,20 +71,20 @@ fn makemetavar(
     }
 }
 
-pub struct Patch {
-    pub minus: Snode,
-    pub plus: Snode,
+pub struct Patch<'a> {
+    pub minus: Snode<'a>,
+    pub plus: Snode<'a>,
 }
 
-impl Patch {
-    fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
-        let mut work = |node: &mut Snode| match node.kind() {
+impl<'a> Patch<'a> {
+    fn setmetavars_aux(node: &mut Snode<'a>, metavars: &Vec<Rc<MetaVar<'a>>>) {
+        let mut work = |node: &mut Snode<'a>| match node.kind() {
             Tag::PATH_EXPR => {
                 
-                let stmp = node.astnode.to_string();
+                let stmp = node.astnode.to_string();    
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                     println!("MetaVar found - {:?}", mvar);
-                    node.wrapper.metavar = mvar.clone();
+                    node.wrapper.metavar = Some(Rc::clone(mvar));
                 }
             }
             _ => {}
@@ -91,17 +92,17 @@ impl Patch {
         util::worktree(node, &mut work);
     }
 
-    fn setmetavars(&mut self, metavars: &Vec<MetaVar>) {
-        Patch::setmetavars_aux(&mut self.plus, metavars);
-        Patch::setmetavars_aux(&mut self.minus, metavars);
+    fn setmetavars(&mut self, metavars: Vec<Rc<MetaVar<'a>>>) {
+        Patch::setmetavars_aux(&mut self.plus, &metavars);
+        Patch::setmetavars_aux(&mut self.minus, &metavars);
     }
 }
 
-pub struct Rule {
+pub struct Rule<'a> {
     pub name: Name,
     pub dependson: Dep,
-    pub metavars: Vec<MetaVar>,
-    pub patch: Patch,
+    pub metavars: Vec<Rc<MetaVar<'a>>>,
+    pub patch: Patch<'a>,
     pub freevars: Vec<Name>,
 }
 
@@ -210,28 +211,28 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 }
 
 /// Turns values from handlemods into a patch object
-fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch {
+fn getpatch<'a>(plusbuf: &str, minusbuf: &str, llino: usize, metavars: Vec<Rc<MetaVar<'a>>>) -> Patch<'a> {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
-    let mut p = Patch {
+    let mut patch = Patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
     };
-    p.setmetavars(metavars);
-    p
+    patch.setmetavars(metavars);
+    patch
 }
 
 /// Given all the info about name, depends, metavars and modifiers and context
 /// it consolidates everything into a line preserved rule object
-fn buildrule(
+fn buildrule<'a>(
     currrulename: &Name,
     currdepends: Dep,
-    metavars: Vec<MetaVar>,
+    metavars: Vec<Rc<MetaVar<'a>>>,
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
     lastruleline: usize,
-) -> Rule {
+) -> Rule<'a> {
     //end of the previous rule
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
@@ -247,7 +248,7 @@ fn buildrule(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, metavars.iter().map(|x| Rc::clone(x)).collect::<Vec<_>>());
     let rule = Rule {
         name: Name::from(currrulename),
         dependson: currdepends,
@@ -291,15 +292,15 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
 }
 
 /// Parses the metavar declarations
-pub fn handle_metavar_decl(
-    rules: &Vec<Rule>,
+pub fn handle_metavar_decl<'a>(
+    rules: &'a Vec<Rule<'a>>,
     block: &Vec<&str>,
     rulename: &Name,
     lino: usize,
-) -> (Vec<MetaVar>, usize) {
+) -> (Vec<Rc<MetaVar<'a>>>, usize) {
     let mut offset: usize = 0;
     let mut blanks: usize = 0;
-    let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encounteres as of now
+    let mut metavars: Vec<Rc<MetaVar>> = vec![]; //stores the mvars encounteres as of now
 
     for line in block {
         offset += 1;

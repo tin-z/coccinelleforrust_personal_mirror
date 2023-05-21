@@ -5,7 +5,7 @@ use syntax::SyntaxElement;
 
 type Tag = SyntaxKind;
 
-impl Wrap {
+impl<'a> Wrap<'a> {
     pub fn set_test_exps(&mut self) {
         self.true_if_test = true;
         self.true_if_test_exp = true;

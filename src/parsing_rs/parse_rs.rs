@@ -7,7 +7,7 @@ use super::ast_rs;
 use super::ast_rs::{Rnode, Wrap};
 
 
-pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
+pub fn fill_wrap<'a>(lindex: &LineIndex, node: &SyntaxElement) -> Wrap<'a> {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
 
     let parse_info = ParseInfo::new(
@@ -28,10 +28,10 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     wrap
 }
 
-pub fn processrs(contents: &str) -> Rnode {
+pub fn processrs<'a>(contents: &str) -> Rnode<'a> {
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode<'a>>| -> Rnode<'a> {
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
         let rnode = Rnode {

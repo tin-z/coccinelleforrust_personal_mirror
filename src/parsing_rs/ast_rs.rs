@@ -25,14 +25,14 @@ pub enum Danger {
 }
 
 #[derive(Clone)]
-pub struct Wrap {
+pub struct Wrap<'a> {
     pub info: ParseInfo,
     index: usize,
-    cocci_tag: Option<Vec<Mcodekind>>,
+    cocci_tag: Option<Vec<Mcodekind<'a>>>,
     danger: Danger,
 }
 
-impl Wrap {
+impl<'a> Wrap<'a> {
     pub fn new(
         info: ParseInfo,
         index: usize,
@@ -50,14 +50,14 @@ impl Wrap {
 }
 
 #[derive(Clone)]
-pub struct Rnode {
-    pub wrapper: Wrap,
+pub struct Rnode<'a> {
+    pub wrapper: Wrap<'a>,
     pub astnode: SyntaxElement,//Not SyntaxNode because we need to take
                            //care of the whitespaces
-    pub children: Vec<Rnode>
+    pub children: Vec<Rnode<'a>>
 }
 
-impl Rnode {
+impl<'a> Rnode<'a> {
 
     pub fn kind(&self) -> SyntaxKind {
         self.astnode.kind()
@@ -125,7 +125,7 @@ impl Rnode {
     }
 }
 
-impl Debug for Rnode {
+impl<'a> Debug for Rnode<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Rnode").field("astnode", &self.astnode.to_string()).field("children", &self.children).finish()
     }
