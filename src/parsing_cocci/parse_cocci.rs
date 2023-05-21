@@ -28,6 +28,28 @@ pub enum Dep {
     AntiDep(Box<Dep>),
 }
 
+fn getrulemetavar<'a>(rules: &Vec<Rule<'a>>, rulename: &str, lino: usize, metatype: &str, var: &str) -> Rc<MetaVar<'a>> {
+    for rule in rules {
+        if rule.name.eq(rulename) {
+            if let Some(mvar) = rule
+                .metavars
+                .iter()
+                .map(|x| Rc::clone(x))
+                .find(|x| x.gettype() == metatype && x.getname() == var)
+            {
+                return mvar;
+            } else {
+                syntaxerror!(
+                    lino,
+                    format!("no such metavariable in rule {}", rule.name),
+                    var
+                )
+            }
+        }
+    }
+    syntaxerror!(lino, "no such rule", rulename);
+}
+
 fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a> {
     for rule in rules {
         if rule.name.eq(rulename) {
@@ -39,7 +61,7 @@ fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a
 
 /// Given a metavar type and name, returns a MetaVar object
 fn makemetavar<'a>(
-    rules: &'a Vec<Rule<'a>>,
+    rules: &Vec<Rule<'a>>,
     rulename: &Name,
     varname: &Name,
     metatype: &str,
@@ -50,20 +72,7 @@ fn makemetavar<'a>(
         (Some(var), None, None) => Rc::new(MetaVar::new(rulename, var, metatype)),
         (Some(rulen), Some(var), None) => {
             let var = var.deref();
-            let rule = getrule(rules, &rulen, lino);
-            if let Some(mvar) = rule
-                .metavars
-                .iter()
-                .find(|x| x.gettype() == metatype && x.getname() == var)
-            {
-                return Rc::clone(mvar);
-            } else {
-                syntaxerror!(
-                    lino,
-                    format!("no such metavariable in rule {}", rule.name),
-                    varname
-                )
-            }
+            return getrulemetavar(rules, rulen, lino, metatype, var);
         }
         _ =>
             syntaxerror!(lino, "Invalid meta-variable name", varname)
@@ -293,7 +302,7 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
 
 /// Parses the metavar declarations
 pub fn handle_metavar_decl<'a>(
-    rules: &'a Vec<Rule<'a>>,
+    rules: &Vec<Rule<'a>>,
     block: &Vec<&str>,
     rulename: &Name,
     lino: usize,
