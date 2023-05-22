@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -6,8 +7,9 @@ use crate::parsing_rs::ast_rs::Rnode;
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::{Type, Meta};
+use syntax::ast::{Type, Meta, Expr};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken, NodeOrToken};
+use MetaVar::*;
 
 #[derive(Clone)]
 /// Semantic Path Node
@@ -231,8 +233,8 @@ type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
 
 #[derive(Clone, Debug)]
 pub enum MetaVar<'a> {
-    Exp(Minfo, Option<&'a Rnode<'a>>),
-    Id(Minfo, Option<&'a Rnode<'a>>),
+    Exp(Minfo, RefCell<Option<&'a Rnode<'a>>>),
+    Id(Minfo, RefCell<Option<&'a Rnode<'a>>>),
 }
 
 impl<'a> MetaVar<'a> {
@@ -284,12 +286,20 @@ impl<'a> MetaVar<'a> {
         );
 
         match ty {
-            "expression" => MetaVar::Exp(minfo, None),
-            "identifier" => MetaVar::Id(minfo, None),
+            "expression" => MetaVar::Exp(minfo, RefCell::new(None)),
+            "identifier" => MetaVar::Id(minfo, RefCell::new(None)),
             ty => panic!("Should not be called with {}", ty)
         }
     }
 
+    pub fn setrnode(&mut self, node: &'a Rnode<'a>) {
+        match self {
+            Exp(info, rnode) => {
+                *rnode.borrow_mut() = Some(node);
+            }
+            Id(info, rnode) => {}
+        }
+    }
 //    pub fn makeinherited(rulename: &str, name: &str) -> MetaVar<'a> {
 //        MetaVar::Inherited()
 //    }

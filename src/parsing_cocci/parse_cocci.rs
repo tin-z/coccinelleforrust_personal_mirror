@@ -14,7 +14,6 @@ use std::{ops::Deref, vec, rc::Rc};
 use super::ast0::{wrap_root, MetaVar, Snode};
 use crate::{commons::util, syntaxerror};
 use parser::SyntaxKind;
-use syntax::ast::Meta;
 
 type Tag = SyntaxKind;
 type Name = String;
@@ -45,15 +44,6 @@ fn getrulemetavar<'a>(rules: &Vec<Rule<'a>>, rulename: &str, lino: usize, metaty
                     var
                 )
             }
-        }
-    }
-    syntaxerror!(lino, "no such rule", rulename);
-}
-
-fn getrule<'a>(rules: &'a Vec<Rule>, rulename: &str, lino: usize) -> &'a Rule<'a> {
-    for rule in rules {
-        if rule.name.eq(rulename) {
-            return rule;
         }
     }
     syntaxerror!(lino, "no such rule", rulename);

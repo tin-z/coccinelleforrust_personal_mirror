@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use itertools::{zip, izip};
 
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
@@ -63,7 +64,7 @@ impl<'a> Rnode<'a> {
         self.astnode.kind()
     }
 
-    pub fn unwrap(&self) -> (SyntaxKind, &[Rnode]) {
+    pub fn unwrap(&self) -> (SyntaxKind, &[Rnode<'a>]) {
         (self.kind(), &self.children[..])
     }
     
@@ -123,6 +124,25 @@ impl<'a> Rnode<'a> {
             _ => { false }
         }
     }
+
+    pub fn equals(&self, node: &Rnode) -> bool {
+        if self.children.len() != node.children.len() {
+            return false;
+        }
+        else if self.children.len() == 0 && node.children.len()==0{
+            return self.astnode.to_string() == node.astnode.to_string();
+        }
+        else {
+            for (a, b) in izip!(&self.children, &node.children) {
+                if !a.equals(b) {
+                    return false;
+                }
+                return true;
+            }
+            panic!("Should never occur as both the children length should be non-zero");
+        }
+    }
+
 }
 
 impl<'a> Debug for Rnode<'a> {

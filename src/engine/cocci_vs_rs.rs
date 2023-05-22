@@ -1,4 +1,4 @@
-use std::vec;
+use std::{vec, rc::Rc};
 
 use itertools::{izip, Itertools};
 use parser::SyntaxKind;
@@ -8,7 +8,7 @@ use syntax::{ast::Meta, TextRange};
 use crate::{
     commons::{info::ParseInfo, util::isexpr},
     fail,
-    parsing_cocci::ast0::Snode,
+    parsing_cocci::ast0::{Snode, MetaVar},
     parsing_cocci::ast0::{Fixpos, Mcodekind, MetaVar::*},
     parsing_rs::ast_rs::Rnode,
 };
@@ -26,8 +26,8 @@ pub struct Tout<'a> {
 
 enum MetavarMatch<'a>{
     Fail,
-    Maybe(&'a Snode<'a>, &'a Rnode<'a>),
-    Match
+    Maybe(&'a mut Snode<'a>, &'a Rnode<'a>),
+    Match(&'a mut Snode<'a>, &'a Rnode<'a>)
 }
 
 //type Tout<'a> = Vec<(MatchedNode<'a>, &'a Vec<MetavarBinding<'a>>)>;
@@ -56,7 +56,7 @@ impl<'a> Looper<'a> {
         }
     }
 
-    pub fn loopnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tout {
+    pub fn loopnodes(&self, node1: &'a mut Snode<'a>, node2: &'a Rnode<'a>) -> Tout<'a> {
         // It has to be checked before if these two node tags match
         //println!("{:?}", node1.kind());
         if node1.kind()!=node2.kind() || 
@@ -64,7 +64,7 @@ impl<'a> Looper<'a> {
             fail!();
         }
     
-        let zipped = izip!(&node1.children, &node2.children);
+        let zipped = izip!(&mut node1.children, &node2.children);
         let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
         for (a, b) in zipped {
             let akind = a.kind();
@@ -86,15 +86,27 @@ impl<'a> Looper<'a> {
                         fail!();
                     },
                     MetavarMatch::Maybe(a, b) => {
-                        let tin_tmp = self.loopnodes(a, b);
+                        let mut tin_tmp = self.loopnodes(a, b);
                         if !tin_tmp.failed {
-                            tin.binding.append(&mut self.loopnodes(a, b).binding);
+                            tin.binding.append(&mut tin_tmp.binding);
                         }
                         else{
                             return tin_tmp;
                         }
                     },
-                    MetavarMatch::Match => {
+                    MetavarMatch::Match(a, b) => {
+                        // TO NOTE: This clone has been used keeping in mind that
+                        // metavariable nodes will be small, ie, single variables like
+                        // e1, i1 etc
+                        match a.wrapper.metavar.as_mut().unwrap().as_ref() {
+                            Exp(info, rnoderef) => {
+                                *rnoderef.borrow_mut() = Some(b);
+                                println!("{:?}", a.wrapper.metavar);
+                            },
+                            Id(info, node) => {
+                                todo!()
+                            }
+                        }
                         tin.binding.push((a, b));
                     },
                 }
@@ -106,7 +118,7 @@ impl<'a> Looper<'a> {
         return tin;
     }
 
-    fn workon(&self, node1: &'a Snode, node2: &'a Rnode) -> MetavarMatch<'a> {
+    fn workon(&self, node1: &'a mut Snode<'a>, node2: &'a Rnode<'a>) -> MetavarMatch<'a> {
         // Metavar checking will be done inside the match
         // block below
         // to note: node1 and node2 are of the same SyntaxKind
@@ -114,12 +126,21 @@ impl<'a> Looper<'a> {
         //TODO take care of disjunctions like (2|3) > e1
         //TODO take care of matching bound metavars 
 
-        if let Some(node) = &node1.wrapper.metavar {
+        if let Some(node) = &mut node1.wrapper.metavar {
             match node.as_ref() {
-                Exp(info, snode) => {
-                    return MetavarMatch::Match;
+                Exp(info, rnode) => {
+                    println!("matching part :- {} {}", info.1, "Matched");
+                    println!("{} <-----> {:?}", node2.astnode.to_string(), rnode.borrow());
+                    if rnode.borrow().is_none() || rnode.borrow().unwrap().equals(&node2) {
+                        
+                        return MetavarMatch::Match(node1, node2);
+                    }
+                    else{
+                        return MetavarMatch::Fail;
+                    }
+                    
                 },
-                Id(info, snode) => {
+                Id(info, rnode) => {
                     if info.1 == node2.astnode.to_string() { 
                         return MetavarMatch::Maybe(node1, node2);//TODO
                     } 
