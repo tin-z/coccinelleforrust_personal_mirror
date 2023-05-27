@@ -260,7 +260,6 @@ impl<'a> MetaVar<'a> {
             Self::Id(minfo, _) => {
                 minfo.2 = binding;
             }
-            _ => { panic!("Cannot mutate inherited values.") }
         }
     }
 
@@ -294,10 +293,12 @@ impl<'a> MetaVar<'a> {
 
     pub fn setrnode(&mut self, node: &'a Rnode<'a>) {
         match self {
-            Exp(info, rnode) => {
+            Exp(_info, rnode) => {
                 *rnode.borrow_mut() = Some(node);
             }
-            Id(info, rnode) => {}
+            Id(_info, rnode) => {
+                *rnode.borrow_mut() = Some(node);
+            }
         }
     }
 //    pub fn makeinherited(rulename: &str, name: &str) -> MetaVar<'a> {

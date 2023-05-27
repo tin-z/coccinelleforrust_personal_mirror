@@ -45,8 +45,10 @@ fn main() {
     //rules[0].patch.plus.print_tree();
     //rnode.print_tree();
     let looper = Looper::new(tokenf);
+    
     let g = looper.loopnodes(&mut rules[0].patch.plus, &rnode);
     for (a, b) in g.binding {
         println!("{:?} -> {:?}", a.astnode.to_string(), b.astnode.to_string());
     }
+
 }

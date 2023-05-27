@@ -6,20 +6,34 @@ struct B{
     pub a: A,
 }
 
+struct C<'a>{
+    pub a: Option<&'a C<'a>>
+}
+
+fn testfn1<'a>(a: &'a A, b: &'a B) -> &'a A {
+    return &b.a;
+}
+
+fn testfn2(){
+    let a = A{};
+    
+}
+
 impl<'a> B{
     fn gg(&mut self, jj: &mut A){
 
     }
 }
 
-fn tt<'a>(a: A) -> B{
-    let mut aa = A{};
-    let mut aa2 = A{};
-    let mut bb = B{
-        a: aa,
-    };
-    bb.gg(&mut aa2);
-    bb
+fn tt<'a>() -> (){
+    let mut v = vec![];
+    v.push(C{a: None});
+    v.push(C{a: None});
+
+    let (a, b) = v.split_at_mut(1);
+    b.last_mut().unwrap().a = Some(a.last().unwrap());
+
+
 }
 
 struct NoLifetime {}
@@ -48,13 +62,6 @@ fn borrow_lifetime<'a>(val_in: &'a mut WithLifetime) -> &'a i32 {
     val_in.field
 }
 
-struct C<'a> {
-    pub a: &'a i32
-}
-
-fn aux<'a>(a: &'a A, l: &'a i32) -> C<'a>{
-    C { a:l }
-}
 
 
 fn masin() {
@@ -86,4 +93,46 @@ fn maindd() {
     //for front in &g {
       //  println!("Front: {:?}", front);
     //}
+}
+
+struct mvar{}
+struct patch<'a>{
+    a: Option<&'a mvar>
+}
+
+struct rule<'a>{
+    m: mvar,
+    pt: patch<'a>,
+}
+
+fn mainn<'a>() -> () {
+    let m = mvar{};
+    let pt = patch{
+        a: None
+    };
+
+    let mut r =  rule{
+        m: mvar {  },
+        pt: pt
+    };
+
+    r.pt.a = Some(&r.m);
+
+}
+
+fn testt() {
+    let mut v = vec![];
+    v.push(A{});
+    v.push(A{});
+    v.push(A{});
+
+    let (a, b) = v.split_at_mut(1);
+}
+
+
+fn fa() {
+    let a=1;
+    
+  
+
 }
