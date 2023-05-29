@@ -341,7 +341,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
     if blocks.len() == 0 {
         return vec![];
     }
-    //handleprepatch(blocks.swap_remove(0)); //throwing away the first part before the first @
+    //throwing away the first part before the first @
     handleprepatch(blocks.remove(0));
     let nrules = blocks.len() / 4; //this should always be an integer if case of a proper cocci file
                                    //if it fails we will find out in the next for loop
