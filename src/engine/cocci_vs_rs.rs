@@ -3,7 +3,7 @@ use std::vec;
 use itertools::{izip, Itertools};
 use parser::SyntaxKind;
 use regex::Match;
-use syntax::{ast::Meta, TextRange};
+use syntax::{ast::{Meta, StmtList}, TextRange};
 
 use crate::{
     commons::{info::ParseInfo, util::isexpr},
@@ -16,7 +16,7 @@ use crate::{
 type Tag = SyntaxKind;
 type MatchedNode<'a> = (&'a Snode, &'a mut Rnode);
 type CheckResult<'a> = Result<MatchedNode<'a>, usize>;
-pub type MetavarBinding<'a> = (&'a Snode, &'a Rnode);
+pub type MetavarBinding<'a> = ((String, String) , &'a Rnode);//String, String are (rulename, metavarname)
 
 pub struct Tout<'a> {
     failed: bool,
@@ -27,7 +27,8 @@ pub struct Tout<'a> {
 enum MetavarMatch<'a>{
     Fail,
     Maybe(&'a Snode, &'a Rnode),
-    Match
+    Match,
+    Exists
 }
 
 //type Tout<'a> = Vec<(MatchedNode<'a>, &'a Vec<MetavarBinding<'a>>)>;
@@ -46,7 +47,13 @@ fn is_fake(node1: &mut Rnode) -> bool {
 }
 
 pub struct Looper<'a> {
-    tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>
+    tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
+    
+}
+
+
+fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode{
+    return &node.children[0].children[3].children[0]
 }
 
 impl<'a> Looper<'a> {
@@ -56,17 +63,14 @@ impl<'a> Looper<'a> {
         }
     }
 
-    pub fn loopnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tout {
-        // It has to be checked before if these two node tags match
-        //println!("{:?}", node1.kind());
-        if node1.kind()!=node2.kind() || 
-           node1.children.len() != node2.children.len() {
+    pub fn matchnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tout {
+        //Given is they have the same SyntaxKind
+        let mut tin: Tout = Tout { failed: false, binding: vec![], binding0: vec![] };
+        if node1.children.len() != node2.children.len() {
             fail!();
         }
-    
-        let zipped = izip!(&node1.children, &node2.children);
-        let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
-        for (a, b) in zipped {
+
+        for (a, b) in izip!(&node1.children, &node2.children) {
             let akind = a.kind();
             let bkind = b.kind();
             let aisk = akind.is_keyword();
@@ -75,38 +79,76 @@ impl<'a> Looper<'a> {
                 // if anyone is a keyword, then it
                 // either it must be treated with tokenf
                 // or fail
-                if aisk && bisk {
-                    tin.binding.append(&mut (self.tokenf)(a, b));
-                } else {
-                    fail!();
+                if !(aisk && bisk) { 
+                    fail!()
                 }
             } else {
-                match self.workon(a, b) {
-                    MetavarMatch::Fail => {
-                        fail!();
-                    },
+                match self.workon(a, b, &tin) {
+                    MetavarMatch::Fail => fail!(),
                     MetavarMatch::Maybe(a, b) => {
-                        let tin_tmp = self.loopnodes(a, b);
+                        let mut tin_tmp = self.matchnodes(a, b);
                         if !tin_tmp.failed {
-                            tin.binding.append(&mut self.loopnodes(a, b).binding);
+                            tin.binding.append(&mut tin_tmp.binding);
                         }
-                        else{
-                            return tin_tmp;
+                        else {
+                            fail!();
                         }
                     },
                     MetavarMatch::Match => {
-                        tin.binding.push((a, b));
+                        let minfo = a.wrapper.metavar.getminfo();
+                        let binding = ((minfo.0.clone(), minfo.1.clone()), b);
+                        tin.binding.push(binding);
                     },
+                    MetavarMatch::Exists => { }
                 }
-                //if an error occurs it will propagate
-                // Not recreating the list of children
-                // because the nodes are modified in place
             }
         }
-        return tin;
+        tin
     }
 
-    fn workon(&self, node1: &'a Snode, node2: &'a Rnode) -> MetavarMatch<'a> {
+    pub fn loopnodes(&'a self, node1: &'a Snode, node2: &'a Rnode) -> Vec<Vec<((String, String), &'a Rnode)>> {
+        let mut bindings: Vec<Vec<((String, String), &Rnode)>> = vec![];
+        //let mut a: &Snode = node1;
+        //let mut b: &Rnode = node2;
+        //let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
+        let achildren = node1.children.iter().peekable();
+        for  b in &node2.children {//why does children need to be explicitly borrowed
+                                          //node2 is already a borrowed variable
+            if let Some(achild) = achildren.peek() {
+                let akind = achild.kind();
+                let bkind = b.kind();
+                println!("{:?}, {:?}", akind, bkind);
+                if akind == bkind {
+                    let tin = self.matchnodes(*achild, b);
+                    if tin.binding.len() != 0 {
+                        bindings.push(tin.binding);
+                    }
+                }
+            //}
+            
+            }
+            let akind = achildren.next().unwrap().kind();
+            let bkind = b.kind();
+            println!("{:?}, {:?}", akind, bkind);
+            //if akind == bkind || akind==SyntaxKind::STMT_LIST {
+            let tin = self.matchnodes(a, b);
+            if tin.binding.len() != 0 {
+                bindings.push(tin.binding);
+            }
+            //}
+            
+            //let mut tin_tmp = self.loopnodes(node1, b);
+            //bindings.append(&mut tin_tmp);
+            
+            //if an error occurs it will propagate
+            // Not recreating the list of children
+            // because the nodes are modified in place
+            }
+        
+        bindings
+    }
+
+    fn workon(&self, node1: &'a Snode, node2: &'a Rnode, tin: &Tout) -> MetavarMatch<'a> {
         // Metavar checking will be done inside the match
         // block below
         // to note: node1 and node2 are of the same SyntaxKind
@@ -114,18 +156,32 @@ impl<'a> Looper<'a> {
             crate::parsing_cocci::ast0::MetaVar::NoMeta => {
                 if node2.children.len() == 0 //end of node
                 {
+                    println!("{:?}========{}", node2.kind(), node2.astnode.to_string());
+                    
                     if node1.astnode.to_string() != node2.astnode.to_string() {
                         //basically checks for tokens
                         return MetavarMatch::Fail;
+                    }
+                    else {
+                        return MetavarMatch::Exists;
                     }
                 }
                 return MetavarMatch::Maybe(node1, node2);//not sure
             },
             crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
-                    // this means it is not complex node
-                    // A complex node is defined as anything
-                    // which is not a single metavariable
-                    return MetavarMatch::Match;
+                    if let Some(binding) = tin.binding.iter().find(|(a, _)| 
+                                a.1 == node1.wrapper.metavar.getname()
+                            ) {
+                        if binding.1.equals(node2) {
+                            MetavarMatch::Exists
+                        }
+                        else {
+                            MetavarMatch::Fail
+                        }
+                    }
+                    else {
+                        return MetavarMatch::Match
+                    }
             },
             crate::parsing_cocci::ast0::MetaVar::Id(info) => {
                 // since these are already identifiers no
@@ -139,6 +195,15 @@ impl<'a> Looper<'a> {
             },
         }
     }   
+
+    pub fn getbindings(&'a self, node1: &'a Snode, node2: &'a Rnode) -> Vec<Vec<((String, String), &Rnode)>>{
+        let mut bindings = self.loopnodes(node1, node2);
+        let tin = self.matchnodes(node1, node2);
+        if tin.binding.len() != 0 {
+            bindings.push(tin.binding);
+        }
+        bindings
+    }
     
 }
 

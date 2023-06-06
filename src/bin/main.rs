@@ -4,7 +4,8 @@ use coccinelleforrust::{
     parsing_rs::{parse_rs::processrs, ast_rs::Rnode}, 
     engine::cocci_vs_rs::{Tout, MetavarBinding, Looper},
 };
-use std::fs;
+use syntax::{SourceFile, AstNode};
+use std::{fs, ops::Deref};
 
 fn aux(node: &Snode){
     if node.wrapper.metavar != MetaVar::NoMeta{
@@ -28,6 +29,13 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     vec![]
 }
 
+fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode{
+    let stmtlist = &mut node.children[0].children[3].children[0];
+    stmtlist.children.remove(0);
+    stmtlist.children.remove(stmtlist.children.len()-1);
+    return stmtlist;
+}
+
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
@@ -39,12 +47,16 @@ fn main() {
 
     let mut rules = processcocci(&patchstring);
     let mut rnode = processrs(&rustcode);
-
     //rules[0].patch.plus.print_tree();
     //rnode.print_tree();
     let looper = Looper::new(tokenf);
-    let g = looper.loopnodes(&rules[0].patch.plus, &rnode);
-    for (a, b) in g.binding {
-        println!("{:?} -> {:?}", a.astnode.to_string(), b.astnode.to_string());
+    let g = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
+    
+    for binding in g {
+        for (a, b) in binding{
+            println!("{:?} -> {:?}", a.1, b.astnode.to_string());
+        }
     }
+    rules[0].patch.plus.print_tree();
+    rnode.print_tree();
 }

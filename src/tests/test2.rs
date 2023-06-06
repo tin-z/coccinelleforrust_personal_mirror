@@ -1,4 +1,5 @@
-fn rule1_plus()
+fn rule17_plus()
 {
-    a && (b > 2)
+    a && (b > 2);
+    1 && (b > 2);
 }

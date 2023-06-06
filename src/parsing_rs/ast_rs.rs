@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use itertools::izip;
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
 
@@ -123,6 +124,25 @@ impl Rnode {
             _ => { false }
         }
     }
+
+    pub fn equals(&self, node: &Rnode) -> bool {
+        if self.children.len() != node.children.len() {
+            return false;
+        }
+        else if self.children.len() == 0 && node.children.len()==0{
+            return self.astnode.to_string() == node.astnode.to_string();
+        }
+        else {
+            for (a, b) in izip!(&self.children, &node.children) {
+                if !a.equals(b) {
+                    return false;
+                }
+                return true;
+            }
+            panic!("Should never occur as both the children length should be non-zero");
+        }
+    }
+    
 }
 
 impl Debug for Rnode {
