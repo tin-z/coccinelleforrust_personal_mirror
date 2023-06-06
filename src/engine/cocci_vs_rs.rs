@@ -111,18 +111,32 @@ impl<'a> Looper<'a> {
         //let mut a: &Snode = node1;
         //let mut b: &Rnode = node2;
         //let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
+        let mut achildren = node1.children.iter();
+        let mut a: &Snode = achildren.next().unwrap();//a is not an empty semantic patch
+        let mut ismatching:bool = false;
         for b in &node2.children {//why does children need to be explicitly borrowed
                                           //node2 is already a borrowed variable
-            let akind = node1.kind();
+            let akind = a.kind();
             let bkind = b.kind();
             println!("{:?}, {:?}", akind, bkind);
-            if akind == bkind || akind==SyntaxKind::STMT_LIST {
-                let tin = self.matchnodes(node1, b);
-                println!("{:?}", tin.binding.len());
+            if akind == bkind {
+                if ismatching {
+                    if let Some(ak) = achildren.next() { a = ak; }
+                    else {
+                        achildren = node1.children.iter();
+                        a = achildren.next().unwrap();
+                    }
+                }
+                let tin = self.matchnodes(a, b);
                 if tin.binding.len() != 0 {
                     bindings.push(tin.binding);
+                    ismatching = true;
+                }
+                else {
+                    ismatching = false;
                 }
             }
+
             let mut tin_tmp = self.loopnodes(node1, b);
             bindings.append(&mut tin_tmp);
             

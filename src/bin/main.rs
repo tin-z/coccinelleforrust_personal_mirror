@@ -31,8 +31,8 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 
 fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode{
     let stmtlist = &mut node.children[0].children[3].children[0];
-    //stmtlist.children.remove(0);
-    //stmtlist.children.remove(stmtlist.children.len()-1);
+    stmtlist.children.remove(0);
+    stmtlist.children.remove(stmtlist.children.len()-1);
     return stmtlist;
 }
 
