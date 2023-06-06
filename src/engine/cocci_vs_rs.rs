@@ -111,34 +111,20 @@ impl<'a> Looper<'a> {
         //let mut a: &Snode = node1;
         //let mut b: &Rnode = node2;
         //let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
-        let achildren = node1.children.iter().peekable();
-        for  b in &node2.children {//why does children need to be explicitly borrowed
+        for b in &node2.children {//why does children need to be explicitly borrowed
                                           //node2 is already a borrowed variable
-            if let Some(achild) = achildren.peek() {
-                let akind = achild.kind();
-                let bkind = b.kind();
-                println!("{:?}, {:?}", akind, bkind);
-                if akind == bkind {
-                    let tin = self.matchnodes(*achild, b);
-                    if tin.binding.len() != 0 {
-                        bindings.push(tin.binding);
-                    }
-                }
-            //}
-            
-            }
-            let akind = achildren.next().unwrap().kind();
+            let akind = node1.kind();
             let bkind = b.kind();
             println!("{:?}, {:?}", akind, bkind);
-            //if akind == bkind || akind==SyntaxKind::STMT_LIST {
-            let tin = self.matchnodes(a, b);
-            if tin.binding.len() != 0 {
-                bindings.push(tin.binding);
+            if akind == bkind || akind==SyntaxKind::STMT_LIST {
+                let tin = self.matchnodes(node1, b);
+                println!("{:?}", tin.binding.len());
+                if tin.binding.len() != 0 {
+                    bindings.push(tin.binding);
+                }
             }
-            //}
-            
-            //let mut tin_tmp = self.loopnodes(node1, b);
-            //bindings.append(&mut tin_tmp);
+            let mut tin_tmp = self.loopnodes(node1, b);
+            bindings.append(&mut tin_tmp);
             
             //if an error occurs it will propagate
             // Not recreating the list of children
