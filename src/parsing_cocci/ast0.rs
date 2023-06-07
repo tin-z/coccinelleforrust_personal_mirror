@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::Type;
+use syntax::ast::{Type, IfExpr};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
@@ -20,7 +20,7 @@ impl Debug for Snode {
     }
 }
 
-impl Snode {
+impl<'a> Snode {
     pub fn new_root(
         wrapper: Wrap,
         syntax: SyntaxElement,
@@ -107,6 +107,23 @@ impl Snode {
         }
     }
 
+    pub fn getdisjs(&'a self) -> Vec<&'a Snode> {
+        if !self.wrapper.isdisj {
+            return vec![];
+        }
+        
+        fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode>{
+            let mut disjs: Vec<&Snode> = vec![];    
+            if node.wrapper.isdisj {
+                disjs.push(&node.children[2]);
+                if node.children.len() == 5 {//checks when the disjunction ends
+                    disjs.append(&mut collectdisjs(&node.children[4]));
+                }
+            }
+            return disjs;
+        };
+        return collectdisjs(&self);
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -312,6 +329,7 @@ pub struct Wrap {
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
+    pub isdisj: bool
 }
 
 impl Wrap {
@@ -326,6 +344,7 @@ impl Wrap {
         true_if_test: bool,
         true_if_test_exp: bool,
         iso_info: Vec<(String, Dummy)>,
+        isdisj: bool
     ) -> Wrap {
         Wrap {
             info: info,
@@ -338,6 +357,7 @@ impl Wrap {
             true_if_test: true_if_test,
             true_if_test_exp: true_if_test_exp,
             iso_info: iso_info,
+            isdisj: isdisj
         }
     }
 
@@ -403,25 +423,38 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         false,
         false,
         vec![],
+        false
     );
     wrap
+}
+
+pub fn parsedisjs<'a>(mut node: &mut Snode) {//for later
+    if node.kind() == SyntaxKind::IF_EXPR {
+        println!("does it come here");
+        //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
+        if node.children[1].astnode.to_string() == "COCCIVAR" {
+            node.wrapper.isdisj = true;
+            println!("december slowly creeps into my eptember heart");
+        }
+    }
 }
 
 //for wrapping
 pub fn wrap_root(contents: &str) -> Snode {
     let lindex = LineIndex::new(contents);
-    let root = SourceFile::parse(contents).tree();
+    let root = SourceFile::parse(contents).syntax_node();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
-        let rnode = Snode {
+        let mut snode = Snode {
             wrapper: wrapped,
             astnode: node, //Change this to SyntaxElement
             children: children,
         };
-        rnode
+        parsedisjs(&mut snode);
+        snode
     };
-    work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
+    work_node(wrap_node, SyntaxElement::Node(root))
 }
 
 pub enum Fixpos {

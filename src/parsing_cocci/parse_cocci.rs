@@ -278,6 +278,20 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
                 minusbuf.push('\n');
                 plusbuf.push('\n');
             }
+            Some('(') => {
+                let holder = "if COCCIVAR {\n";
+                plusbuf.push_str(holder);
+                minusbuf.push_str(holder);
+            }
+            Some('|') => {
+                let holder = "} else if COCCIVAR {";
+                plusbuf.push_str(holder);
+                minusbuf.push_str(holder);
+            }
+            Some(')') => {
+                plusbuf.push_str("}");
+                minusbuf.push_str("}");
+            }
             _ => {
                 plusbuf.push_str(&line[..]);
                 plusbuf.push('\n');

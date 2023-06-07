@@ -2,7 +2,7 @@ use coccinelleforrust::{
     parsing_cocci::parse_cocci::{processcocci, self},
     parsing_cocci::{ast0::{wrap_root, Snode, MetaVar}, logical_lines::set_logilines}, 
     parsing_rs::{parse_rs::processrs, ast_rs::Rnode}, 
-    engine::cocci_vs_rs::{Tout, MetavarBinding, Looper},
+    engine::cocci_vs_rs::{Tout, MetavarBinding, Looper}, commons::util::worktree,
 };
 use syntax::{SourceFile, AstNode};
 use std::{fs, ops::Deref};
@@ -30,6 +30,9 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 }
 
 fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode{
+    //since the patch is wrapped in a function to be parsed
+    //this function extracts the stmtlist inside it and removes the curly
+    //braces from the start and end of the block
     let stmtlist = &mut node.children[0].children[3].children[0];
     stmtlist.children.remove(0);
     stmtlist.children.remove(stmtlist.children.len()-1);
@@ -53,10 +56,12 @@ fn main() {
     let g = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
     
     for binding in g {
-        for (a, b) in binding{
-            println!("{:?} -> {:?}", a.1, b.astnode.to_string());
+        for var in binding {
+            println!("{:?} => {:?}", var.0.1, var.1.astnode.to_string());
         }
+        println!();
     }
     //rules[0].patch.plus.print_tree();
+    //worktree(&mut rules[0].patch.plus, &mut |x: &mut Snode | if x.wrapper.isdisj { println!("{:?}", x.getdisjs()) });
     //rnode.print_tree();
 }

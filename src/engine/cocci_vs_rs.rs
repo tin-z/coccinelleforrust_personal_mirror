@@ -63,10 +63,12 @@ impl<'a> Looper<'a> {
         }
     }
 
-    pub fn matchnodes(&self, node1: &'a Snode, node2: &'a Rnode) -> Tout {
+    pub fn matchnodes(&self, node1: &'a Snode, node2: &'a Rnode, bindings: &Vec<((String, String), &Rnode)>) -> Tout {
         //Given is they have the same SyntaxKind
         let mut tin: Tout = Tout { failed: false, binding: vec![], binding0: vec![] };
         if node1.children.len() != node2.children.len() {
+            //I am yet to come across two nodes that can be matched but have different
+            //number of children on the same level.
             fail!();
         }
 
@@ -83,10 +85,12 @@ impl<'a> Looper<'a> {
                     fail!()
                 }
             } else {
-                match self.workon(a, b, &tin) {
+                println!("mathching: {:?}, {:?}", akind, bkind);
+                match self.workon(a, b, bindings.iter().chain(tin.binding.iter()).collect()) {
+                    //chaining because I need both the previous bindings and the currently matches ones
                     MetavarMatch::Fail => fail!(),
                     MetavarMatch::Maybe(a, b) => {
-                        let mut tin_tmp = self.matchnodes(a, b);
+                        let mut tin_tmp = self.matchnodes(a, b, bindings);
                         if !tin_tmp.failed {
                             tin.binding.append(&mut tin_tmp.binding);
                         }
@@ -107,34 +111,62 @@ impl<'a> Looper<'a> {
     }
 
     pub fn loopnodes(&'a self, node1: &'a Snode, node2: &'a Rnode) -> Vec<Vec<((String, String), &'a Rnode)>> {
+        //this part of the code is for trying to match within a block
+        //sometimes the pattern exists a couple children into the tree
+        //The only assumption here is that if two statements are in the same block
+        //they are siblings
+        
         let mut bindings: Vec<Vec<((String, String), &Rnode)>> = vec![];
+        
         //let mut a: &Snode = node1;
         //let mut b: &Rnode = node2;
         //let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
         let mut achildren = node1.children.iter();
         let mut a: &Snode = achildren.next().unwrap();//a is not an empty semantic patch
         let mut ismatching:bool = false;
+        let mut binding_tmp: Vec<((String, String), &Rnode)> = vec![];
+
+        let mut indisj: bool = false;
+        
         for b in &node2.children {//why does children need to be explicitly borrowed
                                           //node2 is already a borrowed variable
-            let akind = a.kind();
-            let bkind = b.kind();
-            println!("{:?}, {:?}", akind, bkind);
-            if akind == bkind {
-                if ismatching {
-                    if let Some(ak) = achildren.next() { a = ak; }
-                    else {
-                        achildren = node1.children.iter();
-                        a = achildren.next().unwrap();
-                    }
+            if a.wrapper.isdisj {
+
+            }
+            if ismatching {
+                if let Some(ak) = achildren.next() { 
+                    println!("aloha {:?}", ak.kind());
+                    a = ak;
                 }
-                let tin = self.matchnodes(a, b);
-                if tin.binding.len() != 0 {
-                    bindings.push(tin.binding);
+                else {
+                    //if it reached this far it means the whole semantic node has been matched
+                    bindings.push(binding_tmp);
+                    binding_tmp = vec![];
+                    
+                    achildren = node1.children.iter();
+                    a = achildren.next().unwrap();
+                }
+                println!("sotti mitthe {:?}", a.kind());
+            }
+            if a.kind() == b.kind() || (a.isexpr() && b.isexpr()){
+                let tin = self.matchnodes(a, b, &binding_tmp);
+            
+                if !tin.failed {
+                    binding_tmp.extend(tin.binding);
                     ismatching = true;
                 }
                 else {
+                    binding_tmp = vec![];
+                    achildren = node1.children.iter();
+                    a = achildren.next().unwrap();
                     ismatching = false;
                 }
+            }
+            else {
+                binding_tmp = vec![];
+                achildren = node1.children.iter();
+                a = achildren.next().unwrap();
+                ismatching = false;
             }
 
             let mut tin_tmp = self.loopnodes(node1, b);
@@ -148,7 +180,7 @@ impl<'a> Looper<'a> {
         bindings
     }
 
-    fn workon(&self, node1: &'a Snode, node2: &'a Rnode, tin: &Tout) -> MetavarMatch<'a> {
+    fn workon(&self, node1: &'a Snode, node2: &'a Rnode, bindings: Vec<&((String, String), &Rnode)>) -> MetavarMatch<'a> {
         // Metavar checking will be done inside the match
         // block below
         // to note: node1 and node2 are of the same SyntaxKind
@@ -169,19 +201,18 @@ impl<'a> Looper<'a> {
                 return MetavarMatch::Maybe(node1, node2);//not sure
             },
             crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
-                    if let Some(binding) = tin.binding.iter().find(|(a, _)| 
-                                a.1 == node1.wrapper.metavar.getname()
-                            ) {
-                        if binding.1.equals(node2) {
-                            MetavarMatch::Exists
-                        }
-                        else {
-                            MetavarMatch::Fail
-                        }
+                if let Some(binding) = bindings.iter().find(|(a, _)| a.1 == node1.wrapper.metavar.getname() ) {
+                    if binding.1.equals(node2) {
+                        println!("EQUALLLITTYYY - {}", binding.1.astnode.to_string());
+                        MetavarMatch::Exists
                     }
                     else {
-                        return MetavarMatch::Match
+                        MetavarMatch::Fail
                     }
+                }
+                else {
+                    return MetavarMatch::Match
+                }
             },
             crate::parsing_cocci::ast0::MetaVar::Id(info) => {
                 // since these are already identifiers no
@@ -198,7 +229,7 @@ impl<'a> Looper<'a> {
 
     pub fn getbindings(&'a self, node1: &'a Snode, node2: &'a Rnode) -> Vec<Vec<((String, String), &Rnode)>>{
         let mut bindings = self.loopnodes(node1, node2);
-        let tin = self.matchnodes(node1, node2);
+        let tin = self.matchnodes(node1, node2, &vec![]);
         if tin.binding.len() != 0 {
             bindings.push(tin.binding);
         }
