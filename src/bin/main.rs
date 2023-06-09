@@ -37,13 +37,15 @@ fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode{
     stmtlist.children.remove(0);
     stmtlist.children.remove(stmtlist.children.len()-1);
     return stmtlist;
+
+
 }
 
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let patchstring = fs::read_to_string("./src/tests/test2.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test2.rs").expect("This shouldnt be empty");
+    let patchstring = fs::read_to_string("./src/tests/test4.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test4.rs").expect("This shouldnt be empty");
 
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
@@ -55,13 +57,16 @@ fn main() {
     let looper = Looper::new(tokenf);
     let g = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
     
+    if true{
     for binding in g {
         for var in binding {
             println!("{:?} => {:?}", var.0.1, var.1.astnode.to_string());
         }
         println!();
-    }
-    //rules[0].patch.plus.print_tree();
-    //worktree(&mut rules[0].patch.plus, &mut |x: &mut Snode | if x.wrapper.isdisj { println!("{:?}", x.getdisjs()) });
-    //rnode.print_tree();
+    }}
+    rules[0].patch.plus.print_tree();
+    
+    //worktree(&mut rules[0].patch.plus, &mut |x: &mut Snode | if x.wrapper.isdisj { println!("DISJ --> {:?}", x.getdisjs()) });
+    println!("0000000000000000");
+    rnode.print_tree();
 }

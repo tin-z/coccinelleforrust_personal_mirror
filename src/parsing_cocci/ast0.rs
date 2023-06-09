@@ -115,7 +115,7 @@ impl<'a> Snode {
         fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode>{
             let mut disjs: Vec<&Snode> = vec![];    
             if node.wrapper.isdisj {
-                disjs.push(&node.children[2]);
+                disjs.push(&node.children[2].children[0]);
                 if node.children.len() == 5 {//checks when the disjunction ends
                     disjs.append(&mut collectdisjs(&node.children[4]));
                 }
@@ -433,6 +433,10 @@ pub fn parsedisjs<'a>(mut node: &mut Snode) {//for later
         println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
         if node.children[1].astnode.to_string() == "COCCIVAR" {
+            let block = &mut node.children[2].children[0].children;
+            println!("{:?}", block[0].kind());
+            block.remove(0);
+            block.remove(block.len()-1);
             node.wrapper.isdisj = true;
             println!("december slowly creeps into my eptember heart");
         }
@@ -452,6 +456,12 @@ pub fn wrap_root(contents: &str) -> Snode {
             children: children,
         };
         parsedisjs(&mut snode);
+        if snode.kind() == SyntaxKind::EXPR_STMT && snode.children.len() == 1
+        {// this means there is an expression statement without a ; at the ens
+        //the reason these are removed because rust-analyzer seems to alter between
+        //assigning ExprStmt and IfExprs(maybe others too)
+            return snode.children.into_iter().next().unwrap()
+        }
         snode
     };
     work_node(wrap_node, SyntaxElement::Node(root))

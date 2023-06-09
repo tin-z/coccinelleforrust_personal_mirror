@@ -3,12 +3,17 @@ expression e1, e2, e3;
 identifier i1;
 @@
 
+
 (
 if e1<e3 { 
+(
     e2
+|
+    let g = 9;
+)
 }
 |
-let a = 10;
+let b = e3;
 )
 
-let i1 = e3;
+let a = e3;
