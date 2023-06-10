@@ -44,8 +44,8 @@ fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode{
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let patchstring = fs::read_to_string("./src/tests/test4.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test4.rs").expect("This shouldnt be empty");
+    let patchstring = fs::read_to_string("./src/tests/test6.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test6.rs").expect("This shouldnt be empty");
 
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);

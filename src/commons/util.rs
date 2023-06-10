@@ -5,11 +5,11 @@ use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
 #[macro_export]
 macro_rules! fail {
     () => {
-            return Tout {
+            return (Tout {
                 failed: true,
                 binding: vec![],
                 binding0: vec![]
-            }
+            }, 0)
     }
 }
 

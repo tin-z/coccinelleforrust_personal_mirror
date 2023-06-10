@@ -3,13 +3,12 @@ expression e1, e2, e3;
 identifier i1;
 @@
 
-
 (
-if e1<e3 { 
+if e1<e3 {
 (
-    e2
+let jj = e2;
 |
-    let g = 9;
+e2
 )
 }
 |

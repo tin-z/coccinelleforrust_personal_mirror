@@ -315,6 +315,13 @@ impl MetaVar {
             _ => MetaVar::NoMeta,
         }
     }
+
+    pub fn isnotmeta(&self) -> bool{
+        match self{
+            MetaVar::NoMeta => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
