@@ -1,5 +1,11 @@
 @ rule11 @
-identifier i;
+expression x, y;
 @@
 
-i
+(
+f(x, y);
+|
+f(y, x);
+)
+
+let a = x;

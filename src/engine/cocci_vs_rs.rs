@@ -50,13 +50,16 @@ fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode {
     return &node.children[0].children[3].children[0];
 }
 
-fn combinebindings<'a>(bindings1: &'a Vec<&'a MetavarBinding<'a>>, bindings2: &'a Vec<MetavarBinding<'a>>) -> Vec<&'a MetavarBinding<'a>> {
+fn combinebindings<'a>(
+    bindings1: &'a Vec<&'a MetavarBinding<'a>>,
+    bindings2: &'a Vec<MetavarBinding<'a>>,
+) -> Vec<&'a MetavarBinding<'a>> {
     bindings1
         .clone()
         .into_iter()
         .chain(bindings2.iter())
-        .collect_vec()//passed bindings are chained with the bindings collected
-                        //in this match
+        .collect_vec() //passed bindings are chained with the bindings collected
+                       //in this match
 }
 
 impl<'a> Looper<'a> {
@@ -79,10 +82,11 @@ impl<'a> Looper<'a> {
 
         let mut achildren = node1vec.into_iter();
         let mut bchildren = node2vec.into_iter();
-        let mut nchlidren: usize = 0;
+        let mut bnchlidren: usize = 0;
+        let mut anchildren: usize = 0;
         let mut a: &Snode;
         let mut b: &Rnode;
-        loop {
+        'outer: loop {
             //at first only the first snode child is extracted because
             //if parsedisjs may match multiple nodes so it needs a Vec<Rnode>
             //and if the first element is popped off here, then it needs to be
@@ -94,27 +98,26 @@ impl<'a> Looper<'a> {
                 None => {
                     //if it has reached the end of the semantic patch and still not failed
                     //we return the bindings and consider it a success
-                    return (tin, nchlidren);
+                    return (tin, bnchlidren);
                 }
             }
 
             if a.wrapper.isdisj {
                 //println!("nchildren:- {}", nchlidren);
                 //println!("In here disj with: {}", a.astnode.to_string());
-                let (tin_tmp, ls2skip) = self.parsedisjs(
-                    a,
-                    bchildren.clone().collect_vec(),
-                    combinebindings(&bindings, &tin.binding)
-                );
-                //println!("Bindings:- {:?}, skipped - {}", tin.binding, ls2skip);
-                if !tin_tmp.failed {
-                    tin.binding.extend(tin_tmp.binding);
-                    nchlidren += ls2skip;
-                    bchildren.nth(ls2skip - 1);
-                    continue;
-                } else {
-                    fail!()
+                for disj in a.getdisjs() {
+                    let (tin_tmp, ls2skip) = self.matchnodes(
+                        disj.children.iter().chain(achildren.clone()).collect_vec(),
+                        bchildren.clone().collect_vec(),
+                        combinebindings(&bindings, &tin.binding),
+                    );
+                    if !tin_tmp.failed {
+                        tin.binding.extend(tin_tmp.binding);
+                        return (tin, 0);
+                    }
                 }
+                //if it reached here it means that no disjunctions have matched
+                fail!();
             }
 
             match bchildren.next() {
@@ -147,11 +150,7 @@ impl<'a> Looper<'a> {
                 }
             } else {
                 //println!("mathching: {:?}, {:?}", akind, bkind);
-                match self.workon(
-                    a,
-                    b,
-                    combinebindings(&bindings, &tin.binding)
-                ) {
+                match self.workon(a, b, combinebindings(&bindings, &tin.binding)) {
                     //chaining because I need both the previous bindings and the currently matches ones
                     MetavarMatch::Fail => fail!(),
                     MetavarMatch::Maybe(a, b) => {
@@ -159,11 +158,11 @@ impl<'a> Looper<'a> {
                         let (tin_tmp, _) = self.matchnodes(
                             a.children.iter().collect_vec(),
                             b.children.iter().collect_vec(),
-                            combinebindings(&bindings, &tin.binding)
+                            combinebindings(&bindings, &tin.binding),
                         );
                         if !tin_tmp.failed {
                             tin.binding.extend(tin_tmp.binding);
-                            nchlidren += 1;
+                            bnchlidren += 1;
                             //println!("matched big node");
                         } else {
                             fail!();
@@ -173,7 +172,7 @@ impl<'a> Looper<'a> {
                         let minfo = a.wrapper.metavar.getminfo();
                         let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                         tin.binding.push(binding);
-                        nchlidren += 1;
+                        bnchlidren += 1;
                     }
                     MetavarMatch::Exists => {}
                 }
@@ -332,7 +331,6 @@ impl<'a> Looper<'a> {
         bindings
     }
 }
-
 
 /// Test function
 pub fn equal_expr(nodeA: Rnode, nodeB: Rnode) {}

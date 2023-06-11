@@ -115,9 +115,9 @@ pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
     //since the patch is wrapped in a function to be parsed
     //this function extracts the stmtlist inside it and removes the curly
     //braces from the start and end of the block
-    let stmtlist = &mut node.children[0]//function
-                                        .children[3]//blockexpr
-                                        .children[0];//stmtlist
+    let stmtlist = &mut node.children[0] //function
+        .children[3] //blockexpr
+        .children[0]; //stmtlist
     stmtlist.children.remove(0);
     stmtlist.children.remove(stmtlist.children.len() - 1);
     return stmtlist;
