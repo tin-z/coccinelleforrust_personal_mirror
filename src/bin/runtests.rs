@@ -2,7 +2,7 @@ use coccinelleforrust::{
     parsing_cocci::parse_cocci::{processcocci, self},
     parsing_cocci::{ast0::{wrap_root, Snode, MetaVar}, logical_lines::set_logilines}, 
     parsing_rs::{parse_rs::processrs, ast_rs::Rnode}, 
-    engine::cocci_vs_rs::{Tout, MetavarBinding, Looper}, commons::util::worktree,
+    engine::cocci_vs_rs::{Tout, MetavarBinding, Looper}, commons::util::{worktree, getstmtlist},
 };
 
 use std::{fs};
@@ -15,18 +15,6 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // transformation.ml's tokenf
     // info_to_fixpos
     vec![]
-}
-
-fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode{
-    //since the patch is wrapped in a function to be parsed
-    //this function extracts the stmtlist inside it and removes the curly
-    //braces from the start and end of the block
-    let stmtlist = &mut node.children[0].children[3].children[0];
-    stmtlist.children.remove(0);
-    stmtlist.children.remove(stmtlist.children.len()-1);
-    return stmtlist;
-
-
 }
 
 fn main() {

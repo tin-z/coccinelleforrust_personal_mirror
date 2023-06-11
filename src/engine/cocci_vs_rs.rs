@@ -50,6 +50,15 @@ fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode {
     return &node.children[0].children[3].children[0];
 }
 
+fn combinebindings<'a>(bindings1: &'a Vec<&'a MetavarBinding<'a>>, bindings2: &'a Vec<MetavarBinding<'a>>) -> Vec<&'a MetavarBinding<'a>> {
+    bindings1
+        .clone()
+        .into_iter()
+        .chain(bindings2.iter())
+        .collect_vec()//passed bindings are chained with the bindings collected
+                        //in this match
+}
+
 impl<'a> Looper<'a> {
     pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
         Looper { tokenf: tokenf }
@@ -95,12 +104,7 @@ impl<'a> Looper<'a> {
                 let (tin_tmp, ls2skip) = self.parsedisjs(
                     a,
                     bchildren.clone().collect_vec(),
-                    bindings
-                        .clone()
-                        .into_iter()
-                        .chain(tin.binding.iter())
-                        .collect_vec(),//passed bindings are chained with the bindings collected
-                                       //in this match
+                    combinebindings(&bindings, &tin.binding)
                 );
                 //println!("Bindings:- {:?}, skipped - {}", tin.binding, ls2skip);
                 if !tin_tmp.failed {
@@ -146,11 +150,7 @@ impl<'a> Looper<'a> {
                 match self.workon(
                     a,
                     b,
-                    bindings
-                        .clone()
-                        .into_iter()
-                        .chain(tin.binding.iter())
-                        .collect(),
+                    combinebindings(&bindings, &tin.binding)
                 ) {
                     //chaining because I need both the previous bindings and the currently matches ones
                     MetavarMatch::Fail => fail!(),
@@ -159,11 +159,7 @@ impl<'a> Looper<'a> {
                         let (tin_tmp, _) = self.matchnodes(
                             a.children.iter().collect_vec(),
                             b.children.iter().collect_vec(),
-                            bindings
-                                .clone()
-                                .into_iter()
-                                .chain(tin.binding.iter())
-                                .collect_vec(),
+                            combinebindings(&bindings, &tin.binding)
                         );
                         if !tin_tmp.failed {
                             tin.binding.extend(tin_tmp.binding);
@@ -337,29 +333,6 @@ impl<'a> Looper<'a> {
     }
 }
 
-// We can use Result Object Error ass error codes when it fails
-
-/*
-//Example function for manual traversal
-fn traversenode<'a>(node1: &Snode, node2: &mut Rnode) -> CheckResult<'a> {
-    // Analogous to manually popping out elements like
-    // match c1::children1, c2::children2
-    if node1.kind() != node2.kind() || node1.children.len() != node2.children.len() {
-        return Err(0);
-    }
-
-    //For example we are working on the if node
-    match (&mut node1.children[..], &mut node2.children[..]) {
-        ([aifk, aexpr1, aelsek, aexpr2], [bifk, bexpr1, belsek, bexpr2]) => {
-            tokenf(aifk, bifk);
-            //...
-            return Ok((node1, node2)); // NOT COMPLETED
-        }
-        _ => {}
-    }
-    Err(1)
-}
-*/
 
 /// Test function
 pub fn equal_expr(nodeA: Rnode, nodeB: Rnode) {}

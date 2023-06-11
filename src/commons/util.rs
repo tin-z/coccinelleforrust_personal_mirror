@@ -5,32 +5,27 @@ use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
 #[macro_export]
 macro_rules! fail {
     () => {
-            return (Tout {
+        return (
+            Tout {
                 failed: true,
                 binding: vec![],
-                binding0: vec![]
-            }, 0)
-    }
+                binding0: vec![],
+            },
+            0,
+        )
+    };
 }
-
 
 #[macro_export]
 macro_rules! syntaxerror {
     ($lino: expr, $err:expr) => {
-        panic!("{:?} at line:{:?}",
-                 $err,
-                 $lino)
+        panic!("{:?} at line:{:?}", $err, $lino)
     };
     ($lino:expr, $err:expr, $name:expr) => {
-        panic!("{:?}: {:?} at line:{:?}",
-                $name,
-                $err,
-                $lino)
+        panic!("{:?}: {:?} at line:{:?}", $name, $err, $lino)
     };
     ($err:expr, $name:expr) => {
-        panic!("{:?}: {:?}",
-                $name,
-                $err)
+        panic!("{:?}: {:?}", $name, $err)
     };
 }
 
@@ -55,9 +50,7 @@ pub fn tuple_of_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
 pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
-
     match &mut v[..3] {
         [a, b, c] => [a, b, c],
         _ => {
@@ -66,19 +59,17 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
-pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)){
+pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)) {
     //use async function to wrap the for loop
     //for other cases TODO
     f(&mut node);
-    for child in &mut node.children{
+    for child in &mut node.children {
         worktree(child, f);
     }
 }
 
-
 pub fn isexpr(node1: &Snode) -> bool {
-    use SyntaxKind::{*};
+    use SyntaxKind::*;
 
     match node1.kind() {
         TUPLE_EXPR
@@ -113,9 +104,21 @@ pub fn isexpr(node1: &Snode) -> bool {
         | REF_EXPR
         | PREFIX_EXPR
         | RANGE_EXPR
-        | BIN_EXPR 
+        | BIN_EXPR
         | EXPR_STMT
-        | LITERAL => { true }
-        _ => { false }
+        | LITERAL => true,
+        _ => false,
     }
+}
+
+pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
+    //since the patch is wrapped in a function to be parsed
+    //this function extracts the stmtlist inside it and removes the curly
+    //braces from the start and end of the block
+    let stmtlist = &mut node.children[0]//function
+                                        .children[3]//blockexpr
+                                        .children[0];//stmtlist
+    stmtlist.children.remove(0);
+    stmtlist.children.remove(stmtlist.children.len() - 1);
+    return stmtlist;
 }

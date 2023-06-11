@@ -159,9 +159,8 @@ impl Rnode {
                 if !a.equals(b) {
                     return false;
                 }
-                return true;
             }
-            panic!("Should never occur as both the children length should be non-zero");
+            return true;
         }
     }
     

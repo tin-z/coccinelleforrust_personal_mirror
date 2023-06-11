@@ -111,17 +111,20 @@ impl<'a> Snode {
         if !self.wrapper.isdisj {
             return vec![];
         }
-        
+
         fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode>{
             let mut disjs: Vec<&Snode> = vec![];    
             if node.wrapper.isdisj {
                 disjs.push(&node.children[2].children[0]);
-                if node.children.len() == 5 {//checks when the disjunction ends
-                    disjs.append(&mut collectdisjs(&node.children[4]));
+                match &node.children[..] {
+                    [_ifkw, _cond, _block, _elsekw, ifblock] => {
+                        disjs.append(&mut collectdisjs(ifblock));
+                    }
+                    _ => {}
                 }
             }
             return disjs;
-        };
+        }
         return collectdisjs(&self);
     }
 }
@@ -439,7 +442,8 @@ pub fn parsedisjs<'a>(mut node: &mut Snode) {//for later
     if node.kind() == SyntaxKind::IF_EXPR {
         //println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
-        if node.children[1].astnode.to_string() == "COCCIVAR" {
+        let cond = &node.children[1];
+        if cond.kind()==SyntaxKind::PATH_EXPR && cond.astnode.to_string() == "COCCIVAR" {
             let block = &mut node.children[2].children[0].children;
             //println!("{:?}", block[0].kind());
             block.remove(0);
