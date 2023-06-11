@@ -20,7 +20,7 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    for i in 1..9 {
+    for i in 1..12 {
         let patchstring = fs::read_to_string(format!("./src/tests/test{}.cocci", i)).expect("This shouldnt be empty");
         let rustcode = fs::read_to_string(format!("./src/tests/test{}.rs", i)).expect("This shouldnt be empty");
         let expected = fs::read_to_string(format!("./src/tests/expected{}.txt", i)).expect("This shouldnt be empty");
@@ -43,7 +43,7 @@ fn main() {
             output.push('\n');
         }
         //println!("{} ===\n{}", output, expected);
-        println!("Running Test {}.", i);
+        //println!("Running Test {}.", i);
         assert!(output.trim()==expected.trim());
         println!("Test {} passed.", i);
         //rules[0].patch.plus.print_tree();

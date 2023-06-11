@@ -73,7 +73,7 @@ impl<'a> Looper<'a> {
         node1vec: Vec<&'a Snode>,
         node2vec: Vec<&'a Rnode>,
         bindings: Vec<&((String, String), &Rnode)>,
-    ) -> (Tout<'a>, usize) {
+    ) -> (Tout<'a>) {
         let mut tin: Tout = Tout {
             failed: false,
             binding: vec![],
@@ -82,11 +82,9 @@ impl<'a> Looper<'a> {
 
         let mut achildren = node1vec.into_iter();
         let mut bchildren = node2vec.into_iter();
-        let mut bnchlidren: usize = 0;
-        let mut anchildren: usize = 0;
         let mut a: &Snode;
         let mut b: &Rnode;
-        'outer: loop {
+        loop {
             //at first only the first snode child is extracted because
             //if parsedisjs may match multiple nodes so it needs a Vec<Rnode>
             //and if the first element is popped off here, then it needs to be
@@ -98,7 +96,7 @@ impl<'a> Looper<'a> {
                 None => {
                     //if it has reached the end of the semantic patch and still not failed
                     //we return the bindings and consider it a success
-                    return (tin, bnchlidren);
+                    return (tin);
                 }
             }
 
@@ -106,14 +104,14 @@ impl<'a> Looper<'a> {
                 //println!("nchildren:- {}", nchlidren);
                 //println!("In here disj with: {}", a.astnode.to_string());
                 for disj in a.getdisjs() {
-                    let (tin_tmp, ls2skip) = self.matchnodes(
+                    let tin_tmp = self.matchnodes(
                         disj.children.iter().chain(achildren.clone()).collect_vec(),
                         bchildren.clone().collect_vec(),
                         combinebindings(&bindings, &tin.binding),
                     );
                     if !tin_tmp.failed {
                         tin.binding.extend(tin_tmp.binding);
-                        return (tin, 0);
+                        return tin;
                     }
                 }
                 //if it reached here it means that no disjunctions have matched
@@ -155,14 +153,13 @@ impl<'a> Looper<'a> {
                     MetavarMatch::Fail => fail!(),
                     MetavarMatch::Maybe(a, b) => {
                         //println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
-                        let (tin_tmp, _) = self.matchnodes(
+                        let tin_tmp = self.matchnodes(
                             a.children.iter().collect_vec(),
                             b.children.iter().collect_vec(),
                             combinebindings(&bindings, &tin.binding),
                         );
                         if !tin_tmp.failed {
                             tin.binding.extend(tin_tmp.binding);
-                            bnchlidren += 1;
                             //println!("matched big node");
                         } else {
                             fail!();
@@ -172,45 +169,11 @@ impl<'a> Looper<'a> {
                         let minfo = a.wrapper.metavar.getminfo();
                         let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                         tin.binding.push(binding);
-                        bnchlidren += 1;
                     }
                     MetavarMatch::Exists => {}
                 }
             }
         }
-    }
-
-    pub fn parsedisjs(
-        &'a self,
-        node1: &'a Snode,
-        node2vec: Vec<&'a Rnode>,
-        gbindings: Vec<&MetavarBinding>,
-    ) -> (Tout, usize) {
-        //println!("In disj - {:?}", node2vec.clone().iter().next());
-        let mut tin: Tout;
-        for disj in node1.getdisjs() {
-            tin = Tout {
-                failed: false,
-                binding: vec![],
-                binding0: vec![],
-            };
-            let (tin, nchildren) = self.matchnodes(
-                disj.children.iter().collect_vec(),
-                node2vec.clone(),
-                gbindings.clone(),
-            ); //these clones are on references
-               //println!("{}", tin.failed);
-            if !tin.failed {
-                //if matching succeeds add bindings
-                return (tin, nchildren);
-            }
-        }
-        tin = Tout {
-            failed: true,
-            binding: vec![],
-            binding0: vec![],
-        };
-        return (tin, 0);
     }
 
     pub fn loopnodes(&'a self, node1: &'a Snode, node2: &'a Rnode) -> Vec<Vec<MetavarBinding>> {
@@ -228,7 +191,7 @@ impl<'a> Looper<'a> {
         let mut bchildren = node2.children.iter();
 
         loop {
-            let (tin, _) = self.matchnodes(
+            let tin = self.matchnodes(
                 achildren.clone().collect_vec(),
                 bchildren.clone().collect_vec(),
                 vec![],
