@@ -437,15 +437,15 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
 
 pub fn parsedisjs<'a>(mut node: &mut Snode) {//for later
     if node.kind() == SyntaxKind::IF_EXPR {
-        println!("does it come here");
+        //println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
         if node.children[1].astnode.to_string() == "COCCIVAR" {
             let block = &mut node.children[2].children[0].children;
-            println!("{:?}", block[0].kind());
+            //println!("{:?}", block[0].kind());
             block.remove(0);
             block.remove(block.len()-1);
             node.wrapper.isdisj = true;
-            println!("december slowly creeps into my eptember heart");
+            //println!("december slowly creeps into my eptember heart");
         }
     }
 }

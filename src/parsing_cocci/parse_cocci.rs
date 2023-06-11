@@ -53,7 +53,7 @@ fn makemetavar(
             if let Some(mvar) = rule
                 .metavars
                 .iter()
-                .find(|x| x.gettype() == metatype && x.getname() == var)
+                .find(|x|  x.getname() == var)
             {
                 return mvar.clone();
             } else {
@@ -78,11 +78,10 @@ pub struct Patch {
 impl Patch {
     fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
         let mut work = |node: &mut Snode| match node.kind() {
-            Tag::PATH_EXPR => {
-                
+            Tag::PATH_EXPR | Tag::IDENT_PAT => {
                 let stmp = node.astnode.to_string();
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
-                    println!("MetaVar found - {:?}", mvar);
+                    //println!("MetaVar found - {:?}", mvar);
                     node.wrapper.metavar = mvar.clone();
                 }
             }
@@ -374,12 +373,12 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
 
         lino += 1;
         let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
-        println!("lino1 - {}", lino);
+        //println!("lino1 - {}", lino);
         //metavars
         lino += block2.len();
-        println!("lino2 - {}", lino);
+        //println!("lino2 - {}", lino);
         //just checks that nothing exists between the two @@
-        println!("lineo3 - {:?}", block3);
+        //println!("lineo3 - {:?}", block3);
         if block3.len() != 0 {
             syntaxerror!(lino, "Syntax Error");
         }
