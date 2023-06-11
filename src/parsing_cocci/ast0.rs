@@ -6,7 +6,7 @@ use parser::SyntaxKind;
 use syntax::ast::{IfExpr, Type};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq)]
 /// Semantic Path Node
 pub struct Snode {
     pub wrapper: Wrap,
@@ -174,13 +174,13 @@ pub enum Count {
     MINUS,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 pub enum Replacement {
     REPLACEMENT(Vec<Vec<Snode>>),
     NOREPLACEMENT,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive( PartialEq)]
 pub enum Befaft {
     BEFORE(Vec<Vec<Snode>>),
     AFTER(Vec<Vec<Snode>>),
@@ -188,7 +188,7 @@ pub enum Befaft {
     NOTHING,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 pub enum Mcodekind {
     MINUS(Replacement),
     PLUS(Count),
@@ -199,7 +199,7 @@ pub enum Mcodekind {
 #[derive(Clone, PartialEq)]
 pub struct DotsBefAft {}
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 pub struct Info {
     pos_info: PositionInfo,
     attachable_start: bool,
@@ -325,7 +325,7 @@ impl MetaVar {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 pub struct Wrap {
     info: Info,
     index: usize,
