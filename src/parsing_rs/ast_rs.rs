@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-use SyntaxKind::*;
 use itertools::izip;
 use parser::SyntaxKind;
 use syntax::SyntaxElement;
+use SyntaxKind::*;
 
 use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
@@ -14,8 +14,8 @@ pub enum ParseInfo {
     /* Present both in ast and list of tokens */
     OriginTok(info::ParseInfo),
     /* Present only in ast and generated after parsing. Used mainly
-    * by Julia, to add stuff at virtual places, beginning of func or decl */
-    FakeTok(String, VirtualPosition)
+     * by Julia, to add stuff at virtual places, beginning of func or decl */
+    FakeTok(String, VirtualPosition),
 }
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ pub enum Danger {
     DangerStart,
     DangerEnd,
     Danger,
-    NoDanger
+    NoDanger,
 }
 
 #[derive(Clone)]
@@ -39,28 +39,26 @@ impl Wrap {
         info: ParseInfo,
         index: usize,
         cocci_tag: Option<Vec<Mcodekind>>,
-        danger: Danger
+        danger: Danger,
     ) -> Wrap {
         Wrap {
             info: info,
             index: index,
             cocci_tag: cocci_tag,
-            danger: danger
+            danger: danger,
         }
     }
-
 }
 
 #[derive(Clone)]
 pub struct Rnode {
     pub wrapper: Wrap,
-    pub astnode: SyntaxElement,//Not SyntaxNode because we need to take
-                           //care of the whitespaces
-    pub children: Vec<Rnode>
+    pub astnode: SyntaxElement, //Not SyntaxNode because we need to take
+    //care of the whitespaces
+    pub children: Vec<Rnode>,
 }
 
 impl Rnode {
-
     pub fn kind(&self) -> SyntaxKind {
         self.astnode.kind()
     }
@@ -68,7 +66,7 @@ impl Rnode {
     pub fn unwrap(&self) -> (SyntaxKind, &[Rnode]) {
         (self.kind(), &self.children[..])
     }
-    
+
     fn print_tree_aux(&self, pref: &String) {
         println!("{}{:?}", pref, self.kind());
         let mut newbuf = String::from(pref);
@@ -84,7 +82,6 @@ impl Rnode {
     }
 
     pub fn isexpr(&self) -> bool {
-
         match self.kind() {
             TUPLE_EXPR
             | ARRAY_EXPR
@@ -118,43 +115,28 @@ impl Rnode {
             | REF_EXPR
             | PREFIX_EXPR
             | RANGE_EXPR
-            | BIN_EXPR 
+            | BIN_EXPR
             | EXPR_STMT
-            | LITERAL => { true }
-            _ => { false }
+            | LITERAL => true,
+            _ => false,
         }
     }
 
-    pub fn ispat(&self) -> bool{
+    pub fn ispat(&self) -> bool {
         match self.kind() {
-            IDENT_PAT
-            | BOX_PAT
-            | REST_PAT
-            | LITERAL_PAT
-            | MACRO_PAT
-            | OR_PAT
-            | PAREN_PAT
-            | PATH_PAT
-            | WILDCARD_PAT
-            | RANGE_PAT
-            | RECORD_PAT
-            | REF_PAT
-            | SLICE_PAT
-            | TUPLE_PAT
-            | TUPLE_STRUCT_PAT
-            | CONST_BLOCK_PAT => true,
-            _ => false
+            IDENT_PAT | BOX_PAT | REST_PAT | LITERAL_PAT | MACRO_PAT | OR_PAT | PAREN_PAT
+            | PATH_PAT | WILDCARD_PAT | RANGE_PAT | RECORD_PAT | REF_PAT | SLICE_PAT
+            | TUPLE_PAT | TUPLE_STRUCT_PAT | CONST_BLOCK_PAT => true,
+            _ => false,
         }
     }
 
     pub fn equals(&self, node: &Rnode) -> bool {
         if self.children.len() != node.children.len() {
             return false;
-        }
-        else if self.children.len() == 0 && node.children.len()==0{
+        } else if self.children.len() == 0 && node.children.len() == 0 {
             return self.astnode.to_string() == node.astnode.to_string();
-        }
-        else {
+        } else {
             for (a, b) in izip!(&self.children, &node.children) {
                 if !a.equals(b) {
                     return false;
@@ -163,11 +145,13 @@ impl Rnode {
             return true;
         }
     }
-    
 }
 
 impl Debug for Rnode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Rnode").field("astnode", &self.astnode.to_string()).field("children", &self.children).finish()
+        f.debug_struct("Rnode")
+            .field("astnode", &self.astnode.to_string())
+            .field("children", &self.children)
+            .finish()
     }
 }

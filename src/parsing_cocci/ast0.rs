@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::{Type, IfExpr};
+use syntax::ast::{IfExpr, Type};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
@@ -16,16 +16,15 @@ pub struct Snode {
 
 impl Debug for Snode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Snode").field("astnode", &self.astnode.to_string()).field("children", &self.children).finish()
+        f.debug_struct("Snode")
+            .field("astnode", &self.astnode.to_string())
+            .field("children", &self.children)
+            .finish()
     }
 }
 
 impl<'a> Snode {
-    pub fn new_root(
-        wrapper: Wrap,
-        syntax: SyntaxElement,
-        children: Vec<Snode>,
-    ) -> Snode {
+    pub fn new_root(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Snode>) -> Snode {
         Snode {
             wrapper: wrapper,
             astnode: syntax,
@@ -63,9 +62,8 @@ impl<'a> Snode {
         self.print_tree_aux(&String::from("--"));
     }
 
-
     pub fn isexpr(&self) -> bool {
-        use SyntaxKind::{*};
+        use SyntaxKind::*;
 
         match self.kind() {
             TUPLE_EXPR
@@ -100,10 +98,10 @@ impl<'a> Snode {
             | REF_EXPR
             | PREFIX_EXPR
             | RANGE_EXPR
-            | BIN_EXPR 
+            | BIN_EXPR
             | EXPR_STMT
-            | LITERAL => { true }
-            _ => { false }
+            | LITERAL => true,
+            _ => false,
         }
     }
 
@@ -112,8 +110,8 @@ impl<'a> Snode {
             return vec![];
         }
 
-        fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode>{
-            let mut disjs: Vec<&Snode> = vec![];    
+        fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode> {
+            let mut disjs: Vec<&Snode> = vec![];
             if node.wrapper.isdisj {
                 disjs.push(&node.children[2].children[0]);
                 match &node.children[..] {
@@ -244,7 +242,7 @@ pub enum KeepBinding {
     SAVED,      //Need a witness
 }
 
-type Minfo = (String, String, KeepBinding);//rulename, metavar name, keepbinding
+type Minfo = (String, String, KeepBinding); //rulename, metavar name, keepbinding
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum MetaVar {
@@ -319,10 +317,10 @@ impl MetaVar {
         }
     }
 
-    pub fn isnotmeta(&self) -> bool{
-        match self{
+    pub fn isnotmeta(&self) -> bool {
+        match self {
             MetaVar::NoMeta => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -339,7 +337,7 @@ pub struct Wrap {
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
-    pub isdisj: bool
+    pub isdisj: bool,
 }
 
 impl Wrap {
@@ -354,7 +352,7 @@ impl Wrap {
         true_if_test: bool,
         true_if_test_exp: bool,
         iso_info: Vec<(String, Dummy)>,
-        isdisj: bool
+        isdisj: bool,
     ) -> Wrap {
         Wrap {
             info: info,
@@ -367,7 +365,7 @@ impl Wrap {
             true_if_test: true_if_test,
             true_if_test_exp: true_if_test_exp,
             iso_info: iso_info,
-            isdisj: isdisj
+            isdisj: isdisj,
         }
     }
 
@@ -376,10 +374,7 @@ impl Wrap {
     }
 
     pub fn getlinenos(&self) -> (usize, usize) {
-        (
-            self.info.pos_info.line_start,
-            self.info.pos_info.line_end
-        )
+        (self.info.pos_info.line_start, self.info.pos_info.line_end)
     }
 
     pub fn set_logilines_start(&mut self, lino: usize) {
@@ -433,21 +428,22 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         false,
         false,
         vec![],
-        false
+        false,
     );
     wrap
 }
 
-pub fn parsedisjs<'a>(mut node: &mut Snode) {//for later
+pub fn parsedisjs<'a>(mut node: &mut Snode) {
+    //for later
     if node.kind() == SyntaxKind::IF_EXPR {
         //println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
         let cond = &node.children[1];
-        if cond.kind()==SyntaxKind::PATH_EXPR && cond.astnode.to_string() == "COCCIVAR" {
+        if cond.kind() == SyntaxKind::PATH_EXPR && cond.astnode.to_string() == "COCCIVAR" {
             let block = &mut node.children[2].children[0].children;
             //println!("{:?}", block[0].kind());
             block.remove(0);
-            block.remove(block.len()-1);
+            block.remove(block.len() - 1);
             node.wrapper.isdisj = true;
             //println!("december slowly creeps into my eptember heart");
         }
@@ -467,11 +463,11 @@ pub fn wrap_root(contents: &str) -> Snode {
             children: children,
         };
         parsedisjs(&mut snode);
-        if snode.kind() == SyntaxKind::EXPR_STMT && snode.children.len() == 1
-        {// this means there is an expression statement without a ; at the ens
-        //the reason these are removed because rust-analyzer seems to alter between
-        //assigning ExprStmt and IfExprs(maybe others too)
-            return snode.children.into_iter().next().unwrap()
+        if snode.kind() == SyntaxKind::EXPR_STMT && snode.children.len() == 1 {
+            // this means there is an expression statement without a ; at the ens
+            //the reason these are removed because rust-analyzer seems to alter between
+            //assigning ExprStmt and IfExprs(maybe others too)
+            return snode.children.into_iter().next().unwrap();
         }
         snode
     };
@@ -480,5 +476,5 @@ pub fn wrap_root(contents: &str) -> Snode {
 
 pub enum Fixpos {
     Real(usize),
-    Virt(usize, usize)
+    Virt(usize, usize),
 }
