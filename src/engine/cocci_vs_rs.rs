@@ -317,7 +317,7 @@ impl<'a> Looper<'a> {
                         MetavarMatch::Fail
                     }
                 } else {
-                    if node2.kind() == SyntaxKind::IDENT_PAT {
+                    if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
                         //println!("Matched-----> {}, {}", node1.wrapper.metavar.getname(), node2.astnode.to_string());
                         return MetavarMatch::Match;
                     }
