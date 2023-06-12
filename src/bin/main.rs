@@ -39,8 +39,8 @@ fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
     let patchstring =
-        fs::read_to_string("./src/tests/test10.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test10.rs").expect("This shouldnt be empty");
+        fs::read_to_string("./src/tests/test12.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test12.rs").expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
     let mut rnode = processrs(&rustcode);
