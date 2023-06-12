@@ -92,7 +92,6 @@ impl Rnode {
             | FOR_EXPR
             | CONTINUE_EXPR
             | BREAK_EXPR
-            | BLOCK_EXPR
             | RETURN_EXPR
             | YIELD_EXPR
             | LET_EXPR
