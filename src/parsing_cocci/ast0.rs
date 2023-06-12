@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::process::exit;
 
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
@@ -453,6 +454,18 @@ pub fn parsedisjs<'a>(mut node: &mut Snode) {
 //for wrapping
 pub fn wrap_root(contents: &str) -> Snode {
     let lindex = LineIndex::new(contents);
+
+    let parse = SourceFile::parse(contents);
+    let errors = parse.errors();
+
+    if errors.len() > 0 {
+        for error in errors {
+            let lindex = lindex.line_col(error.range().start());
+            println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
+            exit(1);
+        }
+    }
+    
     let root = SourceFile::parse(contents).syntax_node();
     let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
         let wrapped = fill_wrap(&lindex, &node);
