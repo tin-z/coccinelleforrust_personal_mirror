@@ -78,7 +78,6 @@ impl<'a> Snode {
             | FOR_EXPR
             | CONTINUE_EXPR
             | BREAK_EXPR
-            | BLOCK_EXPR
             | RETURN_EXPR
             | YIELD_EXPR
             | LET_EXPR
@@ -462,6 +461,7 @@ pub fn wrap_root(contents: &str) -> Snode {
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
             println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
+            println!("{}", parse.syntax_node().to_string());
             exit(1);
         }
     }

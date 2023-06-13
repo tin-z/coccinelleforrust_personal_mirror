@@ -1,9 +1,9 @@
 @ rule11 @
-expression x, i;
+expression x, y;
 @@
 
 (
-&i
+&y
 |
 x
 )

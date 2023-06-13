@@ -1,13 +1,13 @@
 use std::vec;
 
-use itertools::Itertools;
+use itertools::{Itertools, enumerate};
 use parser::SyntaxKind;
 use syntax::ast::PathExpr;
 
 use crate::{
     commons::info::ParseInfo,
     fail,
-    parsing_cocci::ast0::Snode,
+    parsing_cocci::ast0::{Snode, Wrap, fill_wrap},
     parsing_cocci::ast0::{Fixpos, Mcodekind},
     parsing_rs::ast_rs::Rnode,
 };
@@ -103,13 +103,22 @@ impl<'a> Looper<'a> {
             if a.wrapper.isdisj {
                 //println!("nchildren:- {}", nchlidren);
                 //println!("In here disj with: {}", a.astnode.to_string());
-                for disj in a.getdisjs() {
+                for (i, disj) in enumerate(a.getdisjs()) {
                     let tin_tmp = self.matchnodes(
                         disj.children.iter().chain(achildren.clone()).collect_vec(),
                         bchildren.clone().collect_vec(),
                         combinebindings(&bindings, &tin.binding),
                     );
                     if !tin_tmp.failed {
+                        for (info, rnode) in &tin_tmp.binding {
+                            for prevdisj in &a.getdisjs()[0..i] {
+                                //checks that all other disjunctions before this one
+                                //fails
+                               if self.getbindings(prevdisj, &rnode).len() != 0 {
+                                fail!();
+                               }
+                            }
+                        }
                         tin.binding.extend(tin_tmp.binding);
                         return tin;
                     }
@@ -290,7 +299,11 @@ impl<'a> Looper<'a> {
         node1: &'a Snode,
         node2: &'a Rnode,
     ) -> Vec<Vec<((String, String), &Rnode)>> {
-        let bindings = self.loopnodes(node1, node2);
+        let topbindings = self.matchnodes(node1.children.iter().collect_vec(), vec![node2], vec![]);
+        let mut bindings = self.loopnodes(node1, node2);
+        if !topbindings.failed {{
+            bindings.push(topbindings.binding);
+        }}
         bindings
     }
 }
