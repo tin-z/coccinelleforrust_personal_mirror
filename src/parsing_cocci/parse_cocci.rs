@@ -94,6 +94,14 @@ impl Patch {
         Patch::setmetavars_aux(&mut self.plus, metavars);
         Patch::setmetavars_aux(&mut self.minus, metavars);
     }
+
+    fn parsemods_aux(node: &Snode) {
+            
+    } 
+
+    fn parsemods(&self) {
+
+    }
 }
 
 pub struct Rule {
@@ -266,13 +274,13 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
     for line in block {
         match line.chars().next() {
             Some('+') => {
-                plusbuf.push(' ');
+                plusbuf.push_str("/*+*/");
                 plusbuf.push_str(&line[1..]);
                 plusbuf.push('\n');
                 minusbuf.push('\n');
             }
             Some('-') => {
-                minusbuf.push(' ');
+                minusbuf.push_str("/*-*/");
                 minusbuf.push_str(&line[1..]);
                 minusbuf.push('\n');
                 plusbuf.push('\n');

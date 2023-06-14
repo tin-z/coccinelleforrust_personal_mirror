@@ -63,7 +63,7 @@ impl<'a> Snode {
     }
 
     fn print_tree_aux(&self, pref: &String) {
-        println!("{}{:?}", pref, self.kind());
+        println!("{}{:?}, {:?}", pref, self.kind(), self.wrapper.modkind);
         let mut newbuf = String::from(pref);
         newbuf.push_str(&String::from("--"));
         for child in &self.children {
@@ -351,6 +351,7 @@ pub struct Wrap {
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
     pub isdisj: bool,
+    pub modkind: Option<String>
 }
 
 impl Wrap {
@@ -365,7 +366,7 @@ impl Wrap {
         true_if_test: bool,
         true_if_test_exp: bool,
         iso_info: Vec<(String, Dummy)>,
-        isdisj: bool,
+        isdisj: bool
     ) -> Wrap {
         Wrap {
             info: info,
@@ -379,6 +380,7 @@ impl Wrap {
             true_if_test_exp: true_if_test_exp,
             iso_info: iso_info,
             isdisj: isdisj,
+            modkind: None
         }
     }
 
@@ -451,7 +453,7 @@ pub fn parsedisjs<'a>(mut node: &mut Snode) {
     if node.kind() == SyntaxKind::IF_EXPR {
         //println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
-        let cond = &node.children[1];
+        let cond = &node.children[1];//this gets the node for condition
         if cond.kind() == SyntaxKind::PATH_EXPR && cond.astnode.to_string() == "COCCIVAR" {
             let block = &mut node.children[2].children[0].children;
             //println!("{:?}", block[0].kind());
@@ -480,8 +482,9 @@ pub fn wrap_root(contents: &str) -> Snode {
     }
     
     let root = SourceFile::parse(contents).syntax_node();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
-        let wrapped = fill_wrap(&lindex, &node);
+    let wrap_node = &|lindex: &LineIndex, node: SyntaxElement, modkind: Option<String>, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
+        let mut wrapped = fill_wrap(&lindex, &node);
+        wrapped.modkind = modkind;
         let children = df(&node);
         let mut snode = Snode {
             wrapper: wrapped,
@@ -497,7 +500,7 @@ pub fn wrap_root(contents: &str) -> Snode {
         }
         snode
     };
-    work_node(wrap_node, SyntaxElement::Node(root))
+    work_node(&lindex, wrap_node, SyntaxElement::Node(root), None)
 }
 
 pub enum Fixpos {
