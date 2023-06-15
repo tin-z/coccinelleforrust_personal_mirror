@@ -114,9 +114,7 @@ impl<'a> Looper<'a> {
                             for prevdisj in &a.getdisjs()[0..i] {
                                 //checks that all other disjunctions before this one
                                 //fails
-                               if self.getbindings(prevdisj, &rnode).1 {
-                                //if any of the previous disjunctions match any part of the current code
-                                //then fail
+                               if self.getbindings(prevdisj, &rnode).len() != 0 {
                                 fail!();
                                }
                             }
@@ -187,12 +185,11 @@ impl<'a> Looper<'a> {
         }
     }
 
-    pub fn loopnodes(&'a self, node1: &'a Snode, node2: &'a Rnode) -> (Vec<Vec<MetavarBinding>>, bool) {
+    pub fn loopnodes(&'a self, node1: &'a Snode, node2: &'a Rnode) -> Vec<Vec<MetavarBinding>> {
         //this part of the code is for trying to match within a block
         //sometimes the pattern exists a couple children into the tree
         //The only assumption here is that if two statements are in the same block
         //they are siblings
-        let mut matched: bool = false;
 
         let mut bindings: Vec<Vec<((String, String), &Rnode)>> = vec![];
 
@@ -210,8 +207,6 @@ impl<'a> Looper<'a> {
             );
             //println!("SS- {:?}", tin.failed);
             if !tin.failed {
-                matched = true;//if it matches even once we say that the rule
-                               //has been succesfully matched
                 bindings.push(tin.binding);
             }
 
@@ -219,17 +214,14 @@ impl<'a> Looper<'a> {
             //children for matching(by calling loopnodes on it). Note that node1 remanins the same, as
             //we want to match the semantic patch
             if let Some(b) = bchildren.next() {
-                let (mut tin_tmp, matched_tmp) = self.loopnodes(node1, b);
-                if matched_tmp {
-                    matched = matched_tmp;
-                }
+                let mut tin_tmp = self.loopnodes(node1, b);
                 bindings.append(&mut tin_tmp);
             } else {
                 break;
             }
         }
 
-        (bindings, matched)
+        bindings
     }
 
     //this function decides if two nodes match, fail or have a chance of matching, without
@@ -294,7 +286,7 @@ impl<'a> Looper<'a> {
                 } else {
                     if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
                         //println!("Matched-----> {}, {}", node1.wrapper.metavar.getname(), node2.astnode.to_string());
-                        return MetavarMatch::Match;SWSW
+                        return MetavarMatch::Match;
                     }
                     MetavarMatch::Fail
                 }
@@ -306,13 +298,13 @@ impl<'a> Looper<'a> {
         &'a self,
         node1: &'a Snode,
         node2: &'a Rnode,
-    ) -> (Vec<Vec<((String, String), &Rnode)>>, bool) {
+    ) -> Vec<Vec<((String, String), &Rnode)>> {
         let topbindings = self.matchnodes(node1.children.iter().collect_vec(), vec![node2], vec![]);
-        let (mut bindings, matched) = self.loopnodes(node1, node2);
+        let mut bindings = self.loopnodes(node1, node2);
         if !topbindings.failed {{
             bindings.push(topbindings.binding);
         }}
-        (bindings, topbindings.failed || matched)
+        bindings
     }
 }
 
