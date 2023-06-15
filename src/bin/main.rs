@@ -8,6 +8,7 @@ use coccinelleforrust::{
     },
     parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
 };
+use itertools::enumerate;
 use std::{fs, ops::Deref};
 use syntax::{AstNode, SourceFile};
 
@@ -28,7 +29,7 @@ fn aux(node: &Snode) {
 fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // this is
     // Tout will have the generic types in itself
-    // ie ('a * 'b) tout //Ocaml syntax
+    // ie  ('a * 'b) tout //Ocaml syntax
     // Should I replace Snode and Rnode with generic types?
     // transformation.ml's tokenf
     // info_to_fixpos
@@ -44,16 +45,21 @@ fn main() {
 
     let mut rules = processcocci(&patchstring);
     let mut rnode = processrs(&rustcode);
-
     let looper = Looper::new(tokenf);
-    let g = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
+    let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
 
-    if true {
-        for binding in g {
+    if matched {
+        for (i, binding) in enumerate(g) {
             for var in binding {
                 println!("{:?} => {:?}", var.0 .1, var.1.astnode.to_string());
             }
             println!();
+
+        println!("Match {} found", i);
         }
     }
+    else {
+        println!("No match Found");
+    }
+    
 }
