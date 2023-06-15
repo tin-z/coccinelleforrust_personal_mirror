@@ -143,6 +143,12 @@ impl<'a> Snode {
 #[derive(Clone, PartialEq)]
 pub struct Dummy {}
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum MODKIND {
+    PLUS,
+    MINUS
+}
+
 #[derive(Clone, PartialEq)]
 pub struct TokenInfo {
     tline_start: usize,
@@ -203,7 +209,7 @@ pub enum Befaft {
 
 #[derive(PartialEq, Clone)]
 pub enum Mcodekind {
-    MINUS(Replacement),
+    MINUS(Replacement<(Vec<(Pos, usize)>, Adjacency, Anything)>),
     PLUS(Count),
     CONTEXT(Befaft),
     MIXED(Befaft),
@@ -351,7 +357,7 @@ pub struct Wrap {
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
     pub isdisj: bool,
-    pub modkind: Option<String>
+    pub modkind: Option<MODKIND>
 }
 
 impl Wrap {
@@ -406,6 +412,21 @@ impl Wrap {
             self.info.pos_info.logical_end,
         )
     }
+
+    pub fn setmodkind(&mut self, modkind: String) {
+        match modkind.as_str() {
+            "+" => {
+                self.modkind = Some(MODKIND::PLUS)
+            }
+            "-" => {
+                self.modkind = Some(MODKIND::MINUS)
+            }
+            _ => {
+                self.modkind = None
+            }
+        }
+    }
+
 }
 
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
@@ -484,7 +505,7 @@ pub fn wrap_root(contents: &str) -> Snode {
     let root = SourceFile::parse(contents).syntax_node();
     let wrap_node = &|lindex: &LineIndex, node: SyntaxElement, modkind: Option<String>, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
         let mut wrapped = fill_wrap(&lindex, &node);
-        wrapped.modkind = modkind;
+        wrapped.setmodkind(modkind.unwrap_or(String::new()));
         let children = df(&node);
         let mut snode = Snode {
             wrapper: wrapped,
@@ -501,9 +522,4 @@ pub fn wrap_root(contents: &str) -> Snode {
         snode
     };
     work_node(&lindex, wrap_node, SyntaxElement::Node(root), None)
-}
-
-pub enum Fixpos {
-    Real(usize),
-    Virt(usize, usize),
 }

@@ -50,6 +50,8 @@ pub struct MetavarBindings<'a> {
     failed: bool,
     pub binding: Vec<Environment<'a>>,
     pub binding0: Vec<MetavarBinding<'a>>,
+    pub minuses: Vec<&'a Rnode>,
+    pub pluses: Vec<&'a Rnode>//not the actual def of pluses TODO
 }
 
 enum MetavarMatch<'a, 'b> {
