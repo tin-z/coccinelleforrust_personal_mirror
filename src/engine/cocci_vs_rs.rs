@@ -27,7 +27,10 @@ pub struct MetavarBindings<'a> {
 }
 
 impl<'a> MetavarBindings<'a> {
-    pub fn splitbindings(&mut self, tbinding: Vec<MetavarBinding<'a>>, tin: Self) {
+    pub fn splitbindings(&mut self, tbinding: &Vec<MetavarBinding<'a>>, tin: Self) {
+        if tin.binding.len() == 0 {
+            return;
+        }
         for binding in tin.binding.into_iter() {
             let mut tmp = tbinding.clone();
             tmp.extend(binding);
@@ -41,7 +44,7 @@ impl<'a> MetavarBindings<'a> {
     }
 
     pub fn new() -> MetavarBindings<'a> {
-        MetavarBindings { failed: false, binding: vec![vec![]], binding0: vec![] }
+        MetavarBindings { failed: false, binding: vec![], binding0: vec![] }
     }
 }
 
@@ -99,11 +102,7 @@ impl<'a> Looper<'a> {
         node2vec: Vec<&'a Rnode>,
         bindings: Vec<&((String, String), &Rnode)>,
     ) -> MetavarBindings<'a> {
-        let mut tin: MetavarBindings = MetavarBindings {
-            failed: false,
-            binding: vec![vec![]],
-            binding0: vec![],
-        };
+        let mut tin: MetavarBindings = MetavarBindings::new();
 
         let mut achildren = node1vec.into_iter();
         let mut bchildren = node2vec.into_iter();
@@ -121,14 +120,19 @@ impl<'a> Looper<'a> {
                 None => {
                     //if it has reached the end of the semantic patch and still not failed
                     //we return the bindings and consider it a success
+                    //println!("return binding = {:?}", tin.binding);
                     return tin;
                 }
             }
 
             if a.wrapper.isdisj {
                 //if it enters disjunctions its not getting out except by returning
-                for tbinding in tin.binding.clone().into_iter() {
-                    tin = MetavarBindings::new();
+                let tintmpbindings = 
+                    if tin.binding.len() != 0 { tin.binding.into_iter().collect_vec() } else { vec![vec![]] };
+                let tbindings = tintmpbindings;
+                tin = MetavarBindings::new();
+                let mut failed: bool = true;
+                for tbinding in tbindings {
                     for (i, disj) in enumerate(a.getdisjs()) {
                         let tin_tmp = self.matchnodes(
                             disj.children.iter().chain(achildren.clone()).collect_vec(),
@@ -136,12 +140,19 @@ impl<'a> Looper<'a> {
                             combinebindings(&bindings, &tbinding),
                         );
                         if !tin_tmp.failed {
-                            tin.splitbindings(tbinding, tin_tmp);
-                            return tin;
+                            tin.splitbindings(&tbinding, tin_tmp);
+                            println!("here");
+                            failed = false;
                         }
                     }
-                    //if it reached here it means that no disjunctions have matched
+                }
+
+                //if it reached here it means that no disjunctions have matched
+                if failed {
                     fail!();
+                }
+                else {
+                    return tin;
                 }
             }
 
@@ -173,7 +184,8 @@ impl<'a> Looper<'a> {
                     fail!()
                 }
             } else {
-                let tintmpbindings = tin.binding.clone().into_iter().collect_vec();
+                let tintmpbindings = 
+                    if tin.binding.len() != 0 { tin.binding.into_iter().collect_vec() } else { vec![vec![]] };
                 tin = MetavarBindings::new();
                 //tin.bindings is cleared above
                 for tbinding in tintmpbindings {
@@ -181,27 +193,27 @@ impl<'a> Looper<'a> {
                         //chaining because I need both the previous bindings and the currently matches ones
                         MetavarMatch::Fail => fail!(),
                         MetavarMatch::Maybe(a, b) => {
-                            println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
+                            //println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             let tin_tmp = self.matchnodes(
                                 a.children.iter().collect_vec(),
                                 b.children.iter().collect_vec(),
                                 combinebindings(&bindings, &tbinding),
                             );
-                            println!("=={}", tin_tmp.binding.len());
+                            //println!("=={}", tin_tmp.binding.len());
                             if !tin_tmp.failed {
-                                tin.splitbindings(tbinding, tin_tmp);
+                                tin.splitbindings(&tbinding, tin_tmp);
                                 //println!("matched big node");
                             } else {
                                 fail!();
                             }
                         }
                         MetavarMatch::Match => {
-                            println!("matched little");
+                            //println!("matched little");
                             let minfo = a.wrapper.metavar.getminfo();
                             let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                             tin.addbinding(tbinding, binding);
                         }
-                        MetavarMatch::Exists => {}
+                        MetavarMatch::Exists => { tin.binding.push(tbinding); }
                     }
                 }
             }
