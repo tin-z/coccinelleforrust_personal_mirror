@@ -12,7 +12,7 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
-pub type MetavarBinding<'a> = ((String, String), &'a Rnode); //String, String are (rulename, metavarname)
+pub type MetavarBinding<'a> = ((String, String), &'a Rnode, bool); //String, String are (rulename, metavarname)
 
 pub struct Tout<'a> {
     failed: bool,
@@ -100,7 +100,7 @@ impl<'a> Looper<'a> {
         &'a self,
         node1vec: Vec<&'a Snode>,
         node2vec: Vec<&'a Rnode>,
-        bindings: Vec<&((String, String), &Rnode)>,
+        bindings: Vec<&MetavarBinding>,
     ) -> MetavarBindings<'a> {
         let mut tin: MetavarBindings = MetavarBindings::new();
 
@@ -140,8 +140,11 @@ impl<'a> Looper<'a> {
                             combinebindings(&bindings, &tbinding),
                         );
                         if !tin_tmp.failed {
+                            for dbinding in tin.binding.iter() {
+                                //goes through all the bindings previously aquired from disjunctions
+
+                            }
                             tin.splitbindings(&tbinding, tin_tmp);
-                            println!("here");
                             failed = false;
                         }
                     }
@@ -210,7 +213,7 @@ impl<'a> Looper<'a> {
                         MetavarMatch::Match => {
                             //println!("matched little");
                             let minfo = a.wrapper.metavar.getminfo();
-                            let binding = ((minfo.0.clone(), minfo.1.clone()), b);
+                            let binding = ((minfo.0.clone(), minfo.1.clone()), b, true);
                             tin.addbinding(tbinding, binding);
                         }
                         MetavarMatch::Exists => { tin.binding.push(tbinding); }
@@ -231,7 +234,7 @@ impl<'a> Looper<'a> {
         //they are siblings
         let mut matched: bool = false;
 
-        let mut bindings: Vec<Vec<((String, String), &Rnode)>> = vec![];
+        let mut bindings: Vec<Vec<MetavarBinding>> = vec![];
 
         //let mut a: &Snode = node1;
         //let mut b: &Rnode = node2;
@@ -275,7 +278,7 @@ impl<'a> Looper<'a> {
         &self,
         node1: &'a Snode,
         node2: &'a Rnode,
-        bindings: Vec<&((String, String), &Rnode)>,
+        bindings: Vec<&MetavarBinding>,
     ) -> MetavarMatch<'a> {
         // Metavar checking will be done inside the match
         // block below
