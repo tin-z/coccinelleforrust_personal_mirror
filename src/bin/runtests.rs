@@ -44,7 +44,7 @@ fn main() {
         let g = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
 
         let mut output: String = String::new();
-        for binding in g {
+        for binding in g.0 {
             for var in binding {
                 output.push_str(
                     format!("{:?} => {:?}\n", var.0 .1, var.1.astnode.to_string()).as_str(),
