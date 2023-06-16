@@ -191,13 +191,9 @@ impl<'a> Looper<'a> {
                                     .collect_vec();
                                 //above are the bindings for the ith  disjunction which have been inverted
                                 for db in invertedbindings {
-                                    let dmatched = self.loopnodes(pdisj, &bchildren.clone().collect_vec());
-                                    let dmatched = self.matchnodes(
-                                        pdisj.children.iter().chain(achildren.clone()).collect_vec(),
-                                        bchildren.clone().collect_vec(),
-                                        combinebindings(&bindings, &db),
-                                    );
-                                    if dmatched.failed {
+                                    let dmatched = self.loopnodes(pdisj, &bchildren.clone().collect_vec(), combinebindings(&bindings, &db));
+                                    
+                                    if !dmatched.1 {
                                         prevdsfalse = false;
                                         break;
                                     }
@@ -300,7 +296,7 @@ impl<'a> Looper<'a> {
         &'a self,
         node1: &'a Snode,
         node2: &Vec<&'a Rnode>,
-        
+        gbindings: Vec<&MetavarBinding>
     ) -> (Vec<Vec<MetavarBinding>>, bool) {
         //this part of the code is for trying to match within a block
         //sometimes the pattern exists a couple children into the tree
@@ -333,7 +329,7 @@ impl<'a> Looper<'a> {
             //children for matching(by calling loopnodes on it). Note that node1 remanins the same, as
             //we want to match the semantic patch
             if let Some(b) = bchildren.next() {
-                let (tin_tmp, matched_tmp) = self.loopnodes(node1, &b.children.iter().collect_vec());
+                let (tin_tmp, matched_tmp) = self.loopnodes(node1, &b.children.iter().collect_vec(), gbindings.clone());
                 if matched_tmp {
                     matched = matched_tmp;
                 }
@@ -423,7 +419,7 @@ impl<'a> Looper<'a> {
         node2: &'a Rnode
     ) -> (Vec<Vec<MetavarBinding>>, bool) {
         let topbindings = self.matchnodes(node1.children.iter().collect_vec(), vec![node2], vec![]);
-        let (mut bindings, matched) = self.loopnodes(node1, &node2.children.iter().collect_vec());
+        let (mut bindings, matched) = self.loopnodes(node1, &node2.children.iter().collect_vec(), vec![]);
         if !topbindings.failed {
             {
                 bindings.extend(topbindings.binding);
