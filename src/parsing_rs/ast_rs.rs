@@ -2,11 +2,13 @@ use std::fmt::Debug;
 
 use itertools::izip;
 use parser::SyntaxKind;
-use syntax::SyntaxElement;
+use syntax::{SyntaxElement, NodeOrToken, SyntaxNode, SourceFile};
 use SyntaxKind::*;
 
 use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
+
+use super::parse_rs::fill_wrap;
 type VirtualPosition = (info::ParseInfo, usize);
 
 #[derive(Clone)]
@@ -47,6 +49,15 @@ impl Wrap {
             danger: danger,
         }
     }
+
+    pub fn dummy() -> Wrap {
+        Wrap {
+            info: ParseInfo::OriginTok(info::ParseInfo::getempty()),
+            index: 0,
+            cocci_tag: None,
+            danger: Danger::NoDanger,
+        }
+    }
 }
 
 pub struct Rnode {
@@ -57,6 +68,12 @@ pub struct Rnode {
 }
 
 impl Rnode {
+
+    pub fn headlesschildren(nodes: Vec<Rnode>) -> Rnode{
+        let dummyhead = SourceFile::parse("").syntax_node();
+        Rnode { wrapper: Wrap::dummy(), astnode: NodeOrToken::Node(dummyhead), children: nodes }
+    }
+
     pub fn kind(&self) -> SyntaxKind {
         self.astnode.kind()
     }

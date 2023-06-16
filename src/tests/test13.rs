@@ -1,3 +1,3 @@
 fn main() {
-  let g = &a + 9;
+  &a + 9
 }

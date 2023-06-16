@@ -48,4 +48,8 @@ impl ParseInfo {
             file: file
         }
     }
+
+    pub fn getempty() -> ParseInfo{
+        ParseInfo { str: String::new(), charpos: 0, line: 0, column: 0, file: String::new() }
+    }
 }
