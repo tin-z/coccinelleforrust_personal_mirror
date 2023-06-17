@@ -27,7 +27,7 @@ pub struct MetavarBindings<'a> {
 }
 
 impl<'a> MetavarBindings<'a> {
-    pub fn invert(binding: &'a Vec<MetavarBinding>) -> Vec<MetavarBinding<'a>> {
+    pub fn invert(binding: &Vec<MetavarBinding<'a>>) -> Vec<MetavarBinding<'a>> {
         let mut newb = vec![];
         for b in binding {
             let mut tmp = b.clone();
@@ -114,13 +114,13 @@ fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode {
 }
 
 fn combinebindings<'a>(
-    bindings1: &'a Vec<&'a MetavarBinding<'a>>,
-    bindings2: &'a Vec<MetavarBinding<'a>>,
-) -> Vec<&'a MetavarBinding<'a>> {
+    bindings1: &Vec<MetavarBinding<'a>>,
+    bindings2: &Vec<MetavarBinding<'a>>,
+) -> Vec<MetavarBinding<'a>> {
     bindings1
         .clone()
         .into_iter()
-        .chain(bindings2.iter())
+        .chain(bindings2.into_iter().cloned())
         .collect_vec() //passed bindings are chained with the bindings collected
                        //in this match
 }
@@ -135,7 +135,7 @@ impl<'a> Looper<'a> {
         &'a self,
         node1vec: Vec<&'a Snode>,
         node2vec: Vec<&'a Rnode>,
-        bindings: Vec<&MetavarBinding>,
+        bindings: Vec<MetavarBinding<'a>>,
     ) -> MetavarBindings<'a> {
         let mut tin: MetavarBindings = MetavarBindings::new();
 
@@ -163,21 +163,23 @@ impl<'a> Looper<'a> {
             if a.wrapper.isdisj {
                 //if it enters disjunctions its not getting out except by returning
                 let tintmpbindings = if tin.binding.len() != 0 {
-                    tin.binding.into_iter().collect_vec()
-                } else {
+                    tin.binding.into_iter().collect_vec()//if no metarvariables have been bound yet
+                } else {//then just append empty vector
                     vec![vec![]]
                 };
-                let mut disjbindingstmp: Vec<Vec<Vec<MetavarBinding>>> = vec![];
+                let mut disjbindingstmp: Vec<Vec<Vec<MetavarBinding<'a>>>> = vec![];
                 let tbindings = tintmpbindings;
-                tin = MetavarBindings::new();
+                tin = MetavarBindings::new();// I already drained tin into tintmpbindings then to tbindings
                 let mut failed: bool = true;
                 let disjs = a.getdisjs();
                 for tbinding in tbindings {
                     for (i, disj) in enumerate(disjs.clone()) {
+                        println!("disj -> {:?}", disj);
+                        let combbindings = combinebindings(&bindings, &tbinding);
                         let tin_tmp = self.matchnodes(
                             disj.children.iter().chain(achildren.clone()).collect_vec(),
                             bchildren.clone().collect_vec(),
-                            combinebindings(&bindings, &tbinding),
+                            combbindings,
                         );
                         if !tin_tmp.failed {
                             let mut prevdsfalse = true;
@@ -191,15 +193,20 @@ impl<'a> Looper<'a> {
                                     .collect_vec();
                                 //above are the bindings for the ith  disjunction which have been inverted
                                 for db in invertedbindings {
-                                    let dmatched = self.loopnodes(pdisj, &bchildren.clone().collect_vec(), combinebindings(&bindings, &db));
-                                    
+                                    println!("Inverted bindings :- {:?}", db);
+                                    let dmatched = self.loopnodes(
+                                        pdisj,
+                                        &bchildren.clone().collect_vec(),
+                                        combinebindings(&bindings, &db),
+                                    );
+                                    println!("Ans - {:?}", dmatched);
+
                                     if !dmatched.1 {
                                         prevdsfalse = false;
                                         break;
                                     }
                                 }
                             }
-
 
                             let currdisjbindings =
                                 MetavarBindings::getsplitbindings(&tbinding, tin_tmp);
@@ -208,8 +215,7 @@ impl<'a> Looper<'a> {
                                 tin.binding.extend(currdisjbindings);
                             }
                             failed = false;
-                        }
-                        else {
+                        } else {
                             disjbindingstmp.push(vec![]);
                         }
                     }
@@ -270,6 +276,8 @@ impl<'a> Looper<'a> {
                                 combinebindings(&bindings, &tbinding),
                             );
                             //println!("=={}", tin_tmp.binding.len());
+                            println!("================= {:?} {:?}", bindings, tbinding);
+                            println!("{:?}",combinebindings(&bindings, &tbinding)  );
                             if !tin_tmp.failed {
                                 tin.splitbindings(&tbinding, tin_tmp);
                                 //println!("matched big node");
@@ -278,12 +286,14 @@ impl<'a> Looper<'a> {
                             }
                         }
                         MetavarMatch::Match => {
+                            println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             //println!("matched little");
                             let minfo = a.wrapper.metavar.getminfo();
                             let binding = ((minfo.0.clone(), minfo.1.clone()), b, false);
                             tin.addbinding(tbinding, binding);
                         }
                         MetavarMatch::Exists => {
+                            println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             tin.binding.push(tbinding);
                         }
                     }
@@ -296,8 +306,8 @@ impl<'a> Looper<'a> {
         &'a self,
         node1: &'a Snode,
         node2: &Vec<&'a Rnode>,
-        gbindings: Vec<&MetavarBinding>
-    ) -> (Vec<Vec<MetavarBinding>>, bool) {
+        gbindings: Vec<MetavarBinding<'a>>,
+    ) -> (Vec<Vec<MetavarBinding<'a>>>, bool) {
         //this part of the code is for trying to match within a block
         //sometimes the pattern exists a couple children into the tree
         //The only assumption here is that if two statements are in the same block
@@ -316,7 +326,7 @@ impl<'a> Looper<'a> {
             let tin = self.matchnodes(
                 achildren.clone().collect_vec(),
                 bchildren.clone().cloned().collect_vec(),
-                vec![],
+                gbindings.clone()
             );
             //println!("SS- {:?}", tin.failed);
             if !tin.failed {
@@ -329,7 +339,8 @@ impl<'a> Looper<'a> {
             //children for matching(by calling loopnodes on it). Note that node1 remanins the same, as
             //we want to match the semantic patch
             if let Some(b) = bchildren.next() {
-                let (tin_tmp, matched_tmp) = self.loopnodes(node1, &b.children.iter().collect_vec(), gbindings.clone());
+                let (tin_tmp, matched_tmp) =
+                    self.loopnodes(node1, &b.children.iter().collect_vec(), gbindings.clone());
                 if matched_tmp {
                     matched = matched_tmp;
                 }
@@ -348,7 +359,7 @@ impl<'a> Looper<'a> {
         &self,
         node1: &'a Snode,
         node2: &'a Rnode,
-        bindings: Vec<&MetavarBinding>,
+        bindings: Vec<MetavarBinding>,
     ) -> MetavarMatch<'a> {
         // Metavar checking will be done inside the match
         // block below
@@ -416,10 +427,11 @@ impl<'a> Looper<'a> {
     pub fn getbindings(
         &'a self,
         node1: &'a Snode,
-        node2: &'a Rnode
+        node2: &'a Rnode,
     ) -> (Vec<Vec<MetavarBinding>>, bool) {
         let topbindings = self.matchnodes(node1.children.iter().collect_vec(), vec![node2], vec![]);
-        let (mut bindings, matched) = self.loopnodes(node1, &node2.children.iter().collect_vec(), vec![]);
+        let (mut bindings, matched) =
+            self.loopnodes(node1, &node2.children.iter().collect_vec(), vec![]);
         if !topbindings.failed {
             {
                 bindings.extend(topbindings.binding);
