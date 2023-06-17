@@ -174,23 +174,26 @@ impl<'a> Looper<'a> {
                 let disjs = a.getdisjs();
                 for tbinding in tbindings {
                     for (i, disj) in enumerate(disjs.clone()) {
-                        println!("disj -> {:?}", disj);
+                        //println!("disj -> {:?}", disj);
                         let combbindings = combinebindings(&bindings, &tbinding);
                         let tin_tmp = self.matchnodes(
                             disj.children.iter().chain(achildren.clone()).collect_vec(),
                             bchildren.clone().collect_vec(),
                             combbindings,
                         );
+                        println!("glue");
                         if !tin_tmp.failed {
                             let mut prevdsfalse = true;
+                            println!("anchor");
                             //code for checking all disjunctions before this must be false
                             for j in 0..i {
                                 let pdisj = disjs[j];
-                                println!("{}", i);
-                                let invertedbindings = disjbindingstmp[j]
+                                println!("{}", j);
+                                let mut noprevbinding: bool = false;
+                                let invertedbindings: Vec<Vec<MetavarBinding<'a>>> = if disjbindingstmp[j].len()==0 { disjbindingstmp[j]
                                     .iter()
                                     .map(|x| MetavarBindings::invert(x))
-                                    .collect_vec();
+                                    .collect_vec()}  else { noprevbinding = true; vec![vec![]] };
                                 //above are the bindings for the ith  disjunction which have been inverted
                                 for db in invertedbindings {
                                     println!("Inverted bindings :- {:?}", db);
@@ -200,15 +203,19 @@ impl<'a> Looper<'a> {
                                         combinebindings(&bindings, &db),
                                     );
                                     println!("Ans - {:?}", dmatched);
-
+                                    if noprevbinding && dmatched.1 {//if something matched
+                                        //but hasnt been bound yet, it means we must abort
+                                        //because there are higher priority terms inside this node
+                                        fail!();
+                                    }
                                     if !dmatched.1 {
+                                        //either the formulae failed or it found matches which havent been
+                                        //bound yet
                                         prevdsfalse = false;
                                         break;
                                     }
-                                    else {
-                                        
-                                    }
                                 }
+                                
                             }
 
                             let currdisjbindings =
@@ -219,6 +226,7 @@ impl<'a> Looper<'a> {
                             }
                             failed = false;
                         } else {
+                            println!("{} disj failed", i);
                             disjbindingstmp.push(vec![]);
                         }
                     }
@@ -235,6 +243,8 @@ impl<'a> Looper<'a> {
             match bchildren.next() {
                 Some(bk) => {
                     b = bk;
+
+                    println!("NEW - {} \n", b.astnode.to_string());
                 }
                 None => {
                     //this means semantic patch remains to be matched
