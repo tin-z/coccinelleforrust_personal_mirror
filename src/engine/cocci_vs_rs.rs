@@ -168,66 +168,69 @@ impl<'a> Looper<'a> {
                     vec![vec![]]
                 };
                 let mut disjbindingstmp: Vec<Vec<Vec<MetavarBinding<'a>>>> = vec![];
+                //will contain vector of environments for each disjunction encountered
+                //and only that not the ones aquired prior(which are stored in timtmpbindings)
                 let tbindings = tintmpbindings;
                 tin = MetavarBindings::new();// I already drained tin into tintmpbindings then to tbindings
-                let mut failed: bool = true;
+                let mut failed: bool = true;// this is the flag to see if all the disjunction branches have failed
+                //that is there is no match
                 let disjs = a.getdisjs();
                 for tbinding in tbindings {
+                    //for each environment, tbinding refers to the current
+                    //environment
                     for (i, disj) in enumerate(disjs.clone()) {
                         //println!("disj -> {:?}", disj);
                         let combbindings = combinebindings(&bindings, &tbinding);
+                        //&bindings are the bindings passed to this matchnodes call
                         let tin_tmp = self.matchnodes(
                             disj.children.iter().chain(achildren.clone()).collect_vec(),
                             bchildren.clone().collect_vec(),
                             combbindings,
                         );
-                        println!("glue");
                         if !tin_tmp.failed {
+                            //if the current disjunction matched
                             let mut prevdsfalse = true;
                             println!("anchor");
                             //code for checking all disjunctions before this must be false
+                            'outer:
                             for j in 0..i {
                                 let pdisj = disjs[j];
-                                println!("{}", j);
-                                let mut noprevbinding: bool = false;
-                                let invertedbindings: Vec<Vec<MetavarBinding<'a>>> = if disjbindingstmp[j].len()==0 { disjbindingstmp[j]
+                                let invertedbindings: Vec<Vec<MetavarBinding<'a>>> =disjbindingstmp[j]
                                     .iter()
                                     .map(|x| MetavarBindings::invert(x))
-                                    .collect_vec()}  else { noprevbinding = true; vec![vec![]] };
+                                    .collect_vec();
+
                                 //above are the bindings for the ith  disjunction which have been inverted
                                 for db in invertedbindings {
                                     println!("Inverted bindings :- {:?}", db);
                                     let dmatched = self.loopnodes(
-                                        pdisj,
+                                        &pdisj.children.iter().chain(achildren.clone()).collect_vec(),
                                         &bchildren.clone().collect_vec(),
                                         combinebindings(&bindings, &db),
                                     );
                                     println!("Ans - {:?}", dmatched);
-                                    if noprevbinding && dmatched.1 {//if something matched
-                                        //but hasnt been bound yet, it means we must abort
-                                        //because there are higher priority terms inside this node
-                                        fail!();
-                                    }
-                                    if !dmatched.1 {
-                                        //either the formulae failed or it found matches which havent been
-                                        //bound yet
+                                    if dmatched.1 ^ (db.len()!=0) {
+                                        //logic:-
+                                        //if there are no bindings and prev disj matches then fail
+                                        //if there are no bindings and prev disj fails then pass
+                                        //if there are bindings which have been inverted and disj with those bindings pass then pass
+                                        //if there are bindings which have been inverted and disj with those bindings fail then fail
                                         prevdsfalse = false;
-                                        break;
+                                        break 'outer;
                                     }
                                 }
                                 
                             }
-
+                            disjbindingstmp.push(tin_tmp.binding.clone());
                             let currdisjbindings =
                                 MetavarBindings::getsplitbindings(&tbinding, tin_tmp);
-                            disjbindingstmp.push(currdisjbindings.clone());
                             if prevdsfalse {
                                 tin.binding.extend(currdisjbindings);
                             }
                             failed = false;
                         } else {
-                            println!("{} disj failed", i);
-                            disjbindingstmp.push(vec![]);
+                            //println!("{} disj failed", i);
+                            disjbindingstmp.push(vec![vec![]]);
                         }
                     }
                 }
@@ -244,7 +247,7 @@ impl<'a> Looper<'a> {
                 Some(bk) => {
                     b = bk;
 
-                    println!("NEW - {} \n", b.astnode.to_string());
+                    //println!("NEW - {} \n", b.astnode.to_string());
                 }
                 None => {
                     //this means semantic patch remains to be matched
@@ -289,8 +292,8 @@ impl<'a> Looper<'a> {
                                 combinebindings(&bindings, &tbinding),
                             );
                             //println!("=={}", tin_tmp.binding.len());
-                            println!("================= {:?} {:?}", bindings, tbinding);
-                            println!("{:?}",combinebindings(&bindings, &tbinding)  );
+                            //println!("================= {:?} {:?}", bindings, tbinding);
+                            //println!("{:?}",combinebindings(&bindings, &tbinding)  );
                             if !tin_tmp.failed {
                                 tin.splitbindings(&tbinding, tin_tmp);
                                 //println!("matched big node");
@@ -317,7 +320,7 @@ impl<'a> Looper<'a> {
 
     pub fn loopnodes(
         &'a self,
-        node1: &'a Snode,
+        node1: &Vec<&'a Snode>,
         node2: &Vec<&'a Rnode>,
         gbindings: Vec<MetavarBinding<'a>>,
     ) -> (Vec<Vec<MetavarBinding<'a>>>, bool) {
@@ -332,12 +335,12 @@ impl<'a> Looper<'a> {
         //let mut a: &Snode = node1;
         //let mut b: &Rnode = node2;
         //let mut tin = Tout { failed: false, binding: vec![], binding0: vec![] };
-        let achildren = node1.children.iter();
+        let mut achildren = node1.iter();
         let mut bchildren = node2.iter();
 
         loop {
             let tin = self.matchnodes(
-                achildren.clone().collect_vec(),
+                achildren.clone().cloned().collect_vec(),
                 bchildren.clone().cloned().collect_vec(),
                 gbindings.clone()
             );
@@ -444,7 +447,7 @@ impl<'a> Looper<'a> {
     ) -> (Vec<Vec<MetavarBinding>>, bool) {
         let topbindings = self.matchnodes(node1.children.iter().collect_vec(), vec![node2], vec![]);
         let (mut bindings, matched) =
-            self.loopnodes(node1, &node2.children.iter().collect_vec(), vec![]);
+            self.loopnodes(&node1.children.iter().collect_vec(), &node2.children.iter().collect_vec(), vec![]);
         if !topbindings.failed {
             {
                 bindings.extend(topbindings.binding);
