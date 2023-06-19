@@ -12,7 +12,7 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
-pub type MetavarBinding<'a> = ((String, String), &'a Rnode, bool); //(rulename, metavarname), bound Rnode, shouldinvert
+pub type MetavarBinding<'a> = ((String, String), &'a Rnode); //(rulename, metavarname), bound Rnode
 
 pub struct Tout<'a> {
     failed: bool,
@@ -27,16 +27,6 @@ pub struct MetavarBindings<'a> {
 }
 
 impl<'a> MetavarBindings<'a> {
-    pub fn invert(binding: &Vec<MetavarBinding<'a>>) -> Vec<MetavarBinding<'a>> {
-        let mut newb = vec![];
-        for b in binding {
-            let mut tmp = b.clone();
-            tmp.2 = !tmp.2;
-            newb.push(tmp);
-        }
-
-        return newb;
-    }
 
     pub fn splitbindings(&mut self, tbinding: &Vec<MetavarBinding<'a>>, tin: Self) {
         if tin.binding.len() == 0 {
@@ -125,6 +115,26 @@ fn combinebindings<'a>(
                        //in this match
 }
 
+fn envmatched<'a>(evec1: &Vec<Vec<MetavarBinding<'a>>>, evec2: &Vec<Vec<MetavarBinding<'a>>>) -> bool{
+    for e2 in evec2 {
+        for e1 in evec1 {
+            let mut matched = true;
+            for ((_, mvarname1), rnode1) in e2 {
+                for ((_, mvarname2), rnode2) in e1 {
+                    if mvarname1==mvarname2 && !(rnode1.equals(rnode2)) {
+                        matched = false;
+                    }
+                }
+            }
+            if matched {
+                return false
+            }
+        }
+    }
+
+    true
+}
+
 impl<'a> Looper<'a> {
     pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
         Looper { tokenf: tokenf }
@@ -192,32 +202,18 @@ impl<'a> Looper<'a> {
                             let mut prevdsfalse = true;
                             println!("anchor");
                             //code for checking all disjunctions before this must be false
-                            'outer:
+                            'outer: 
                             for j in 0..i {
                                 let pdisj = disjs[j];
-                                let invertedbindings: Vec<Vec<MetavarBinding<'a>>> =disjbindingstmp[j]
-                                    .iter()
-                                    .map(|x| MetavarBindings::invert(x))
-                                    .collect_vec();
 
-                                //above are the bindings for the ith  disjunction which have been inverted
-                                for db in invertedbindings {
-                                    println!("Inverted bindings :- {:?}", db);
-                                    let dmatched = self.loopnodes(
-                                        &pdisj.children.iter().chain(achildren.clone()).collect_vec(),
-                                        &bchildren.clone().collect_vec(),
-                                        combinebindings(&bindings, &db),
-                                    );
-                                    println!("Ans - {:?}", dmatched);
-                                    if dmatched.1 ^ (db.len()!=0) {
-                                        //logic:-
-                                        //if there are no bindings and prev disj matches then fail
-                                        //if there are no bindings and prev disj fails then pass
-                                        //if there are bindings which have been inverted and disj with those bindings pass then pass
-                                        //if there are bindings which have been inverted and disj with those bindings fail then fail
-                                        prevdsfalse = false;
-                                        break 'outer;
-                                    }
+                                let dmatched = self.loopnodes(
+                                    &pdisj.children.iter().chain(achildren.clone()).collect_vec(),
+                                    &bchildren.clone().collect_vec(),
+                                    bindings.clone(),
+                                );
+                                if dmatched.1 && !envmatched(&dmatched.0, &disjbindingstmp[j]) {
+                                    prevdsfalse = false;
+                                    break 'outer;
                                 }
                                 
                             }
@@ -305,7 +301,7 @@ impl<'a> Looper<'a> {
                             println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             //println!("matched little");
                             let minfo = a.wrapper.metavar.getminfo();
-                            let binding = ((minfo.0.clone(), minfo.1.clone()), b, false);
+                            let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                             tin.addbinding(tbinding, binding);
                         }
                         MetavarMatch::Exists => {
@@ -400,9 +396,9 @@ impl<'a> Looper<'a> {
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
                 if let Some(binding) = bindings
                     .iter()
-                    .find(|(a, _, _)| a.1 == node1.wrapper.metavar.getname())
+                    .find(|(a, _)| a.1 == node1.wrapper.metavar.getname())
                 {
-                    if binding.1.equals(node2) ^ binding.2 {
+                    if binding.1.equals(node2) {
                         //binding equals XOR POSITIVE/NEGATIVE binding
                         //println!("EQUALLLITTYYY - {}", binding.1.astnode.to_string());
                         MetavarMatch::Exists
@@ -421,9 +417,9 @@ impl<'a> Looper<'a> {
                 //TODO SUPPORT IDENTIFIER PATTERNS
                 if let Some(binding) = bindings
                     .iter()
-                    .find(|(a, _, _)| a.1 == node1.wrapper.metavar.getname())
+                    .find(|(a, _)| a.1 == node1.wrapper.metavar.getname())
                 {
-                    if binding.1.equals(node2) ^ binding.2 {
+                    if binding.1.equals(node2) {
                         //println!("EQUALLLITTYYY - {}", binding.1.astnode.to_string());
                         MetavarMatch::Exists
                     } else {
