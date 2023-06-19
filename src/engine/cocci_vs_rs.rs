@@ -14,12 +14,6 @@ use crate::{
 
 pub type MetavarBinding<'a> = ((String, String), &'a Rnode); //(rulename, metavarname), bound Rnode
 
-pub struct Tout<'a> {
-    failed: bool,
-    pub binding: Vec<MetavarBinding<'a>>,
-    pub binding0: Vec<MetavarBinding<'a>>,
-}
-
 pub struct MetavarBindings<'a> {
     failed: bool,
     pub binding: Vec<Vec<MetavarBinding<'a>>>,
@@ -200,7 +194,6 @@ impl<'a> Looper<'a> {
                         if !tin_tmp.failed {
                             //if the current disjunction matched
                             let mut prevdsfalse = true;
-                            println!("anchor");
                             //code for checking all disjunctions before this must be false
                             'outer: 
                             for j in 0..i {
@@ -281,7 +274,7 @@ impl<'a> Looper<'a> {
                         //chaining because I need both the previous bindings and the currently matches ones
                         MetavarMatch::Fail => fail!(),
                         MetavarMatch::Maybe(a, b) => {
-                            println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
+                            //println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             let tin_tmp = self.matchnodes(
                                 a.children.iter().collect_vec(),
                                 b.children.iter().collect_vec(),
@@ -298,14 +291,14 @@ impl<'a> Looper<'a> {
                             }
                         }
                         MetavarMatch::Match => {
-                            println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
+                            //println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             //println!("matched little");
                             let minfo = a.wrapper.metavar.getminfo();
                             let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                             tin.addbinding(tbinding, binding);
                         }
                         MetavarMatch::Exists => {
-                            println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
+                            //println!("{} ==== {}", a.astnode.to_string(), b.astnode.to_string());
                             tin.binding.push(tbinding);
                         }
                     }

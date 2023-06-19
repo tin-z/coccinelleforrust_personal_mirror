@@ -1,6 +1,6 @@
 use coccinelleforrust::{
     commons::util::{getstmtlist, worktree},
-    engine::cocci_vs_rs::{Looper, MetavarBinding, Tout},
+    engine::cocci_vs_rs::{Looper, MetavarBinding},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
         ast0::{wrap_root, MetaVar, Snode},
