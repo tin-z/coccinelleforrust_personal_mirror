@@ -13,10 +13,12 @@ use crate::{
 };
 
 pub type MetavarBinding<'a> = ((String, String), &'a Rnode); //(rulename, metavarname), bound Rnode
+pub type Environment<'a> = Vec<MetavarBinding<'a>>;
+pub struct Envirosnment<'a>(Vec<MetavarBinding<'a>>, Vec<(usize, usize)>, Vec<(&'a Snode, &'a Rnode)>);
 
 pub struct MetavarBindings<'a> {
     failed: bool,
-    pub binding: Vec<Vec<MetavarBinding<'a>>>,
+    pub binding: Vec<Environment<'a>>,
     pub binding0: Vec<MetavarBinding<'a>>,
 }
 
@@ -141,7 +143,7 @@ impl<'a> Looper<'a> {
         &'a self,
         node1vec: Vec<&'a Snode>,
         node2vec: Vec<&'a Rnode>,
-        bindings: Vec<MetavarBinding<'a>>,
+        bindings: Environment<'a>,
     ) -> MetavarBindings<'a> {
         let mut tin: MetavarBindings = MetavarBindings::new();
 
@@ -174,7 +176,7 @@ impl<'a> Looper<'a> {
                     //then just append empty vector
                     vec![vec![]]
                 };
-                let mut disjbindingstmp: Vec<Vec<Vec<MetavarBinding<'a>>>> = vec![];
+                let mut disjbindingstmp: Vec<Vec<Environment<'a>>> = vec![];
                 //will contain vector of environments for each disjunction encountered
                 //and only that not the ones aquired prior(which are stored in timtmpbindings)
                 let tbindings = tintmpbindings;
@@ -320,7 +322,7 @@ impl<'a> Looper<'a> {
         //they are siblings
         let mut matched: bool = false;
 
-        let mut bindings: Vec<Vec<MetavarBinding>> = vec![];
+        let mut bindings: Vec<Environment> = vec![];
 
         //let mut a: &Snode = node1;
         //let mut b: &Rnode = node2;

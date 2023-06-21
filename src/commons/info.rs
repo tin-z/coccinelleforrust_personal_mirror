@@ -31,7 +31,8 @@ impl PositionInfo {
 #[derive(Clone)]
 pub struct ParseInfo {
     str: String,
-    pub charpos: usize,
+    pub charstart: usize,
+    pub charend: usize,
 
     line: usize,
     column: usize,
@@ -39,10 +40,11 @@ pub struct ParseInfo {
   }
 
 impl ParseInfo {
-    pub fn new(str: String, charpos: usize, line: usize, col: usize, file: String) -> ParseInfo {
+    pub fn new(str: String, charstart: usize, charend: usize, line: usize, col: usize, file: String) -> ParseInfo {
         ParseInfo {
             str: str,
-            charpos: charpos,
+            charstart: charstart,
+            charend: charend,
             line: line,
             column: col,
             file: file
@@ -50,6 +52,6 @@ impl ParseInfo {
     }
 
     pub fn getempty() -> ParseInfo{
-        ParseInfo { str: String::new(), charpos: 0, line: 0, column: 0, file: String::new() }
+        ParseInfo { str: String::new(), charstart: 0, charend: 0, line: 0, column: 0, file: String::new() }
     }
 }

@@ -14,6 +14,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let parse_info = ParseInfo::new(
         String::new(),
         usize::from(node.text_range().start()),
+        usize::from(node.text_range().end()),
 
         sindex.line as usize,
         sindex.col as usize,
