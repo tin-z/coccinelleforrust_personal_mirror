@@ -143,7 +143,7 @@ impl<'a> Snode {
 #[derive(Clone, PartialEq)]
 pub struct Dummy {}
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum MODKIND {
     PLUS,
     MINUS

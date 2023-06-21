@@ -114,7 +114,7 @@ impl<'a, 'b> Looper<'a> {
             if let Some(bk) = nodevec2.next() {
                 b = *bk;
             } else {
-                println!("fail");
+                //println!("fail");
                 fail!();
             }
 
@@ -124,18 +124,18 @@ impl<'a, 'b> Looper<'a> {
             let bisk = bkind.is_keyword();
             //println!("{:?} ===== {:?}", akind, bkind);
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
-                println!("fail");
+                //println!("fail");
                 fail!()
             }
             if aisk || bisk {
                 if !(aisk && bisk) {
-                    println!("fail");
+                    //println!("fail");
                     fail!()
                 }
             } else {
                 match self.workon(a, b, env.bindings.clone()) {
                     MetavarMatch::Fail => {
-                        println!("fail");
+                        //println!("fail");
                         fail!()
                     }
                     MetavarMatch::Maybe(a, b) => {
@@ -149,7 +149,7 @@ impl<'a, 'b> Looper<'a> {
                             env.add(renv);
                             //println!("{}", env.bindings.len());
                         } else {
-                            println!("fail");
+                            //println!("fail");
                             fail!()
                         }
                     }

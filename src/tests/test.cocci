@@ -22,5 +22,11 @@ let a = 10;
 if e1<e3 { 
     let h = e2;
 }
+<<<<<<< HEAD
 -let a = e3;
 >>>>>>> 5441bb7 (collected the minus lines)
+=======
+-f(
+x
+-);
+>>>>>>> e5d9949 (minus tagged properly)

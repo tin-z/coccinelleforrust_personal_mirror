@@ -11,8 +11,8 @@
 /// (+/-) code
 use std::{ops::Deref, vec};
 
-use super::ast0::{wrap_root, MetaVar, Snode};
-use crate::{syntaxerror, commons::util};
+use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
+use crate::{syntaxerror, commons::util::{self, worksnode}, parsing_rs::ast_rs::Rnode};
 use parser::SyntaxKind;
 
 type Tag = SyntaxKind;
@@ -94,13 +94,39 @@ impl Patch {
         Patch::setmetavars_aux(&mut self.plus, metavars);
         Patch::setmetavars_aux(&mut self.minus, metavars);
     }
+    
+    fn parsemods(&mut self) {
+        let mut f = |node: &mut Snode, (lino, modkind):(usize, Option<MODKIND>) | -> (usize, Option<MODKIND>) {
+            let (start, end) = node.wrapper.getlinenos();
 
-    fn parsemods_aux(node: &Snode) {
-            
-    } 
+            match node.wrapper.modkind {
+                Some(modkind) => {
+                    if start==end {
+                        node.wrapper.modkind = Some(modkind);
+                    }
+                    return (start, Some(modkind))
+                }
+                None => {
+                    if lino==0 {
+                        return (0, None)
+                    }
+                    else if start==lino && start==end{
+                        node.wrapper.modkind = modkind;
+                        return (lino, modkind)
+                        //everytime lino is not 0, modkind is
+                        //a Some value
+                    }
+                    else if start==lino && start!=end{
+                        //this node spills onto the next line
+                        return (lino, modkind);
+                    }
+                    return (0, None);
+                }
+            }
+        };
+        worksnode(&mut self.plus, (0, None), &mut f);
+        worksnode(&mut self.minus, (0, None), &mut f);
 
-    fn parsemods(&self) {
-        
     }
 }
 
@@ -225,6 +251,7 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
         minus: wrap_root(minusbuf.as_str()),
     };
     p.setmetavars(metavars);
+    p.parsemods();
     p
 }
 

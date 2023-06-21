@@ -1,4 +1,4 @@
-use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, commons::util::workrnode};
+use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
 
 use super::cocci_vs_rs::MetavarBindings;
 
@@ -11,5 +11,4 @@ pub fn transform<'a>(mut rnode: Rnode, bindings: MetavarBindings<'a>) {
             }
         }
     };
-    workrnode(&mut rnode, &mut f);
 }
