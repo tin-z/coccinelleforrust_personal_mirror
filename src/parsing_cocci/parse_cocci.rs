@@ -95,7 +95,7 @@ impl Patch {
         Patch::setmetavars_aux(&mut self.minus, metavars);
     }
     
-    fn parsemods(&mut self) {
+    fn setmods(&mut self) {
         let mut f = |node: &mut Snode, (lino, modkind):(usize, Option<MODKIND>) | -> (usize, Option<MODKIND>) {
             let (start, end) = node.wrapper.getlinenos();
 
@@ -251,7 +251,7 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
         minus: wrap_root(minusbuf.as_str()),
     };
     p.setmetavars(metavars);
-    p.parsemods();
+    p.setmods();
     p
 }
 
