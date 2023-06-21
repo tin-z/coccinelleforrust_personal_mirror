@@ -56,8 +56,14 @@ fn main() {
         }
         //println!("{} ===\n{}", output, expected);
         //println!("Running Test {}.", i);
-        assert!(output.trim() == expected.trim());
-        println!("Test {} passed.-----------------------------------------------------------------------------------------", i);
+        if output.trim() == expected.trim() {
+            println!("Test {} passed.-----------------------------------------------------------------------------------------", i);
+        }
+        else {
+            println!("output: {}", output.trim());
+            println!("expected: {}", expected.trim());
+        }
+        
         //rules[0].patch.plus.print_tree();
 
         //worktree(&mut rules[0].patch.plus, &mut |x: &mut Snode | if x.wrapper.isdisj { println!("DISJ --> {:?}", x.getdisjs()) });

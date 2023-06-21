@@ -9,9 +9,10 @@ use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
 
 use super::parse_rs::fill_wrap;
+
 type VirtualPosition = (info::ParseInfo, usize);
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ParseInfo {
     /* Present both in ast and list of tokens */
     OriginTok(info::ParseInfo),
@@ -20,7 +21,7 @@ pub enum ParseInfo {
     FakeTok(String, VirtualPosition),
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Danger {
     DangerStart,
     DangerEnd,
@@ -29,6 +30,7 @@ pub enum Danger {
 }
 
 
+#[derive(PartialEq)]
 pub struct Wrap {
     pub info: ParseInfo,
     index: usize,

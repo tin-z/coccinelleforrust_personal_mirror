@@ -87,7 +87,7 @@ fn combinebindings<'a>(
 
 impl<'a, 'b> Looper<'a> {
     pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
-        Looper { tokenf: tokenf }
+        Looper { tokenf }
     }
 
     //actual matching function. Takes two nodes and recursively matches them
