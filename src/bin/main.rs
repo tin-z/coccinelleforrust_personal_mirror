@@ -1,6 +1,6 @@
 use coccinelleforrust::{
-    commons::util::{getstmtlist, worktree},
-    engine::{ disjunctions::Disjunction},
+    commons::util::{getstmtlist, worktree, visitrnode},
+    engine::{ disjunctions::Disjunction, cocci_vs_rs::{Looper, MetavarBinding}},
     engine::disjunctions::{getdisjunctions},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
@@ -27,7 +27,7 @@ fn aux(node: &Snode) {
     }
 }
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<usize> {
+fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>>{
     // this is
     // Tout will have the generic types in itself
     // ie  ('a * 'b) tout //Ocaml syntax
@@ -41,26 +41,27 @@ fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
     let patchstring =
-        fs::read_to_string("./src/tests/test.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test13.rs").expect("This shouldnt be empty");
+        fs::read_to_string("./src/tests/test2.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test2.rs").expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
     let mut rnode = processrs(&rustcode);
-    //let looper = Looper::new(tokenf);
+    let looper = Looper::new(tokenf);
     //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
 
     let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.plus).clone().children]));
-    println!("{:?}", a);
-    for (k, i) in enumerate(a.0) {
-        println!("\nDisjunction :- {}\n\n\n", k);
-        let mut g = rules[0].patch.plus.clone();
-        g.set_children(i);
-        
-        println!("{}", g.gettokenstream());
+    let envs = visitrnode(&a.0, &rnode, &|a, b| { looper.getbindings(a, b) });
+    //println!("{:?}", envs);
+    //rnode.displaytree();
+    //rnode.print_tree();
+    //a.0[0][0].print_tree();
+    for env in envs {
+	for binding in env.bindings {   
+            println!("{} => {}", binding.0.1, binding.1.astnode.to_string());
+	}
+	println!("New binding");
     }
-
-    rnode.displaytree();
+    println!("{:?}", a.0[0].len());
     rnode.print_tree();
-    
     
 }

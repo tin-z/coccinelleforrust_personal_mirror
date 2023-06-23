@@ -1,6 +1,6 @@
 use coccinelleforrust::{
-    commons::util::{getstmtlist, worktree},
-    engine::cocci_vs_rs::{Looper, MetavarBinding},
+    commons::util::{getstmtlist, worktree, visitrnode},
+    engine::{disjunctions::{getdisjunctions, Disjunction}, cocci_vs_rs::{Looper, MetavarBinding}},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
         ast0::{wrap_root, MetaVar, Snode},
@@ -41,11 +41,13 @@ fn main() {
         //rules[0].patch.plus.print_tree();
         //rnode.print_tree();
         let looper = Looper::new(tokenf);
-        let g = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
+    //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
 
+        let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.plus).clone().children]));
+        let envs = visitrnode(&a.0, &rnode, &|a, b| { looper.getbindings(a, b) });
         let mut output: String = String::new();
-        for binding in g.0 {
-            for var in binding {
+        for env in envs {
+            for var in env.bindings {
                 output.push_str(
                     format!("{:?} => {:?}\n", var.0 .1, var.1.astnode.to_string()).as_str(),
                 );

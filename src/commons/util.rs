@@ -1,15 +1,16 @@
 use parser::SyntaxKind;
 
-use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
+use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, engine::cocci_vs_rs::{MetavarBinding, Environment}};
 
 #[macro_export]
 macro_rules! fail {
     () => {
-        return (MetavarBindings {
-            failed: true,
-            binding: vec![],
-            binding0: vec![],
-        })
+        return Environment {
+            failed: true, 
+            bindings: vec![],
+            minuses: vec![],
+            pluses: vec![]
+        }
     };
 }
 
@@ -64,6 +65,22 @@ pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)) {
         worktree(child, f);
     }
 }
+
+pub fn visitrnode<'a>(nodea: &Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&Vec<Vec<Snode>>, &'a Rnode) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
+    //use async function to wrap the for loop
+    //for other cases TODO
+    let mut environments = vec![];
+    let tmp = f(nodea, nodeb);
+    //println!("==> {}, {:?}", tmp.0.len(), tmp.0);
+    if tmp.1 {
+        environments.extend(tmp.0);
+    }
+    for child in &nodeb.children {
+        environments.extend(visitrnode(nodea, child, f));
+    }
+    return environments;
+}
+
 
 pub fn isexpr(node1: &Snode) -> bool {
     use SyntaxKind::*;
