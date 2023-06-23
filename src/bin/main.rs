@@ -1,6 +1,7 @@
 use coccinelleforrust::{
     commons::util::{getstmtlist, worktree},
-    engine::cocci_vs_rs::{Looper, MetavarBinding},
+    engine::{cocci_vs_rs::{Looper, MetavarBinding}, disjunctions::Disjunction},
+    engine::disjunctions::{getdisjunctions},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
         ast0::{wrap_root, MetaVar, Snode},
@@ -40,26 +41,23 @@ fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
     let patchstring =
-        fs::read_to_string("./src/tests/test13.cocci").expect("This shouldnt be empty");
+        fs::read_to_string("./src/tests/test.cocci").expect("This shouldnt be empty");
     let rustcode = fs::read_to_string("./src/tests/test13.rs").expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
     let mut rnode = processrs(&rustcode);
-    let looper = Looper::new(tokenf);
-    let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
+    //let looper = Looper::new(tokenf);
+    //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
 
-    if matched {
-        for (i, binding) in enumerate(g) {
-            for var in binding {
-                println!("{:?} => {:?}", var.0 .1, var.1.astnode.to_string());
-            }
-            println!();
-
-        println!("Match {} found", i);
-        }
+    let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.plus).clone().children]));
+    println!("{:?}", a);
+    for (k, i) in enumerate(a.0) {
+        println!("\nDisjunction :- {}\n\n\n", k);
+        let mut g = rules[0].patch.plus.clone();
+        g.set_children(i);
+        
+        println!("{}", g.gettokenstream());
     }
-    else {
-        println!("No match Found");
-    }
+    
     
 }

@@ -7,7 +7,7 @@ use parser::SyntaxKind;
 use syntax::ast::{IfExpr, Type};
 use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 /// Semantic Path Node
 pub struct Snode {
     pub wrapper: Wrap,
@@ -47,6 +47,19 @@ impl<'a> Snode {
 
     pub fn kind(&self) -> SyntaxKind {
         self.astnode.kind()
+    }
+
+    pub fn gettokenstream(&self) -> String {
+        if self.children.len() == 0 {
+            return String::from(self.astnode.to_string());
+        }
+        else {
+            let mut tokens: String = String::new();
+            for i in &self.children {
+                tokens = format!("{} {}", tokens, i.gettokenstream());
+            }
+            return String::from(tokens.trim());
+        }
     }
 
     fn print_tree_aux(&self, pref: &String) {
@@ -174,13 +187,13 @@ pub enum Count {
     MINUS,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Replacement {
     REPLACEMENT(Vec<Vec<Snode>>),
     NOREPLACEMENT,
 }
 
-#[derive( PartialEq)]
+#[derive( PartialEq, Clone)]
 pub enum Befaft {
     BEFORE(Vec<Vec<Snode>>),
     AFTER(Vec<Vec<Snode>>),
@@ -188,7 +201,7 @@ pub enum Befaft {
     NOTHING,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Mcodekind {
     MINUS(Replacement),
     PLUS(Count),
@@ -199,7 +212,7 @@ pub enum Mcodekind {
 #[derive(Clone, PartialEq)]
 pub struct DotsBefAft {}
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Info {
     pos_info: PositionInfo,
     attachable_start: bool,
@@ -325,7 +338,7 @@ impl MetaVar {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Wrap {
     info: Info,
     index: usize,
