@@ -102,7 +102,7 @@ impl<'a, 'b> Looper<'a> {
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment<'a>,
     ) -> Environment<'a> {
-        let newbindings: Environment = Environment::new();
+        let mut newbindings: Environment = Environment::new();
         for (a, b) in zip(nodevec1, nodevec2) {
             let akind = a.kind();
             let bkind = b.kind();
@@ -139,7 +139,7 @@ impl<'a, 'b> Looper<'a> {
                         let minfo = a.wrapper.metavar.getminfo();
                         let binding = ((minfo.0.clone(), minfo.1.clone()), *b);
                         println!("addding binding => {:?}", binding);
-                        
+                        newbindings.addbinding(binding.clone());
                         env.addbinding(binding);
                         //println!("{:?}", env.bindings);
                     }
