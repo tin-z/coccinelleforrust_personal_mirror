@@ -33,6 +33,7 @@ pub struct Wrap {
     index: usize,
     cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,
+    pub wspaces: (String, bool)
 }
 
 impl Wrap {
@@ -47,6 +48,7 @@ impl Wrap {
             index: index,
             cocci_tag: cocci_tag,
             danger: danger,
+            wspaces: (String::new(), false)
         }
     }
 
@@ -56,6 +58,7 @@ impl Wrap {
             index: 0,
             cocci_tag: None,
             danger: Danger::NoDanger,
+            wspaces: (String::new(), false)
         }
     }
 }
@@ -94,6 +97,19 @@ impl Rnode {
     pub fn print_tree(&self) {
         //stticly debug function
         self.print_tree_aux(&String::from("--"));
+    }
+
+    pub fn displaytree(&self) {
+        //stticly debug function
+        print!("{}", self.wrapper.wspaces.0);
+        if self.children.len() == 0 {
+            print!("{}", self.astnode.to_string());
+        }
+        else {
+            for i in &self.children {
+                i.displaytree();
+            }
+        }
     }
 
     pub fn isexpr(&self) -> bool {

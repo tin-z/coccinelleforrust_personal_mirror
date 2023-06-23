@@ -1,6 +1,6 @@
 use coccinelleforrust::{
     commons::util::{getstmtlist, worktree},
-    engine::{cocci_vs_rs::{Looper, MetavarBinding}, disjunctions::Disjunction},
+    engine::{ disjunctions::Disjunction},
     engine::disjunctions::{getdisjunctions},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
@@ -27,7 +27,7 @@ fn aux(node: &Snode) {
     }
 }
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<usize> {
     // this is
     // Tout will have the generic types in itself
     // ie  ('a * 'b) tout //Ocaml syntax
@@ -58,6 +58,9 @@ fn main() {
         
         println!("{}", g.gettokenstream());
     }
+
+    rnode.displaytree();
+    rnode.print_tree();
     
     
 }

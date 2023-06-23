@@ -6,17 +6,25 @@ use syntax::SyntaxElement;
 type Tag = SyntaxKind;
 
 pub fn work_node<'a, D>(
-    do_stuff: &dyn Fn(SyntaxElement, &dyn Fn(&SyntaxElement) -> Vec<D>) -> D,
+    do_stuff: &dyn Fn(SyntaxElement, String, &dyn Fn(&SyntaxElement) -> Vec<D>) -> D,
+    estrings: String,
     node: SyntaxElement,
 ) -> D {
-    do_stuff(node, &|node| -> Vec<D> {
+    do_stuff(node, estrings.clone(), &|node| -> Vec<D> {
         let mut children = vec![];
+        let mut estrings: String = String::new();
         //let mut children = vec![];
         match node {
             SyntaxElement::Node(node) => {
                 for child in node.children_with_tokens() {
-                    if child.kind() != Tag::WHITESPACE {
-                        children.push(work_node(do_stuff, child));
+                    match child.kind() {
+                        Tag::WHITESPACE | Tag::COMMENT=> {
+                            estrings.push_str(child.to_string().as_str());
+                        }
+                        _ => {
+                            children.push(work_node(do_stuff, estrings, child));
+                            estrings = String::new();
+                        }
                     }
                     //children.push(node);
                 }

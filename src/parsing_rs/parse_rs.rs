@@ -34,8 +34,9 @@ pub fn processrs(contents: &str) -> Rnode {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
     let root = SourceFile::parse(contents).tree();
-    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
-        let wrapped = fill_wrap(&lindex, &node);
+    let wrap_node = &|node: SyntaxElement, estring: String, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
+        let mut wrapped = fill_wrap(&lindex, &node);
+        wrapped.wspaces = (estring, false);
         let children = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
@@ -50,5 +51,5 @@ pub fn processrs(contents: &str) -> Rnode {
         }
         rnode
     };
-    work_node(wrap_node, SyntaxElement::Node(root.syntax().clone()))
+    work_node(wrap_node, String::new(), SyntaxElement::Node(root.syntax().clone()))
 }
