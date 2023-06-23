@@ -26,7 +26,12 @@ pub struct Environment<'a> {
 
 impl<'a> Environment<'a> {
     pub fn add(&mut self, env: Self) {
-        self.bindings.extend(env.bindings);
+        for binding in env.bindings {
+            if !self.bindings.iter().any(|x| if x.0.1==binding.0.1 { true } else {false}) {
+                self.bindings.push(binding);
+            }
+        }
+        //self.bindings.extend(env.bindings);
         self.minuses.extend(env.minuses);
         self.pluses.extend(env.pluses);
     }
@@ -103,12 +108,31 @@ impl<'a, 'b> Looper<'a> {
         mut env: Environment<'a>,
     ) -> Environment<'a> {
         let mut newbindings: Environment = Environment::new();
-        for (a, b) in zip(nodevec1, nodevec2) {
+        let mut nodevec1 = nodevec1.iter();
+        let mut nodevec2 = nodevec2.iter();
+        let mut a: &Snode;
+        let mut b: &Rnode;
+        a = nodevec1.next().unwrap();//nodevec1 cannot be empty
+        loop {
+            
+            if let Some(ak) = nodevec1.next() {
+                a = ak;
+            } else {
+                return env;
+            }
+
+            if let Some(bk) = nodevec2.next() {
+                b = *bk;
+            } else {
+                println!("fail");
+                fail!();
+            }
+
             let akind = a.kind();
             let bkind = b.kind();
             let aisk = akind.is_keyword();
             let bisk = bkind.is_keyword();
-            
+            println!("{:?} ===== {:?}", akind, bkind);
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
                 fail!()
             }
@@ -137,7 +161,7 @@ impl<'a, 'b> Looper<'a> {
                     }
                     MetavarMatch::Match => {
                         let minfo = a.wrapper.metavar.getminfo();
-                        let binding = ((minfo.0.clone(), minfo.1.clone()), *b);
+                        let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                         println!("addding binding => {:?}", binding);
                         newbindings.addbinding(binding.clone());
                         env.addbinding(binding);
@@ -147,7 +171,6 @@ impl<'a, 'b> Looper<'a> {
                 }
             }
         }
-        return env;
     }
     //this function decides if two nodes match, fail or have a chance of matching, without
     //going deeper into the node.

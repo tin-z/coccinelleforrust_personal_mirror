@@ -41,8 +41,8 @@ fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
     let patchstring =
-        fs::read_to_string("./src/tests/test2.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test2.rs").expect("This shouldnt be empty");
+        fs::read_to_string("./src/tests/test5.cocci").expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string("./src/tests/test5.rs").expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
     let mut rnode = processrs(&rustcode);
@@ -50,18 +50,22 @@ fn main() {
     //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
 
     let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.plus).clone().children]));
-    let envs = visitrnode(&a.0, &rnode, &|a, b| { looper.getbindings(a, b) });
+    let envs = visitrnode(&a.0, &rnode, &|k, l| { looper.getbindings(k, l) });
     //println!("{:?}", envs);
     //rnode.displaytree();
     //rnode.print_tree();
     //a.0[0][0].print_tree();
     for env in envs {
-	for binding in env.bindings {   
-            println!("{} => {}", binding.0.1, binding.1.astnode.to_string());
-	}
+        for binding in env.bindings {   
+                println!("{} => {}", binding.0.1, binding.1.astnode.to_string());
+        }
 	println!("New binding");
     }
+    println!("{}", a.0[0][0].gettokenstream());
+    println!("{}", a.0[0][1].gettokenstream());
+    
+    println!("{}", a.0[1][0].gettokenstream());
+    println!("{}", a.0[1][1].gettokenstream());
     println!("{:?}", a.0[0].len());
-    rnode.print_tree();
     
 }

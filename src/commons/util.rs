@@ -5,6 +5,7 @@ use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, engine::cocci
 #[macro_export]
 macro_rules! fail {
     () => {
+        
         return Environment {
             failed: true, 
             bindings: vec![],
