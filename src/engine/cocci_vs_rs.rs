@@ -9,7 +9,7 @@ use crate::{
     commons::info::ParseInfo,
     fail,
     parsing_cocci::ast0::{fill_wrap, Snode, Wrap},
-    parsing_cocci::ast0::{Fixpos, Mcodekind},
+    parsing_cocci::ast0::{Mcodekind},
     parsing_rs::ast_rs::Rnode,
 };
 
@@ -59,17 +59,6 @@ enum MetavarMatch<'a, 'b> {
     Maybe(&'b Snode, &'a Rnode),
     Match,
     Exists,
-}
-
-//type Tout<'a> = Vec<(MatchedNode<'a>, &'a Vec<MetavarBinding<'a>>)>;
-
-fn checkpos(info: Option<ParseInfo>, mck: Mcodekind, pos: Fixpos) {
-    match mck {
-        Mcodekind::PLUS(count) => {}
-        Mcodekind::MINUS(replacement) => {}
-        Mcodekind::CONTEXT(befaft) => {}
-        Mcodekind::MIXED(befaft) => {}
-    }
 }
 
 fn is_fake(node1: &mut Rnode) -> bool {
