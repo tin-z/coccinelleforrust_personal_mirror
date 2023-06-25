@@ -3,14 +3,16 @@ use parser::SyntaxKind;
 use syntax;
 use syntax::SyntaxElement;
 
+use super::ast_rs::Rnode;
+
 type Tag = SyntaxKind;
 
-pub fn work_node<'a, D>(
-    do_stuff: &dyn Fn(SyntaxElement, String, &dyn Fn(&SyntaxElement) -> Vec<D>) -> D,
+pub fn work_node<'a>(
+    do_stuff: &dyn Fn(SyntaxElement, String, &dyn Fn(&SyntaxElement) -> Vec<Rnode>) -> Rnode,
     estrings: String,
     node: SyntaxElement,
-) -> D {
-    do_stuff(node, estrings.clone(), &|node| -> Vec<D> {
+) -> Rnode {
+    do_stuff(node, estrings.clone(), &|node| -> Vec<Rnode> {
         let mut children = vec![];
         let mut estrings: String = String::new();
         //let mut children = vec![];
@@ -30,6 +32,12 @@ pub fn work_node<'a, D>(
                 }
             }
             SyntaxElement::Token(_token) => {}
+        }
+        if !estrings.is_empty() {
+            //if estrings is not empty then there have been comments
+            //and comments cannot exists in a level by themselves
+            //so unwrap is justified
+            children.last_mut().unwrap().wrapper.wspaces.1 = estrings;
         }
         children
     })

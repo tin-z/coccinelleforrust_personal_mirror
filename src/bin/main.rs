@@ -36,12 +36,12 @@ fn transformfile(coccifile: String, rsfile: String) {
     let looper = Looper::new(tokenf);
 
     let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
-    let envs = visitrnode(&a.0, &rnode, &|k, l| { looper.getbindings(k, l) });
+    let envs = visitrnode(&a.0, &rnode, &|k, l| { looper.handledisjunctions(k, l) });
     
     for env in envs {
         println!("Bindings:- \n");
         for binding in env.bindings.clone() {   
-                println!("{} => {}", binding.0.1, binding.1.astnode.to_string());
+                println!("{} => {}", binding.metavarinfo.varname, binding.rnode.astnode.to_string());
         }
 	    //println!("New binding");
         transform(&mut transformedcode, &env);

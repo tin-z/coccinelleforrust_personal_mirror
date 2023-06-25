@@ -35,7 +35,7 @@ pub struct Wrap {
     index: usize,
     cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,
-    pub wspaces: (String, bool),
+    pub wspaces: (String, String),
     pub isremoved: bool,
 }
 
@@ -51,7 +51,7 @@ impl Wrap {
             index: index,
             cocci_tag: cocci_tag,
             danger: danger,
-            wspaces: (String::new(), false),
+            wspaces: (String::new(), String::new()),
             isremoved: false,
         }
     }
@@ -62,7 +62,7 @@ impl Wrap {
             index: 0,
             cocci_tag: None,
             danger: Danger::NoDanger,
-            wspaces: (String::new(), false),
+            wspaces: (String::new(), String::new()),
             isremoved: false,
         }
     }

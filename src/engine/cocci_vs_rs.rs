@@ -3,17 +3,36 @@ use std::{clone, iter::zip, ops::Deref, vec};
 use ide_db::base_db::Env;
 use itertools::{enumerate, Itertools};
 use parser::SyntaxKind;
-use syntax::ast::PathExpr;
+use regex::bytes::CaptureLocations;
+use syntax::ast::{PathExpr, Meta};
 
 use crate::{
     fail,
     parsing_cocci::ast0::{fill_wrap, Snode, Wrap},
-    parsing_cocci::ast0::{Mcodekind, MODKIND},
+    parsing_cocci::ast0::{Mcodekind, MODKIND, MetaVar},
     parsing_rs::ast_rs::Rnode,
 };
 
-pub type MetavarName = (String, String);
-pub type MetavarBinding<'a> = (MetavarName, &'a Rnode); //(rulename, metavarname), bound Rnode
+#[derive(Clone, Debug)]
+pub struct MetavarName {
+    pub rulename: String,
+    pub varname: String
+}
+
+#[derive(Clone, Debug)]
+pub struct MetavarBinding<'a> {
+    pub metavarinfo: MetavarName,
+    pub rnode: &'a Rnode
+}
+
+impl<'a> MetavarBinding<'a> {
+    fn new(rname: String, varname: String, rnode: &'a Rnode) -> MetavarBinding<'a>{
+        return MetavarBinding {
+            metavarinfo: MetavarName { rulename: rname, varname: varname },
+            rnode: rnode
+        };
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Environment<'a> {
@@ -29,7 +48,7 @@ impl<'a> Environment<'a> {
             if !self
                 .bindings
                 .iter()
-                .any(|x| x.0.1 == binding.0.1)
+                .any(|x| x.metavarinfo.varname == binding.metavarinfo.varname)
             {
                 self.bindings.push(binding);
             }
@@ -73,7 +92,7 @@ impl<'a, 'b> Looper<'a> {
 
     pub fn matchnodes(
         &self,
-        nodevec1: &Vec<Snode>,
+        nodevec1: &Vec<&Snode>,
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment<'a>,
     ) -> Environment<'a> {
@@ -110,7 +129,7 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Maybe(a, b) => {
                     let renv = self.matchnodes(
-                        &a.children,
+                        &a.children.iter().collect_vec(),
                         &b.children.iter().collect_vec(),
                         env.clone(),
                     );
@@ -124,16 +143,13 @@ impl<'a, 'b> Looper<'a> {
                             None => {}
                         }
                         env.add(renv);
-                        //println!("{}", env.bindings.len());
                     } else {
-                        //println!("fail");
                         fail!()
                     }
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
-                    let binding = ((minfo.0.clone(), minfo.1.clone()), b);
-                    //println!("addding binding => {:?}", binding);
+                    let binding = MetavarBinding::new(minfo.0.clone(), minfo.1.clone(), b);
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
                             env.minuses.push(b.getpos());
@@ -142,7 +158,6 @@ impl<'a, 'b> Looper<'a> {
                         None => {}
                     }
                     env.addbinding(binding);
-                    //println!("{:?}", env.bindings);
                 }
                 MetavarMatch::Exists => match a.wrapper.modkind {
                     Some(MODKIND::MINUS) => {
@@ -181,60 +196,52 @@ impl<'a, 'b> Looper<'a> {
                 }
                 return MetavarMatch::Maybe(node1, node2); //not sure
             }
-            crate::parsing_cocci::ast0::MetaVar::Exp(info) => {
+            metavar => {
+                //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
                 if let Some(binding) = bindings
                     .iter()
-                    .find(|(a, _)| a.1 == node1.wrapper.metavar.getname())
+                    .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
-                    if binding.1.equals(node2) {
-                        //binding equals XOR POSITIVE/NEGATIVE binding
-                        //println!("EQUALLLITTYYY - {}", binding.1.astnode.to_string());
+                    if binding.rnode.equals(node2) {
                         MetavarMatch::Exists
                     } else {
                         MetavarMatch::Fail
                     }
                 } else {
-                    if node2.isexpr() {
-                        //println!("Matched-----> {}, {}", node1.wrapper.metavar.getname(), node2.astnode.to_string());
-                        return MetavarMatch::Match;
+                    match metavar {
+                        MetaVar::Exp(_info) => {
+                            if node2.isexpr() {
+                                return MetavarMatch::Match;
+                            }
+                           return MetavarMatch::Fail
+                        }
+                        MetaVar::Id(_info) => {
+                            if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
+                                return MetavarMatch::Match;
+                            }
+                            return MetavarMatch::Fail
+                        }
+                        MetaVar::NoMeta => {
+                            panic!("Should never occur");
+                            //since no meta has been taken care of in the previous match
+                        }
                     }
-                    MetavarMatch::Fail
-                }
-            }
-            crate::parsing_cocci::ast0::MetaVar::Id(info) => {
-                //TODO SUPPORT IDENTIFIER PATTERNS
-                if let Some(binding) = bindings
-                    .iter()
-                    .find(|(a, _)| a.1 == node1.wrapper.metavar.getname())
-                {
-                    if binding.1.equals(node2) {
-                        //println!("EQUALLLITTYYY - {}", binding.1.astnode.to_string());
-                        MetavarMatch::Exists
-                    } else {
-                        MetavarMatch::Fail
-                    }
-                } else {
-                    if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
-                        //println!("Matched-----> {}, {}", node1.wrapper.metavar.getname(), node2.astnode.to_string());
-                        return MetavarMatch::Match;
-                    }
-                    MetavarMatch::Fail
+                    
                 }
             }
         }
     }
 
-    pub fn getbindings(
+    pub fn handledisjunctions(
         &'a self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
     ) -> (Vec<Environment>, bool) {
-        //let topbindings = self.matchnodes(node1.children.iter().collect_vec(), vec![node2], vec![]);
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
-            let env = self.matchnodes(disj, node2, Environment::new());
+            let env = self.matchnodes(&disj.iter().collect_vec(), node2, Environment::new());
             matched = matched || !env.failed;
             if !env.failed {
                 environments.push(env);

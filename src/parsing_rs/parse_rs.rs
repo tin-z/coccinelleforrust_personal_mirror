@@ -38,7 +38,7 @@ pub fn processrs(contents: &str) -> Rnode {
                       df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
      -> Rnode {
         let mut wrapped = fill_wrap(&lindex, &node);
-        wrapped.wspaces = (estring, false);
+        wrapped.wspaces.0 = estring;
         let children = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
