@@ -67,17 +67,51 @@ pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)) {
     }
 }
 
+pub fn worktreernode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode)) {
+    //use async function to wrap the for loop
+    //for other cases TODO
+    f(&mut node);
+    for child in &mut node.children {
+        worktreernode(child, f);
+    }
+}
+
+pub fn worksnode<T>(mut node: &mut Snode, t: T, f: &mut dyn FnMut(&mut Snode, T) -> T) -> T {
+    //use async function to wrap the for loop
+    //for other cases TODO
+    let mut t = f(&mut node, t);
+    for child in &mut node.children {
+        t = worksnode(child, t, f);
+    }
+    t
+}
+
+pub fn workrnode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode)){
+    //use async function to wrap the for loop
+    //for other cases TODO
+    let t = f(node);
+    for child in &mut node.children {
+        workrnode(child, f);
+    }
+    t
+}
+
 pub fn visitrnode<'a>(nodea: &Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
     //use async function to wrap the for loop
     //for other cases TODO
     let mut environments = vec![];
+    let tmp = f(nodea, &vec![nodeb]);
+        
+    if tmp.1 {
+        environments.extend(tmp.0);
+    }
     let nodebchildren = &mut nodeb.children.iter();
     loop {
         if let Some(child) = nodebchildren.next() {
             environments.extend(visitrnode(nodea, child, f));
             
             let tmp = f(nodea, &nodebchildren.clone().collect_vec());
-            //println!("==> {}, {:?}", tmp.0.len(), tmp.0);
+            
             if tmp.1 {
                 environments.extend(tmp.0);
             }

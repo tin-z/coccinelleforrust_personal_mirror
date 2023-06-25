@@ -104,6 +104,9 @@ impl Patch {
                     if start==end {
                         node.wrapper.modkind = Some(modkind);
                     }
+                    else {
+                        node.wrapper.modkind = None;
+                    }
                     return (start, Some(modkind))
                 }
                 None => {
@@ -323,8 +326,8 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
                 minusbuf.push_str(holder);
             }
             Some(')') => {
-                plusbuf.push_str("}");
-                minusbuf.push_str("}");
+                plusbuf.push_str("}\n");
+                minusbuf.push_str("}\n");
             }
             _ => {
                 plusbuf.push_str(&line[..]);
@@ -421,6 +424,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
         //modifiers
         lino += block4.len() - 1;
         let (pbufmod, mbufmod) = handlemods(&block4);
+        
 
         let rule = buildrule(
             &currrulename,

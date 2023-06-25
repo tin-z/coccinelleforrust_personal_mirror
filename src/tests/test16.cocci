@@ -2,6 +2,8 @@
 expression x, y, z;
 @@
 
--f(
-    x
--)
+(
+-setforce(x)
+|
+pushback()
+)

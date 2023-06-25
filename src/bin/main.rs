@@ -1,6 +1,6 @@
 use coccinelleforrust::{
-    commons::util::{getstmtlist, worktree, visitrnode},
-    engine::{ disjunctions::Disjunction, cocci_vs_rs::{Looper, MetavarBinding}},
+    commons::util::{getstmtlist, worktree, visitrnode, worktreernode},
+    engine::{ disjunctions::Disjunction, cocci_vs_rs::{Looper, MetavarBinding}, transformation::transform},
     engine::disjunctions::{getdisjunctions},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
@@ -9,23 +9,10 @@ use coccinelleforrust::{
     },
     parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
 };
-use itertools::enumerate;
-use std::{fs, ops::Deref};
+use ide_db::line_index::WideEncoding;
+use itertools::{enumerate, Itertools};
+use std::{fs, ops::Deref, ascii::escape_default, fmt::format};
 use syntax::{AstNode, SourceFile};
-
-fn aux(node: &Snode) {
-    if node.wrapper.metavar != MetaVar::NoMeta {
-        print!(
-            "{} -----------------------------> ",
-            node.astnode.to_string()
-        );
-        println!("{:?}", node.wrapper.metavar);
-    } else {
-        for child in &node.children {
-            aux(&child);
-        }
-    }
-}
 
 fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>>{
     // this is
@@ -37,31 +24,37 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>>{
     vec![]
 }
 
-fn main() {
-    //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
-    //    .expect("This shouldnt be empty");
+fn transformfile(coccifile: String, rsfile: String) {
     let patchstring =
-        fs::read_to_string("./src/tests/test12.cocci").expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string("./src/tests/test12.rs").expect("This shouldnt be empty");
+        fs::read_to_string(coccifile).expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string(rsfile).expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
-    let mut rnode = processrs(&rustcode);
-    let looper = Looper::new(tokenf);
-    //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
+    let rnode = processrs(&rustcode);
+    let mut transformedcode = processrs(&rustcode);
 
-    let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.plus).clone().children]));
+    let looper = Looper::new(tokenf);
+
+    let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
     let envs = visitrnode(&a.0, &rnode, &|k, l| { looper.getbindings(k, l) });
-    //println!("{:?}", envs);
-    //rnode.displaytree();
-    //rnode.print_tree();
-    //a.0[0][0].print_tree();
+    
     for env in envs {
-        for binding in env.bindings {   
+        println!("Bindings:- \n");
+        for binding in env.bindings.clone() {   
                 println!("{} => {}", binding.0.1, binding.1.astnode.to_string());
         }
-	println!("New binding");
+	    //println!("New binding");
+        transform(&mut transformedcode, &env);
     }
-    println!("ddddd {}", a.0[1][0].gettokenstream());
-    rnode.print_tree();
-    
+
+    println!("\n\nTransformed Code - \n");
+    transformedcode.displaytree();
+    println!();
+}
+
+fn main() {
+    let file = std::env::args().collect_vec()[1..].join(" ");
+    let coccifile = String::from(format!("{}.cocci", file));
+    let rsfile = String::from(format!("{}.rs", file));
+    transformfile(coccifile, rsfile);
 }

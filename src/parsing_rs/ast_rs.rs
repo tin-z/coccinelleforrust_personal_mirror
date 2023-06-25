@@ -32,16 +32,17 @@ pub enum Danger {
 
 #[derive(PartialEq)]
 pub struct Wrap {
-    pub info: ParseInfo,
+    pub info: info::ParseInfo,
     index: usize,
     cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,
-    pub wspaces: (String, bool)
+    pub wspaces: (String, bool),
+    pub isremoved: bool
 }
 
 impl Wrap {
     pub fn new(
-        info: ParseInfo,
+        info: info::ParseInfo,
         index: usize,
         cocci_tag: Option<Vec<Mcodekind>>,
         danger: Danger,
@@ -51,17 +52,19 @@ impl Wrap {
             index: index,
             cocci_tag: cocci_tag,
             danger: danger,
-            wspaces: (String::new(), false)
+            wspaces: (String::new(), false),
+            isremoved: false
         }
     }
 
     pub fn dummy() -> Wrap {
         Wrap {
-            info: ParseInfo::OriginTok(info::ParseInfo::getempty()),
+            info: info::ParseInfo::new(String::new(), 0, 0, 0, 0, String::new()),
             index: 0,
             cocci_tag: None,
             danger: Danger::NoDanger,
-            wspaces: (String::new(), false)
+            wspaces: (String::new(), false),
+            isremoved: false
         }
     }
 }
@@ -103,14 +106,16 @@ impl Rnode {
     }
 
     pub fn displaytree(&self) {
-        //stticly debug function
+        
         print!("{}", self.wrapper.wspaces.0);
-        if self.children.len() == 0 {
+        if self.children.len() == 0 && !self.wrapper.isremoved{
             print!("{}", self.astnode.to_string());
         }
         else {
             for i in &self.children {
-                i.displaytree();
+                if !i.wrapper.isremoved {
+                    i.displaytree();
+                }
             }
         }
     }
@@ -177,6 +182,10 @@ impl Rnode {
             }
             return true;
         }
+    }
+
+    pub fn getpos(&self) -> (usize, usize) {
+        (self.wrapper.info.charstart, self.wrapper.info.charend)
     }
 }
 

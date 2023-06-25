@@ -27,7 +27,6 @@ pub fn work_node<'a, D>(
                             let commlen: usize = child.text_range().len().into();
                             if commlen == 5 && lindex.line_col(child.text_range().start()).col == 0 {//checks for /*?*/ modifiers
                                 modkind = Some(String::from(child.to_string().as_bytes()[2] as char));
-                                println!("Hello");
                                 //in the next iteration the node gets the modkind
                             }
                         }

@@ -4,9 +4,9 @@ identifier i, i1, i2;
 @@  
 (
 if e1<e3 { 
-    let i = e2;
+-let i = e2;
 }
 |
 callhelp();
 )
-let i1 = e4;
+-let i1 = e4;

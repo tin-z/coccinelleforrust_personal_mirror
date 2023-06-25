@@ -1,14 +1,16 @@
-use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
+use crate::{parsing_rs::ast_rs::Rnode, commons::util::workrnode};
 
-use super::cocci_vs_rs::MetavarBindings;
+use super::cocci_vs_rs::Environment;
 
-pub fn transform<'a>(mut rnode: Rnode, bindings: MetavarBindings<'a>) {
-    let mut f = |x: &mut Rnode| {
-        for i in bindings.minuses.clone().into_iter().flatten() {
-            //would be better if I could use hashmaps
-            if std::ptr::eq(x, i) {
-                println!("hello");
+pub fn transform(node: &mut Rnode, env: &Environment) {
+    let f = &mut |x: &mut Rnode| {
+        for minus in env.minuses.clone() {
+            let pos = x.getpos();
+
+            if pos==minus {
+               x.wrapper.isremoved = true;
             }
         }
     };
+    workrnode(node, f);
 }

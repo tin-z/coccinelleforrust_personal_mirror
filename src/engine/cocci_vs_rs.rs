@@ -6,10 +6,9 @@ use parser::SyntaxKind;
 use syntax::ast::PathExpr;
 
 use crate::{
-    commons::info::ParseInfo,
     fail,
     parsing_cocci::ast0::{fill_wrap, Snode, Wrap},
-    parsing_cocci::ast0::{Mcodekind},
+    parsing_cocci::ast0::{Mcodekind, MODKIND},
     parsing_rs::ast_rs::Rnode,
 };
 
@@ -45,15 +44,6 @@ impl<'a> Environment<'a> {
     }
 }
 
-#[derive(Clone)]
-pub struct MetavarBindings<'a> {
-    failed: bool,
-    pub binding: Vec<Environment<'a>>,
-    pub binding0: Vec<MetavarBinding<'a>>,
-    pub minuses: Vec<Vec<&'a Rnode>>,
-    pub pluses: Vec<&'a Rnode>//not the actual def of pluses TODO
-}
-
 enum MetavarMatch<'a, 'b> {
     Fail,
     Maybe(&'b Snode, &'a Rnode),
@@ -61,29 +51,11 @@ enum MetavarMatch<'a, 'b> {
     Exists,
 }
 
-fn is_fake(node1: &mut Rnode) -> bool {
-    false
-}
 
 pub struct Looper<'a> {
     tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
 }
 
-fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode {
-    return &node.children[0].children[3].children[0];
-}
-
-fn combinebindings<'a>(
-    bindings1: &Vec<MetavarBinding<'a>>,
-    bindings2: &Vec<MetavarBinding<'a>>,
-) -> Vec<MetavarBinding<'a>> {
-    bindings1
-        .clone()
-        .into_iter()
-        .chain(bindings2.into_iter().cloned())
-        .collect_vec() //passed bindings are chained with the bindings collected
-                       //in this match
-}
 
 impl<'a, 'b> Looper<'a> {
     pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
@@ -98,7 +70,6 @@ impl<'a, 'b> Looper<'a> {
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment<'a>,
     ) -> Environment<'a> {
-        let mut newbindings: Environment = Environment::new();
         let mut nodevec1 = nodevec1.iter();
         let mut nodevec2 = nodevec2.iter();
         let mut a: &Snode;
@@ -145,7 +116,14 @@ impl<'a, 'b> Looper<'a> {
                             env.clone(),
                         );
                         if !renv.failed {
-                            println!("{} matched to {}", a.gettokenstream(), b.astnode.to_string());
+                            match a.wrapper.modkind {
+                                Some(MODKIND::MINUS) => {
+                                    println!("Pushing : {:?}", a.astnode.to_string());
+                                    env.minuses.push(b.getpos());
+                                }
+                                Some(MODKIND::PLUS) => {}
+                                None => {}
+                            }
                             env.add(renv);
                             //println!("{}", env.bindings.len());
                         } else {
@@ -157,11 +135,25 @@ impl<'a, 'b> Looper<'a> {
                         let minfo = a.wrapper.metavar.getminfo();
                         let binding = ((minfo.0.clone(), minfo.1.clone()), b);
                         //println!("addding binding => {:?}", binding);
-                        newbindings.addbinding(binding.clone());
+                        match a.wrapper.modkind {
+                            Some(MODKIND::MINUS) => {
+                                env.minuses.push(b.getpos());
+                            }
+                            Some(MODKIND::PLUS) => {}
+                            None => {}
+                        }
                         env.addbinding(binding);
                         //println!("{:?}", env.bindings);
                     }
-                    MetavarMatch::Exists => {}
+                    MetavarMatch::Exists => {
+                        match a.wrapper.modkind {
+                            Some(MODKIND::MINUS) => {
+                                env.minuses.push(b.getpos());
+                            }
+                            Some(MODKIND::PLUS) => {}
+                            None => {}
+                        }
+                    }
                 }
             }
         }
@@ -250,7 +242,6 @@ impl<'a, 'b> Looper<'a> {
             matched = matched || !env.failed;
             if !env.failed {
                 environments.push(env);
-                println!("{:?}==============================================================", node2[0].kind());
             }
             
         }

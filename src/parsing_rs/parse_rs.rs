@@ -22,7 +22,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     );
 
     let wrap: Wrap = Wrap::new(
-        ast_rs::ParseInfo::OriginTok(parse_info),
+        parse_info,
         0,
         None,
         super::ast_rs::Danger::NoDanger
@@ -44,10 +44,12 @@ pub fn processrs(contents: &str) -> Rnode {
             children: children,
         };
         if rnode.kind() == SyntaxKind::EXPR_STMT && rnode.children.len() == 1
-        {// this means there is an expression statement without a ; at the ens
+        {// this means there is an expression statement without a ; at the end
         //the reason these are removed because rust-analyzer seems to alter between
         //assigning ExprStmt and IfExprs(maybe others too)
-            return rnode.children.into_iter().next().unwrap()
+            let mut expr = rnode.children.into_iter().next().unwrap();
+            expr.wrapper.wspaces = rnode.wrapper.wspaces;
+            return expr;
         }
         rnode
     };
