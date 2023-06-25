@@ -29,7 +29,7 @@ impl<'a> Environment<'a> {
             if !self
                 .bindings
                 .iter()
-                .any(|x| if x.0 .1 == binding.0 .1 { true } else { false })
+                .any(|x| x.0.1 == binding.0.1)
             {
                 self.bindings.push(binding);
             }
@@ -81,6 +81,7 @@ impl<'a, 'b> Looper<'a> {
         let mut nodevec2 = nodevec2.iter();
         let mut a: &Snode;
         let mut b: &Rnode;
+        
         loop {
             if let Some(ak) = nodevec1.next() {
                 a = ak;
@@ -97,68 +98,59 @@ impl<'a, 'b> Looper<'a> {
 
             let akind = a.kind();
             let bkind = b.kind();
-            let aisk = akind.is_keyword();
-            let bisk = bkind.is_keyword();
             //println!("{:?} ===== {:?}", akind, bkind);
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
                 //println!("fail");
                 fail!()
             }
-            if aisk || bisk {
-                if !(aisk && bisk) {
+            match self.workon(a, b, &env.bindings) {
+                MetavarMatch::Fail => {
                     //println!("fail");
                     fail!()
                 }
-            } else {
-                match self.workon(a, b, env.bindings.clone()) {
-                    MetavarMatch::Fail => {
-                        //println!("fail");
-                        fail!()
-                    }
-                    MetavarMatch::Maybe(a, b) => {
-                        let renv = self.matchnodes(
-                            &a.children,
-                            &b.children.iter().collect_vec(),
-                            env.clone(),
-                        );
-                        if !renv.failed {
-                            match a.wrapper.modkind {
-                                Some(MODKIND::MINUS) => {
-                                    println!("Pushing : {:?}", a.astnode.to_string());
-                                    env.minuses.push(b.getpos());
-                                }
-                                Some(MODKIND::PLUS) => {}
-                                None => {}
-                            }
-                            env.add(renv);
-                            //println!("{}", env.bindings.len());
-                        } else {
-                            //println!("fail");
-                            fail!()
-                        }
-                    }
-                    MetavarMatch::Match => {
-                        let minfo = a.wrapper.metavar.getminfo();
-                        let binding = ((minfo.0.clone(), minfo.1.clone()), b);
-                        //println!("addding binding => {:?}", binding);
+                MetavarMatch::Maybe(a, b) => {
+                    let renv = self.matchnodes(
+                        &a.children,
+                        &b.children.iter().collect_vec(),
+                        env.clone(),
+                    );
+                    if !renv.failed {
                         match a.wrapper.modkind {
                             Some(MODKIND::MINUS) => {
+                                println!("Pushing : {:?}", a.astnode.to_string());
                                 env.minuses.push(b.getpos());
                             }
                             Some(MODKIND::PLUS) => {}
                             None => {}
                         }
-                        env.addbinding(binding);
-                        //println!("{:?}", env.bindings);
+                        env.add(renv);
+                        //println!("{}", env.bindings.len());
+                    } else {
+                        //println!("fail");
+                        fail!()
                     }
-                    MetavarMatch::Exists => match a.wrapper.modkind {
+                }
+                MetavarMatch::Match => {
+                    let minfo = a.wrapper.metavar.getminfo();
+                    let binding = ((minfo.0.clone(), minfo.1.clone()), b);
+                    //println!("addding binding => {:?}", binding);
+                    match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
                             env.minuses.push(b.getpos());
                         }
                         Some(MODKIND::PLUS) => {}
                         None => {}
-                    },
+                    }
+                    env.addbinding(binding);
+                    //println!("{:?}", env.bindings);
                 }
+                MetavarMatch::Exists => match a.wrapper.modkind {
+                    Some(MODKIND::MINUS) => {
+                        env.minuses.push(b.getpos());
+                    }
+                    Some(MODKIND::PLUS) => {}
+                    None => {}
+                },
             }
         }
     }
@@ -168,7 +160,7 @@ impl<'a, 'b> Looper<'a> {
         &self,
         node1: &'b Snode,
         node2: &'a Rnode,
-        bindings: Vec<MetavarBinding>,
+        bindings: &Vec<MetavarBinding>,
     ) -> MetavarMatch<'a, 'b> {
         // Metavar checking will be done inside the match
         // block below
