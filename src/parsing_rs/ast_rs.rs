@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use itertools::izip;
 use parser::SyntaxKind;
-use syntax::{SyntaxElement, NodeOrToken, SyntaxNode, SourceFile};
+use syntax::{NodeOrToken, SourceFile, SyntaxElement, SyntaxNode};
 use SyntaxKind::*;
 
 use crate::commons::info;
@@ -29,7 +29,6 @@ pub enum Danger {
     NoDanger,
 }
 
-
 #[derive(PartialEq)]
 pub struct Wrap {
     pub info: info::ParseInfo,
@@ -37,7 +36,7 @@ pub struct Wrap {
     cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,
     pub wspaces: (String, bool),
-    pub isremoved: bool
+    pub isremoved: bool,
 }
 
 impl Wrap {
@@ -53,7 +52,7 @@ impl Wrap {
             cocci_tag: cocci_tag,
             danger: danger,
             wspaces: (String::new(), false),
-            isremoved: false
+            isremoved: false,
         }
     }
 
@@ -64,7 +63,7 @@ impl Wrap {
             cocci_tag: None,
             danger: Danger::NoDanger,
             wspaces: (String::new(), false),
-            isremoved: false
+            isremoved: false,
         }
     }
 }
@@ -77,10 +76,13 @@ pub struct Rnode {
 }
 
 impl Rnode {
-
-    pub fn headlesschildren(nodes: Vec<Rnode>) -> Rnode{
+    pub fn headlesschildren(nodes: Vec<Rnode>) -> Rnode {
         let dummyhead = SourceFile::parse("").syntax_node();
-        Rnode { wrapper: Wrap::dummy(), astnode: NodeOrToken::Node(dummyhead), children: nodes }
+        Rnode {
+            wrapper: Wrap::dummy(),
+            astnode: NodeOrToken::Node(dummyhead),
+            children: nodes,
+        }
     }
 
     pub fn kind(&self) -> SyntaxKind {
@@ -106,12 +108,10 @@ impl Rnode {
     }
 
     pub fn displaytree(&self) {
-        
         print!("{}", self.wrapper.wspaces.0);
-        if self.children.len() == 0 && !self.wrapper.isremoved{
+        if self.children.len() == 0 && !self.wrapper.isremoved {
             print!("{}", self.astnode.to_string());
-        }
-        else {
+        } else {
             for i in &self.children {
                 if !i.wrapper.isremoved {
                     i.displaytree();

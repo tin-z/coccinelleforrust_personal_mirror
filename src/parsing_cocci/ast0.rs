@@ -52,8 +52,7 @@ impl<'a> Snode {
     pub fn gettokenstream(&self) -> String {
         if self.children.len() == 0 {
             return String::from(self.astnode.to_string());
-        }
-        else {
+        } else {
             let mut tokens: String = String::new();
             for i in &self.children {
                 tokens = format!("{} {}", tokens, i.gettokenstream());
@@ -146,7 +145,7 @@ pub struct Dummy {}
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum MODKIND {
     PLUS,
-    MINUS
+    MINUS,
 }
 
 #[derive(Clone, PartialEq)]
@@ -199,7 +198,7 @@ pub enum Replacement {
     NOREPLACEMENT,
 }
 
-#[derive( PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Befaft {
     BEFORE(Vec<Vec<Snode>>),
     AFTER(Vec<Vec<Snode>>),
@@ -357,7 +356,7 @@ pub struct Wrap {
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
     pub isdisj: bool,
-    pub modkind: Option<MODKIND>
+    pub modkind: Option<MODKIND>,
 }
 
 impl Wrap {
@@ -372,7 +371,7 @@ impl Wrap {
         true_if_test: bool,
         true_if_test_exp: bool,
         iso_info: Vec<(String, Dummy)>,
-        isdisj: bool
+        isdisj: bool,
     ) -> Wrap {
         Wrap {
             info: info,
@@ -386,7 +385,7 @@ impl Wrap {
             true_if_test_exp: true_if_test_exp,
             iso_info: iso_info,
             isdisj: isdisj,
-            modkind: None
+            modkind: None,
         }
     }
 
@@ -415,18 +414,11 @@ impl Wrap {
 
     pub fn setmodkind(&mut self, modkind: String) {
         match modkind.as_str() {
-            "+" => {
-                self.modkind = Some(MODKIND::PLUS)
-            }
-            "-" => {
-                self.modkind = Some(MODKIND::MINUS)
-            }
-            _ => {
-                self.modkind = None
-            }
+            "+" => self.modkind = Some(MODKIND::PLUS),
+            "-" => self.modkind = Some(MODKIND::MINUS),
+            _ => self.modkind = None,
         }
     }
-
 }
 
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
@@ -474,7 +466,7 @@ pub fn parsedisjs<'a>(mut node: &mut Snode) {
     if node.kind() == SyntaxKind::IF_EXPR {
         //println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
-        let cond = &node.children[1];//this gets the node for condition
+        let cond = &node.children[1]; //this gets the node for condition
         if cond.kind() == SyntaxKind::PATH_EXPR && cond.astnode.to_string() == "COCCIVAR" {
             let block = &mut node.children[2].children[0].children;
             //println!("{:?}", block[0].kind());
@@ -496,14 +488,23 @@ pub fn wrap_root(contents: &str) -> Snode {
     if errors.len() > 0 {
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
-            println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
+            println!(
+                "Error : {} at line: {}, col {}",
+                error.to_string(),
+                lindex.line,
+                lindex.col
+            );
             println!("{}", parse.syntax_node().to_string());
             exit(1);
         }
     }
-    
+
     let root = SourceFile::parse(contents).syntax_node();
-    let wrap_node = &|lindex: &LineIndex, node: SyntaxElement, modkind: Option<String>, df: &dyn Fn(&SyntaxElement) -> Vec<Snode>| -> Snode {
+    let wrap_node = &|lindex: &LineIndex,
+                      node: SyntaxElement,
+                      modkind: Option<String>,
+                      df: &dyn Fn(&SyntaxElement) -> Vec<Snode>|
+     -> Snode {
         let mut wrapped = fill_wrap(&lindex, &node);
         wrapped.setmodkind(modkind.unwrap_or(String::new()));
         let children = df(&node);

@@ -12,7 +12,11 @@
 use std::{ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
-use crate::{syntaxerror, commons::util::{self, worksnode}, parsing_rs::ast_rs::Rnode};
+use crate::{
+    commons::util::{self, worksnode},
+    parsing_rs::ast_rs::Rnode,
+    syntaxerror,
+};
 use parser::SyntaxKind;
 
 type Tag = SyntaxKind;
@@ -50,11 +54,7 @@ fn makemetavar(
         (Some(rulen), Some(var), None) => {
             let var = var.deref();
             let rule = getrule(rules, &rulen, lino);
-            if let Some(mvar) = rule
-                .metavars
-                .iter()
-                .find(|x|  x.getname() == var)
-            {
+            if let Some(mvar) = rule.metavars.iter().find(|x| x.getname() == var) {
                 return mvar.clone();
             } else {
                 syntaxerror!(
@@ -64,9 +64,7 @@ fn makemetavar(
                 )
             }
         }
-        _ =>
-            syntaxerror!(lino, "Invalid meta-variable name", varname)
-        
+        _ => syntaxerror!(lino, "Invalid meta-variable name", varname),
     }
 }
 
@@ -94,32 +92,31 @@ impl Patch {
         Patch::setmetavars_aux(&mut self.plus, metavars);
         Patch::setmetavars_aux(&mut self.minus, metavars);
     }
-    
+
     fn setmods(&mut self) {
-        let mut f = |node: &mut Snode, (lino, modkind):(usize, Option<MODKIND>) | -> (usize, Option<MODKIND>) {
+        let mut setminus = |node: &mut Snode,
+                            (lino, modkind): (usize, Option<MODKIND>)|
+         -> (usize, Option<MODKIND>) {
             let (start, end) = node.wrapper.getlinenos();
 
             match node.wrapper.modkind {
                 Some(modkind) => {
-                    if start==end {
+                    if start == end {
                         node.wrapper.modkind = Some(modkind);
-                    }
-                    else {
+                    } else {
                         node.wrapper.modkind = None;
                     }
-                    return (start, Some(modkind))
+                    return (start, Some(modkind));
                 }
                 None => {
-                    if lino==0 {
-                        return (0, None)
-                    }
-                    else if start==lino && start==end{
+                    if lino == 0 {
+                        return (0, None);
+                    } else if start == lino && start == end {
                         node.wrapper.modkind = modkind;
-                        return (lino, modkind)
+                        return (lino, modkind);
                         //everytime lino is not 0, modkind is
                         //a Some value
-                    }
-                    else if start==lino && start!=end{
+                    } else if start == lino && start != end {
                         //this node spills onto the next line
                         return (lino, modkind);
                     }
@@ -127,9 +124,9 @@ impl Patch {
                 }
             }
         };
-        worksnode(&mut self.plus, (0, None), &mut f);
-        worksnode(&mut self.minus, (0, None), &mut f);
 
+        //worksnode(&mut self.plus, (0, None), &mut f);
+        worksnode(&mut self.minus, (0, None), &mut setminus);
     }
 }
 
@@ -140,7 +137,6 @@ pub struct Rule {
     pub patch: Patch,
     pub freevars: Vec<Name>,
 }
-
 
 // Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
@@ -424,7 +420,6 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
         //modifiers
         lino += block4.len() - 1;
         let (pbufmod, mbufmod) = handlemods(&block4);
-        
 
         let rule = buildrule(
             &currrulename,

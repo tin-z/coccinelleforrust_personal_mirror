@@ -1,4 +1,4 @@
-use std::{clone, iter::zip, vec, ops::Deref};
+use std::{clone, iter::zip, ops::Deref, vec};
 
 use ide_db::base_db::Env;
 use itertools::{enumerate, Itertools};
@@ -26,7 +26,11 @@ pub struct Environment<'a> {
 impl<'a> Environment<'a> {
     pub fn add(&mut self, env: Self) {
         for binding in env.bindings {
-            if !self.bindings.iter().any(|x| if x.0.1==binding.0.1 { true } else {false}) {
+            if !self
+                .bindings
+                .iter()
+                .any(|x| if x.0 .1 == binding.0 .1 { true } else { false })
+            {
                 self.bindings.push(binding);
             }
         }
@@ -40,7 +44,12 @@ impl<'a> Environment<'a> {
     }
 
     pub fn new() -> Environment<'a> {
-        Environment { failed: false, bindings: vec![], minuses: vec![], pluses: vec![] }
+        Environment {
+            failed: false,
+            bindings: vec![],
+            minuses: vec![],
+            pluses: vec![],
+        }
     }
 }
 
@@ -51,11 +60,9 @@ enum MetavarMatch<'a, 'b> {
     Exists,
 }
 
-
 pub struct Looper<'a> {
     tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
 }
-
 
 impl<'a, 'b> Looper<'a> {
     pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
@@ -75,7 +82,6 @@ impl<'a, 'b> Looper<'a> {
         let mut a: &Snode;
         let mut b: &Rnode;
         loop {
-            
             if let Some(ak) = nodevec1.next() {
                 a = ak;
             } else {
@@ -145,15 +151,13 @@ impl<'a, 'b> Looper<'a> {
                         env.addbinding(binding);
                         //println!("{:?}", env.bindings);
                     }
-                    MetavarMatch::Exists => {
-                        match a.wrapper.modkind {
-                            Some(MODKIND::MINUS) => {
-                                env.minuses.push(b.getpos());
-                            }
-                            Some(MODKIND::PLUS) => {}
-                            None => {}
+                    MetavarMatch::Exists => match a.wrapper.modkind {
+                        Some(MODKIND::MINUS) => {
+                            env.minuses.push(b.getpos());
                         }
-                    }
+                        Some(MODKIND::PLUS) => {}
+                        None => {}
+                    },
                 }
             }
         }
@@ -243,9 +247,7 @@ impl<'a, 'b> Looper<'a> {
             if !env.failed {
                 environments.push(env);
             }
-            
         }
         (environments, matched)
     }
 }
-
