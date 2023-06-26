@@ -24,13 +24,13 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 fn main() {
     //let contents = fs::read_to_string("./src/rust-analyzer/crates/ide-db/src/items_locator.rs")
     //    .expect("This shouldnt be empty");
-    let n = fs::read_dir("src/tests/").unwrap().count() as usize/3;
+    let n = fs::read_dir("src/tests/bindings/").unwrap().count() as usize/3;
     for i in 1..n+1 {
-        let patchstring = fs::read_to_string(format!("./src/tests/test{}.cocci", i))
+        let patchstring = fs::read_to_string(format!("./src/tests/bindings/test{}.cocci", i))
             .expect("This shouldnt be empty");
-        let rustcode = fs::read_to_string(format!("./src/tests/test{}.rs", i))
+        let rustcode = fs::read_to_string(format!("./src/tests/bindings/test{}.rs", i))
             .expect("This shouldnt be empty");
-        let expected = fs::read_to_string(format!("./src/tests/expected{}.txt", i))
+        let expected = fs::read_to_string(format!("./src/tests/bindings/expected{}.txt", i))
             .expect("This shouldnt be empty");
 
         //let mut rules = processcocci(contents.as_str());

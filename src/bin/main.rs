@@ -50,6 +50,8 @@ fn transformfile(coccifile: String, rsfile: String) {
     println!("\n\nTransformed Code - \n");
     transformedcode.displaytree();
     println!();
+
+    //rules[0].patch.minus.print_tree();
 }
 
 fn main() {

@@ -124,7 +124,6 @@ impl<'a, 'b> Looper<'a> {
             }
             match self.workon(a, b, &env.bindings) {
                 MetavarMatch::Fail => {
-                    //println!("fail");
                     fail!()
                 }
                 MetavarMatch::Maybe(a, b) => {
@@ -136,7 +135,6 @@ impl<'a, 'b> Looper<'a> {
                     if !renv.failed {
                         match a.wrapper.modkind {
                             Some(MODKIND::MINUS) => {
-                                println!("Pushing : {:?}", a.astnode.to_string());
                                 env.minuses.push(b.getpos());
                             }
                             Some(MODKIND::PLUS) => {}

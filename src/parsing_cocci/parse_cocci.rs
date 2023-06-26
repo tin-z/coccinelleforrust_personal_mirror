@@ -76,7 +76,7 @@ pub struct Patch {
 impl Patch {
     fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
         let mut work = |node: &mut Snode| match node.kind() {
-            Tag::PATH_EXPR | Tag::IDENT_PAT => {
+            Tag::PATH_EXPR | Tag::IDENT_PAT | Tag::NAME_REF  => {
                 let stmp = node.astnode.to_string();
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                     //println!("MetaVar found - {:?}", mvar);

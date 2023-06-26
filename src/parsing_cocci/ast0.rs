@@ -112,7 +112,8 @@ impl<'a> Snode {
             | RANGE_EXPR
             | BIN_EXPR
             | EXPR_STMT
-            | LITERAL => true,
+            | LITERAL 
+            | NAME_REF => true,
             _ => false,
         }
     }
