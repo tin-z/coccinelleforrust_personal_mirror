@@ -9,7 +9,7 @@
 ///
 /// _context_
 /// (+/-) code
-use std::{ops::Deref, vec};
+use std::{ops::Deref, vec, borrow::BorrowMut};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
@@ -127,6 +127,34 @@ impl Patch {
 
         //worksnode(&mut self.plus, (0, None), &mut f);
         worksnode(&mut self.minus, (0, None), &mut setminus);
+    }
+
+    fn tagplus_aux(node1: &mut Snode, node2: &Snode) {
+        let mut pvec: Vec<Snode> = vec![];
+        let mut achildren = node1.children.iter_mut();
+        let mut a: &mut Snode;
+        for bchild in &node2.children {
+            match bchild.wrapper.modkind {
+                Some(MODKIND::PLUS) => {
+                    pvec.push(bchild.clone());
+                }
+                Some(_mod) => {
+                    a = achildren.next().unwrap();
+                    //since node1 and node2 are exactly the same except pluses we can unwrap
+                    //we can expect a node in node1 when there is a nodes in node2
+                    a.wrapper.plusesbef = pvec;
+                    pvec = vec![];
+                    Patch::tagplus_aux(a, bchild);
+                }
+                None => {}
+            }
+        }
+        //if any pluses are leftover that is they were inserted after 
+        node1.wrapper.plusesaft = pvec;
+    }
+
+    pub fn tagplus(&mut self) {
+        Patch::tagplus_aux(&mut self.minus, &mut self.plus);
     }
 }
 
