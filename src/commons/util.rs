@@ -96,7 +96,7 @@ pub fn workrnode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool){
     }
 }
 
-pub fn visitrnode<'a>(nodea: &Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
+pub fn visitrnode<'a>(nodea: &'a Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&'a Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
     //use async function to wrap the for loop
     //for other cases TODO
     let mut environments = vec![];

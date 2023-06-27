@@ -29,7 +29,6 @@ pub enum Danger {
     NoDanger,
 }
 
-#[derive(PartialEq)]
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
@@ -37,6 +36,7 @@ pub struct Wrap {
     danger: Danger,
     pub wspaces: (String, String),
     pub isremoved: bool,
+    pub plussed: (Vec<Rnode>, Vec<Rnode>)
 }
 
 impl Wrap {
@@ -53,6 +53,7 @@ impl Wrap {
             danger: danger,
             wspaces: (String::new(), String::new()),
             isremoved: false,
+            plussed: (vec![], vec![])
         }
     }
 
@@ -64,6 +65,7 @@ impl Wrap {
             danger: Danger::NoDanger,
             wspaces: (String::new(), String::new()),
             isremoved: false,
+            plussed: (vec![], vec![])
         }
     }
 }

@@ -4,32 +4,35 @@ use ide_db::base_db::Env;
 use itertools::{enumerate, Itertools};
 use parser::SyntaxKind;
 use regex::bytes::CaptureLocations;
-use syntax::ast::{PathExpr, Meta};
+use syntax::ast::{Meta, PathExpr};
 
 use crate::{
     fail,
     parsing_cocci::ast0::{fill_wrap, Snode, Wrap},
-    parsing_cocci::ast0::{Mcodekind, MODKIND, MetaVar},
+    parsing_cocci::ast0::{Mcodekind, MetaVar, MODKIND},
     parsing_rs::ast_rs::Rnode,
 };
 
 #[derive(Clone, Debug)]
 pub struct MetavarName {
     pub rulename: String,
-    pub varname: String
+    pub varname: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct MetavarBinding<'a> {
     pub metavarinfo: MetavarName,
-    pub rnode: &'a Rnode
+    pub rnode: &'a Rnode,
 }
 
 impl<'a> MetavarBinding<'a> {
-    fn new(rname: String, varname: String, rnode: &'a Rnode) -> MetavarBinding<'a>{
+    fn new(rname: String, varname: String, rnode: &'a Rnode) -> MetavarBinding<'a> {
         return MetavarBinding {
-            metavarinfo: MetavarName { rulename: rname, varname: varname },
-            rnode: rnode
+            metavarinfo: MetavarName {
+                rulename: rname,
+                varname: varname,
+            },
+            rnode: rnode,
         };
     }
 }
@@ -39,7 +42,7 @@ pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
     pub minuses: Vec<(usize, usize)>,
-    pub pluses: Vec<usize>,
+    pub pluses: Vec<(usize, Vec<&'a Snode>)>,
 }
 
 impl<'a> Environment<'a> {
@@ -92,7 +95,7 @@ impl<'a, 'b> Looper<'a> {
 
     pub fn matchnodes(
         &self,
-        nodevec1: &Vec<&Snode>,
+        nodevec1: &Vec<&'a Snode>,
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment<'a>,
     ) -> Environment<'a> {
@@ -100,7 +103,7 @@ impl<'a, 'b> Looper<'a> {
         let mut nodevec2 = nodevec2.iter();
         let mut a: &Snode;
         let mut b: &Rnode;
-        
+
         loop {
             if let Some(ak) = nodevec1.next() {
                 a = ak;
@@ -201,7 +204,8 @@ impl<'a, 'b> Looper<'a> {
                     .iter()
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
-                    if binding.rnode.equals(node2) {
+                    if binding.rnode.equals(node2)
+                    {
                         MetavarMatch::Exists
                     } else {
                         MetavarMatch::Fail
@@ -212,20 +216,19 @@ impl<'a, 'b> Looper<'a> {
                             if node2.isexpr() {
                                 return MetavarMatch::Match;
                             }
-                           return MetavarMatch::Fail
+                            return MetavarMatch::Fail;
                         }
                         MetaVar::Id(_info) => {
                             if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
                                 return MetavarMatch::Match;
                             }
-                            return MetavarMatch::Fail
+                            return MetavarMatch::Fail;
                         }
                         MetaVar::NoMeta => {
                             panic!("Should never occur");
                             //since no meta has been taken care of in the previous match
                         }
                     }
-                    
                 }
             }
         }
@@ -233,7 +236,7 @@ impl<'a, 'b> Looper<'a> {
 
     pub fn handledisjunctions(
         &'a self,
-        disjs: &Vec<Vec<Snode>>,
+        disjs: &'a Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
     ) -> (Vec<Environment>, bool) {
         let mut environments: Vec<Environment> = vec![];
