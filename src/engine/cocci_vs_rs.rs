@@ -42,7 +42,7 @@ pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
     pub minuses: Vec<(usize, usize)>,
-    pub pluses: Vec<(usize, &'a Vec<Snode>)>,
+    pub pluses: Vec<(usize, Vec<Snode>)>,
 }
 
 impl<'a> Environment<'a> {
@@ -144,11 +144,11 @@ impl<'a, 'b> Looper<'a> {
                         }
                         if a.wrapper.plusesbef.len() != 0 {
                             env.pluses
-                                .push((b.wrapper.info.charstart, &a.wrapper.plusesbef));
+                                .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
                         }
                         if a.wrapper.plusesaft.len() != 0 {
                             env.pluses
-                                .push((b.wrapper.info.charend, &a.wrapper.plusesaft));
+                                .push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
                         }
 
                         env.add(renv);

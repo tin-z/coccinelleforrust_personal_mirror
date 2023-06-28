@@ -137,7 +137,6 @@ impl Patch {
         //very level in the tree. That is I cannot write a plus
         //statement after a minus or context code and not have it
         //in a level same as the statement above it even around braces
-
         let mut pvec: Vec<Snode> = vec![];
         let mut achildren = node1.children.iter_mut();
         let mut bchildren = node2.children.iter();
@@ -171,13 +170,15 @@ impl Patch {
                     }
                 }
                 (None, Some(bk)) => {
-                    //this means the context code ended but there are still more pluses
-                    //Note that there cannot be any more context code in node2
-                    //so it is given that bk is of modkind plus
-                    pvec.push(bk.deref().clone());
-                    b = bchildren.next();
+                    match bk.wrapper.modkind {
+                        Some(MODKIND::PLUS) => {
+                            pvec.push(bk.deref().clone());
+                            b = bchildren.next();
+                        }
+                        _ => { break; }
+                    }
                 }
-                (Some(_), None) => { }//means only minuses are left
+                (Some(_), None) => { break; }//means only minuses are left
                 (None, None) => { break; }
             }
         }
@@ -187,6 +188,7 @@ impl Patch {
             //closes context above
             if a.is_none() {
                 //no context
+                println!("{:#?}", pvec);
                 panic!("Plus without context.");
             }
             a.unwrap().wrapper.plusesaft = pvec;

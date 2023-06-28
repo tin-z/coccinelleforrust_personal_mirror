@@ -6,10 +6,7 @@ use parser::SyntaxKind;
 use syntax::{AstNode, SourceFile, SyntaxElement};
 
 use crate::{
-    commons::{
-        info::{ParseInfo, PositionInfo},
-        util,
-    },
+    commons::info::{ParseInfo, PositionInfo},
     parsing_rs::visitor_ast::work_node,
 };
 
@@ -35,7 +32,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
 pub fn processrs(contents: &str) -> Rnode {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
-    let root = SourceFile::parse(contents);
+    let root = SourceFile::parse(contents).tree();
     let wrap_node = &|node: SyntaxElement,
                       estring: String,
                       df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
@@ -45,12 +42,7 @@ pub fn processrs(contents: &str) -> Rnode {
         let children = df(&node);
         let rnode = Rnode {
             wrapper: wrapped,
-            kind: node.kind(),
-            astnode: if children.len() == 0 {
-                node
-            } else {
-                SyntaxElement::Node(SourceFile::parse("").syntax_node())
-            }, //Change this to SyntaxElement
+            astnode: node, //Change this to SyntaxElement
             children: children,
         };
         if rnode.kind() == SyntaxKind::EXPR_STMT && rnode.children.len() == 1 {
@@ -66,6 +58,6 @@ pub fn processrs(contents: &str) -> Rnode {
     work_node(
         wrap_node,
         String::new(),
-        SyntaxElement::Node(root.syntax_node()),
+        SyntaxElement::Node(root.syntax().clone()),
     )
 }

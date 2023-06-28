@@ -26,6 +26,8 @@ fn main() {
     //    .expect("This shouldnt be empty");
     let n = fs::read_dir("src/tests/bindings/").unwrap().count() as usize/3;
     for i in 1..n+1 {
+
+        println!("here");
         let patchstring = fs::read_to_string(format!("./src/tests/bindings/test{}.cocci", i))
             .expect("This shouldnt be empty");
         let rustcode = fs::read_to_string(format!("./src/tests/bindings/test{}.rs", i))
@@ -33,23 +35,24 @@ fn main() {
         let expected = fs::read_to_string(format!("./src/tests/bindings/expected{}.txt", i))
             .expect("This shouldnt be empty");
 
+            println!("here");
         //let mut rules = processcocci(contents.as_str());
         //set_logilines(&mut rules);
 
         let mut rules = processcocci(&patchstring);
+        println!("here");
         let mut rnode = processrs(&rustcode);
         //rules[0].patch.plus.print_tree();
         //rnode.print_tree();
         let looper = Looper::new(tokenf);
     //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
-
         let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
         let envs = visitrnode(&a.0, &rnode, &|a, b| { looper.handledisjunctions(a, b) });
         let mut output: String = String::new();
         for env in envs {
             for var in env.bindings {
                 output.push_str(
-                    format!("{:?} => {:?}\n", var.metavarinfo.varname, var.rnode.to_string()).as_str(),
+                    format!("{:?} => {:?}\n", var.metavarinfo.varname, var.rnode.astnode.to_string()).as_str(),
                 );
             }
             output.push('\n');

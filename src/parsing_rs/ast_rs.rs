@@ -74,7 +74,6 @@ pub struct Rnode {
     pub wrapper: Wrap,
     pub astnode: SyntaxElement, //Not SyntaxNode because we need to take
     //care of the whitespaces
-    pub kind: SyntaxKind,
     pub children: Vec<Rnode>,
 }
 
@@ -83,7 +82,6 @@ impl Rnode {
         let dummyhead = SourceFile::parse("").syntax_node();
         Rnode {
             wrapper: Wrap::dummy(),
-            kind: dummyhead.kind(),
             astnode: NodeOrToken::Node(dummyhead),
             children: nodes,
         }
@@ -98,7 +96,7 @@ impl Rnode {
 //    }
 
     pub fn kind(&self) -> SyntaxKind {
-        self.kind
+        self.astnode.kind()
     }
 
     pub fn unwrap(&self) -> (SyntaxKind, &[Rnode]) {
@@ -118,18 +116,6 @@ impl Rnode {
         //stticly debug function
         self.print_tree_aux(&String::from("--"));
     }
-
-    pub fn to_string(&self) {
-        print!("{}", self.wrapper.wspaces.0);
-        if self.children.len() == 0{
-            print!("{}", self.astnode.to_string());
-        } else {
-            for i in &self.children {
-                i.displaytree();
-            }
-        }
-    }
-
 
     pub fn displaytree(&self) {
         print!("{}", self.wrapper.wspaces.0);
