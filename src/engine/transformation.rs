@@ -1,4 +1,7 @@
-use std::{cmp::{max, min}, process::Child};
+use std::{
+    cmp::{max, min},
+    process::Child,
+};
 
 use crate::{
     commons::util::workrnode,
@@ -8,7 +11,7 @@ use crate::{
 
 use super::cocci_vs_rs::Environment;
 
-fn duplicaternode(node: &Rnode) -> Rnode{
+fn duplicaternode(node: &Rnode) -> Rnode {
     let mut rnode = Rnode {
         wrapper: Wrap::dummy(),
         astnode: node.astnode.clone(),
@@ -62,6 +65,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         for minus in env.minuses.clone() {
             if pos == minus {
                 x.wrapper.isremoved = true;
+                println!("removed: {}, {:?}", x.astnode.to_string(), x.kind());
             } else if max(pos.0, minus.0) <= min(pos.1, minus.1) {
                 //this if checks for an overlap between the rnode and all minuses
                 //(and pluses too which will be added)
@@ -71,9 +75,10 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
             }
         }
         for (pluspos, pluses) in env.pluses.clone() {
-            if pos.0 == pluspos {
+            if pos.0 == pluspos && x.children.len() == 0 {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
-            } else if pos.1 == pluspos {
+                //println!("======================== {:?}", x);
+            } else if pos.1 == pluspos && x.children.len() == 0 {
                 x.wrapper.plussed.1 = snodetornode(pluses, env);
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;

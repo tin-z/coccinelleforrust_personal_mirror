@@ -145,6 +145,7 @@ impl<'a, 'b> Looper<'a> {
                         if a.wrapper.plusesbef.len() != 0 {
                             env.pluses
                                 .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
+                            println!("Plus added.");
                         }
                         if a.wrapper.plusesaft.len() != 0 {
                             env.pluses
@@ -166,15 +167,36 @@ impl<'a, 'b> Looper<'a> {
                         Some(MODKIND::PLUS) => {}
                         None => {}
                     }
+
+                    if a.wrapper.plusesbef.len() != 0 {
+                        env.pluses
+                            .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
+                        println!("Plus added.");
+                    }
+                    if a.wrapper.plusesaft.len() != 0 {
+                        env.pluses
+                            .push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
+                    }
                     env.addbinding(binding);
                 }
-                MetavarMatch::Exists => match a.wrapper.modkind {
-                    Some(MODKIND::MINUS) => {
-                        env.minuses.push(b.getpos());
+                MetavarMatch::Exists => {
+                    if a.wrapper.plusesbef.len() != 0 {
+                        env.pluses
+                            .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
+                        println!("Plus added.");
                     }
-                    Some(MODKIND::PLUS) => {}
-                    None => {}
-                },
+                    if a.wrapper.plusesaft.len() != 0 {
+                        env.pluses
+                            .push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
+                    }
+                    match a.wrapper.modkind {
+                        Some(MODKIND::MINUS) => {
+                            env.minuses.push(b.getpos());
+                        }
+                        Some(MODKIND::PLUS) => {}
+                        None => {}
+                    }
+                }
             }
         }
     }

@@ -14,7 +14,7 @@ use std::{borrow::BorrowMut, ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
-    commons::util::{self, worksnode},
+    commons::util::{self, worksnode, getstmtlist, removestmtbraces},
     parsing_rs::ast_rs::Rnode,
     syntaxerror,
 };
@@ -95,15 +95,17 @@ impl Patch {
     }
 
     fn setmods(&mut self) {
-        let mut setminus = |node: &mut Snode,
+        let mut tagmods = |node: &mut Snode,
                             (lino, modkind): (usize, Option<MODKIND>)|
          -> (usize, Option<MODKIND>) {
             let (start, end) = node.wrapper.getlinenos();
 
             match node.wrapper.modkind {
                 Some(modkind) => {
-                    if start == end {
+                    if start == end && node.children.len() == 0{
                         node.wrapper.modkind = Some(modkind);
+                        println!("-----------MINUSED {}", node.astnode.to_string());
+
                     } else {
                         node.wrapper.modkind = None;
                     }
@@ -113,7 +115,10 @@ impl Patch {
                     if lino == 0 {
                         return (0, None);
                     } else if start == lino && start == end {
-                        node.wrapper.modkind = modkind;
+                        if node.children.len() == 0 {
+                            node.wrapper.modkind = modkind;
+                            println!("-----------MINUSED {}", node.astnode.to_string());
+                        }
                         return (lino, modkind);
                         //everytime lino is not 0, modkind is
                         //a Some value
@@ -126,8 +131,9 @@ impl Patch {
             }
         };
 
-        //worksnode(&mut self.plus, (0, None), &mut f);
-        worksnode(&mut self.minus, (0, None), &mut setminus);
+        worksnode(&mut self.plus, (0, None), &mut tagmods);
+        println!("break");
+        worksnode(&mut self.minus, (0, None), &mut tagmods);
     }
 
     fn tagplus_aux(node1: &mut Snode, node2: &Snode) {
@@ -186,9 +192,8 @@ impl Patch {
             //Plus statements exist after
             //the context and need to be attached to the
             //closes context above
+            let a = node1.children.last_mut();
             if a.is_none() {
-                //no context
-                println!("{:#?}", pvec);
                 panic!("Plus without context.");
             }
             a.unwrap().wrapper.plusesaft = pvec;
@@ -321,6 +326,8 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
     };
     p.setmetavars(metavars);
     p.setmods();
+    removestmtbraces(&mut p.minus);
+    removestmtbraces(&mut p.plus);
     p.tagplus();
     p
 }

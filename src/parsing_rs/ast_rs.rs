@@ -119,15 +119,27 @@ impl Rnode {
 
     pub fn displaytree(&self) {
         print!("{}", self.wrapper.wspaces.0);
-        if self.children.len() == 0 && !self.wrapper.isremoved {
-            print!("{}", self.astnode.to_string());
-        } else {
-            for i in &self.children {
-                if !i.wrapper.isremoved {
-                    i.displaytree();
-                }
+        if self.astnode.to_string() == "e" {
+            println!("{:?}", self.kind());
+        }
+        for plusbef in &self.wrapper.plussed.0 {
+            plusbef.displaytree();
+            if plusbef.astnode.to_string() == "true" {
+                println!("{:?}", plusbef.wrapper.plussed);
             }
         }
+        if !self.wrapper.isremoved {
+            if self.children.len() == 0 {
+                print!("{}", self.astnode.to_string());
+            }
+            for i in &self.children {
+                i.displaytree();
+            }
+        }
+        for plusaft in &self.wrapper.plussed.1 {
+                plusaft.displaytree();
+        }
+        print!("{}", self.wrapper.wspaces.1);
     }
 
     pub fn isexpr(&self) -> bool {

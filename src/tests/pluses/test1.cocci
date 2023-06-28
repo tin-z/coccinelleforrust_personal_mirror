@@ -1,5 +1,6 @@
+@ rule1 @
+expression exp1, exp2;
 @@
-@@
-let a = 10;
--funcall();
-+12;
+-exp1 &&
++true &&
+exp2;

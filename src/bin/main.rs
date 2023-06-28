@@ -33,6 +33,9 @@ fn transformfile(coccifile: String, rsfile: String) {
     let rustcode = fs::read_to_string(rsfile).expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
+
+
+
     let rnode = processrs(&rustcode);
     let mut transformedcode = processrs(&rustcode);
 
@@ -41,9 +44,21 @@ fn transformfile(coccifile: String, rsfile: String) {
     let a: Disjunction = getdisjunctions(Disjunction(vec![
         getstmtlist(&mut rules[0].patch.minus).clone().children,
     ]));
+
+    worksnode(&mut rules[0].patch.minus, (), &mut |x: &mut Snode, _| {
+        if x.wrapper.plusesaft.len() != 0 {
+            println!("{:#?} attahced after {}", x.wrapper.plusesaft, x.astnode.to_string());
+        }
+        if x.wrapper.plusesbef.len() != 0 {
+            println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
+        }
+        if let Some(MODKIND::MINUS) = x.wrapper.modkind {
+        }
+    });
+
     let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
 
-    for env in envs {
+    for env in envs.clone() {
         println!("Bindings:- \n");
         for binding in env.bindings.clone() {
             println!(
@@ -59,6 +74,7 @@ fn transformfile(coccifile: String, rsfile: String) {
     println!("\n\nTransformed Code - \n");
     transformedcode.displaytree();
     println!();
+    println!("Pluses -> {:#?}", envs[0].pluses);
 
     //rules[0].patch.minus.print_tree();
 }
@@ -71,20 +87,5 @@ fn mains() {
 }
 
 fn main() {
-    let coccifile = String::from("./src/tests/pluses/test1.cocci");
-    let patchstring = fs::read_to_string(coccifile).expect("This shouldnt be empty");
-    let mut rules = processcocci(&patchstring);
-    worksnode(&mut rules[0].patch.minus, (), &mut |x: &mut Snode, _| {
-        if x.wrapper.plusesaft.len() != 0 {
-            println!("{:#?} attahced after {}", x.wrapper.plusesaft, x.astnode.to_string());
-        }
-        if x.wrapper.plusesbef.len() != 0 {
-            println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
-        }
-        if let Some(MODKIND::MINUS) = x.wrapper.modkind {
-            println!("hello");
-        }
-    });
-    println!("{}", rules[0].patch.minus.astnode.to_string());
-    println!("{}", rules[0].patch.plus.astnode.to_string());
+    transformfile(String::from("./src/tests/pluses/test1.cocci"), String::from("./src/tests/pluses/test1.rs"));
 }
