@@ -1,3 +1,4 @@
+use core::panic;
 /// Parse a Single .cocci file
 /// Structure supported as of now
 /// @ rulename (depends on bool_exp)? @
@@ -9,7 +10,7 @@
 ///
 /// _context_
 /// (+/-) code
-use std::{ops::Deref, vec, borrow::BorrowMut};
+use std::{borrow::BorrowMut, ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
@@ -130,27 +131,66 @@ impl Patch {
     }
 
     fn tagplus_aux(node1: &mut Snode, node2: &Snode) {
+        //There is no need to propagate pluses
+        //because a plus cannot exist without code around it
+        //when a '+' mod is written an ast is pushed at that
+        //very level in the tree. That is I cannot write a plus
+        //statement after a minus or context code and not have it
+        //in a level same as the statement above it even around braces
+
         let mut pvec: Vec<Snode> = vec![];
         let mut achildren = node1.children.iter_mut();
-        let mut a: &mut Snode;
-        for bchild in &node2.children {
-            match bchild.wrapper.modkind {
-                Some(MODKIND::PLUS) => {
-                    pvec.push(bchild.clone());
+        let mut bchildren = node2.children.iter();
+        let mut a = achildren.next();
+        let mut b = bchildren.next();
+        loop {
+            match (&mut a, &b) {
+                (Some(ak), Some(bk)) => {
+                    match (ak.wrapper.modkind, bk.wrapper.modkind) {
+                        (_, Some(MODKIND::PLUS)) => { 
+                            pvec.push(bk.deref().clone());
+                            b = bchildren.next();
+                        }
+                        (Some(MODKIND::MINUS), _) => {
+                            //minus code
+                            //with any thing other than a plus
+                            ak.wrapper.plusesbef = pvec;
+                            pvec = vec![];
+                            a = achildren.next();
+                        }
+                        (None, None) => {
+                            //context code
+                            //with context code
+                            ak.wrapper.plusesbef = pvec;
+                            pvec = vec![];
+                            Patch::tagplus_aux(ak, bk);
+                            a = achildren.next();
+                            b = bchildren.next();
+                        }
+                        _ => { panic!("There are plusses in the minus buffer, or minuses in the plus buffer."); }
+                    }
                 }
-                Some(_mod) => {
-                    a = achildren.next().unwrap();
-                    //since node1 and node2 are exactly the same except pluses we can unwrap
-                    //we can expect a node in node1 when there is a nodes in node2
-                    a.wrapper.plusesbef = pvec;
-                    pvec = vec![];
-                    Patch::tagplus_aux(a, bchild);
+                (None, Some(bk)) => {
+                    //this means the context code ended but there are still more pluses
+                    //Note that there cannot be any more context code in node2
+                    //so it is given that bk is of modkind plus
+                    pvec.push(bk.deref().clone());
+                    b = bchildren.next();
                 }
-                None => {}
+                (Some(_), None) => { }//means only minuses are left
+                (None, None) => { break; }
             }
         }
-        //if any pluses are leftover that is they were inserted after 
-        node1.wrapper.plusesaft = pvec;
+        if pvec.len()!=0 {
+            //Plus statements exist after
+            //the context and need to be attached to the
+            //closes context above
+            if a.is_none() {
+                //no context
+                panic!("Plus without context.");
+            }
+            a.unwrap().wrapper.plusesaft = pvec;
+        }
     }
 
     pub fn tagplus(&mut self) {
@@ -279,6 +319,7 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
     };
     p.setmetavars(metavars);
     p.setmods();
+    p.tagplus();
     p
 }
 

@@ -49,12 +49,13 @@ fn main() {
         for env in envs {
             for var in env.bindings {
                 output.push_str(
-                    format!("{:?} => {:?}\n", var.metavarinfo.varname, var.rnode.astnode.to_string()).as_str(),
+                    format!("{:?} => {:?}\n", var.metavarinfo.varname, var.rnode.to_string()).as_str(),
                 );
             }
             output.push('\n');
         }
-        //println!("{} ===\n{}", output, expected);
+
+        println!("{} ===\n{}", output, expected);
         //println!("Running Test {}.", i);
         if output.trim() == expected.trim() {
             println!("Test {} passed.-----------------------------------------------------------------------------------------", i);

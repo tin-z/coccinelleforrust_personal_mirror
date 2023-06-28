@@ -42,7 +42,7 @@ pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
     pub minuses: Vec<(usize, usize)>,
-    pub pluses: Vec<(usize, Vec<&'a Snode>)>,
+    pub pluses: Vec<(usize, &'a Vec<Snode>)>,
 }
 
 impl<'a> Environment<'a> {
@@ -140,9 +140,17 @@ impl<'a, 'b> Looper<'a> {
                             Some(MODKIND::MINUS) => {
                                 env.minuses.push(b.getpos());
                             }
-                            Some(MODKIND::PLUS) => {}
-                            None => {}
+                            _ => {}
                         }
+                        if a.wrapper.plusesbef.len() != 0 {
+                            env.pluses
+                                .push((b.wrapper.info.charstart, &a.wrapper.plusesbef));
+                        }
+                        if a.wrapper.plusesaft.len() != 0 {
+                            env.pluses
+                                .push((b.wrapper.info.charend, &a.wrapper.plusesaft));
+                        }
+
                         env.add(renv);
                     } else {
                         fail!()
@@ -204,8 +212,7 @@ impl<'a, 'b> Looper<'a> {
                     .iter()
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
-                    if binding.rnode.equals(node2)
-                    {
+                    if binding.rnode.equals(node2) {
                         MetavarMatch::Exists
                     } else {
                         MetavarMatch::Fail

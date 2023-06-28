@@ -4,7 +4,15 @@ use crate::{commons::util::workrnode, parsing_rs::ast_rs::Rnode, parsing_cocci::
 
 use super::cocci_vs_rs::Environment;
 
-fn snodetornode(snode: Vec<&Snode>, env: &Environment) -> Vec<Rnode> {
+fn copysnodetornode(snode: &Snode, rnode: Rnode) {
+    //let r = Rnode {};
+}
+
+fn snodetornode(snodes: &Vec<Snode>, env: &Environment) -> Vec<Rnode> {
+
+    for snode in snodes {
+
+    }
     vec![]
 }
 
@@ -29,7 +37,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
             }
             else if pos.1 == pluspos {
-
+                x.wrapper.plussed.1 = snodetornode(pluses, env);
             }
             else if pluspos >= pos.0 && pluspos <= pos.1 {
                    shouldgodeeper = true;

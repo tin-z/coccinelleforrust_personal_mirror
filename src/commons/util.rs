@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use parser::SyntaxKind;
+use syntax::{SyntaxElement, SourceFile, SyntaxNode};
 
 use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, engine::cocci_vs_rs::{MetavarBinding, Environment}};
 
