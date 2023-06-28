@@ -14,7 +14,7 @@ use std::{borrow::BorrowMut, ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
-    commons::util::{self, worksnode, getstmtlist, removestmtbraces},
+    commons::util::{self, getstmtlist, removestmtbraces, worksnode},
     parsing_rs::ast_rs::Rnode,
     syntaxerror,
 };
@@ -96,16 +96,15 @@ impl Patch {
 
     fn setmods(&mut self) {
         let mut tagmods = |node: &mut Snode,
-                            (lino, modkind): (usize, Option<MODKIND>)|
+                           (lino, modkind): (usize, Option<MODKIND>)|
          -> (usize, Option<MODKIND>) {
             let (start, end) = node.wrapper.getlinenos();
 
             match node.wrapper.modkind {
                 Some(modkind) => {
-                    if start == end && node.children.len() == 0{
+                    if start == end {
                         node.wrapper.modkind = Some(modkind);
                         println!("-----------MINUSED {}", node.astnode.to_string());
-
                     } else {
                         node.wrapper.modkind = None;
                     }
@@ -115,10 +114,8 @@ impl Patch {
                     if lino == 0 {
                         return (0, None);
                     } else if start == lino && start == end {
-                        if node.children.len() == 0 {
-                            node.wrapper.modkind = modkind;
-                            println!("-----------MINUSED {}", node.astnode.to_string());
-                        }
+                        node.wrapper.modkind = modkind;
+                        println!("-----------MINUSED {}", node.astnode.to_string());
                         return (lino, modkind);
                         //everytime lino is not 0, modkind is
                         //a Some value
@@ -152,7 +149,7 @@ impl Patch {
             match (&mut a, &b) {
                 (Some(ak), Some(bk)) => {
                     match (ak.wrapper.modkind, bk.wrapper.modkind) {
-                        (_, Some(MODKIND::PLUS)) => { 
+                        (_, Some(MODKIND::PLUS)) => {
                             pvec.push(bk.deref().clone());
                             b = bchildren.next();
                         }
@@ -172,23 +169,29 @@ impl Patch {
                             a = achildren.next();
                             b = bchildren.next();
                         }
-                        _ => { panic!("There are plusses in the minus buffer, or minuses in the plus buffer."); }
-                    }
-                }
-                (None, Some(bk)) => {
-                    match bk.wrapper.modkind {
-                        Some(MODKIND::PLUS) => {
-                            pvec.push(bk.deref().clone());
-                            b = bchildren.next();
+                        _ => {
+                            panic!("There are plusses in the minus buffer, or minuses in the plus buffer.");
                         }
-                        _ => { break; }
                     }
                 }
-                (Some(_), None) => { break; }//means only minuses are left
-                (None, None) => { break; }
+                (None, Some(bk)) => match bk.wrapper.modkind {
+                    Some(MODKIND::PLUS) => {
+                        pvec.push(bk.deref().clone());
+                        b = bchildren.next();
+                    }
+                    _ => {
+                        break;
+                    }
+                },
+                (Some(_), None) => {
+                    break;
+                } //means only minuses are left
+                (None, None) => {
+                    break;
+                }
             }
         }
-        if pvec.len()!=0 {
+        if pvec.len() != 0 {
             //Plus statements exist after
             //the context and need to be attached to the
             //closes context above
