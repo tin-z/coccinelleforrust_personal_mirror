@@ -66,7 +66,6 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
             if pos == minus {
                 x.wrapper.isremoved = true;
                 shouldgodeeper = true;
-                println!("removed: {}, {:?}", x.astnode.to_string(), x.kind());
             } else if max(pos.0, minus.0) <= min(pos.1, minus.1) {
                 //this if checks for an overlap between the rnode and all minuses
                 //(and pluses too which will be added)
