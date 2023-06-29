@@ -104,7 +104,6 @@ impl Patch {
                 Some(modkind) => {
                     if start == end {
                         node.wrapper.modkind = Some(modkind);
-                        println!("-----------MINUSED {}", node.astnode.to_string());
                     } else {
                         node.wrapper.modkind = None;
                     }
@@ -115,7 +114,6 @@ impl Patch {
                         return (0, None);
                     } else if start == lino && start == end {
                         node.wrapper.modkind = modkind;
-                        println!("-----------MINUSED {}", node.astnode.to_string());
                         return (lino, modkind);
                         //everytime lino is not 0, modkind is
                         //a Some value
@@ -129,7 +127,6 @@ impl Patch {
         };
 
         worksnode(&mut self.plus, (0, None), &mut tagmods);
-        println!("break");
         worksnode(&mut self.minus, (0, None), &mut tagmods);
     }
 
@@ -208,7 +205,6 @@ impl Patch {
                 panic!("Plus without context.");
             }
             let a = a.unwrap();
-            println!("Attaching {:?} back to {}", pvec, a.astnode.to_string());
             if a.wrapper.isdisj {
                 a.wrapper.plusesaft.extend(pvec);
             }
@@ -338,12 +334,10 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
-    println!("plusbuf -\n{}", plusbuf);
     let mut p = Patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
     };
-    p.minus.print_tree();
     p.setmetavars(metavars);
     p.setmods();
     removestmtbracesaddpluses(&mut p.minus);

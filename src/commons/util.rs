@@ -180,7 +180,6 @@ pub fn removestmtbracesaddpluses<'a>(node: &'a mut Snode) {
     stmtlist.children.remove(0);
     let tmp = stmtlist.children.remove(stmtlist.children.len() - 1);
     let len = stmtlist.children.len();
-    println!("=={}", stmtlist.children[len -1].astnode.to_string());
     attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
 }
 
@@ -206,12 +205,9 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
 pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
     let len = node.children.len();
     if len == 0 {
-        if plus.len()>0 {
-            println!("Attahced {} in hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh {}", plus[0].astnode.to_string(), node.astnode.to_string());
-        }
         node.wrapper.plusesaft.extend(plus);
     } else {
-        println!("deeper to {:?}", node.children[len - 1].kind());
+        //println!("deeper to {:?}", node.children[len - 1].kind());
         attachback(&mut node.children[len - 1], plus);
     }
 }

@@ -34,8 +34,6 @@ fn transformfile(coccifile: String, rsfile: String) {
 
     let mut rules = processcocci(&patchstring);
     //rules[0].patch.plus.print_tree();
-    println!("Whole rule - \n{}", rules[0].patch.plus.astnode.to_string());
-
 
 
     let rnode = processrs(&rustcode);
