@@ -170,7 +170,7 @@ pub fn isexpr(node1: &Snode) -> bool {
 }
 
 
-pub fn removestmtbraces<'a>(node: &'a mut Snode) {
+pub fn removestmtbracesaddpluses<'a>(node: &'a mut Snode) {
     //since the patch is wrapped in a function to be parsed
     //this function extracts the stmtlist inside it and removes the curly
     //braces from the start and end of the block
@@ -178,7 +178,10 @@ pub fn removestmtbraces<'a>(node: &'a mut Snode) {
         .children[3] //blockexpr
         .children[0]; //stmtlist
     stmtlist.children.remove(0);
-    stmtlist.children.remove(stmtlist.children.len() - 1);
+    let tmp = stmtlist.children.remove(stmtlist.children.len() - 1);
+    let len = stmtlist.children.len();
+    println!("=={}", stmtlist.children[len -1].astnode.to_string());
+    attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
 }
 
 pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
@@ -189,4 +192,26 @@ pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
         .children[3] //blockexpr
         .children[0]; //stmtlist
     return stmtlist;
+}
+
+
+pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
+    if node.children.len() == 0 {
+        node.wrapper.plusesbef.extend(plus);
+    } else {
+        attachfront(&mut node.children[0], plus);
+    }
+}
+
+pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
+    let len = node.children.len();
+    if len == 0 {
+        if plus.len()>0 {
+            println!("Attahced {} in hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh {}", plus[0].astnode.to_string(), node.astnode.to_string());
+        }
+        node.wrapper.plusesaft.extend(plus);
+    } else {
+        println!("deeper to {:?}", node.children[len - 1].kind());
+        attachback(&mut node.children[len - 1], plus);
+    }
 }

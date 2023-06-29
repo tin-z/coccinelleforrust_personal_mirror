@@ -1,3 +1,10 @@
 fn main() {
-    e && 3;
+    lotsof();
+    extra();
+    if st {
+        haha;
+
+        funcall();
+        target;
+    }
 }

@@ -1,9 +1,6 @@
 @ rule1 @
-expression exp1, exp2;
+expression expr, exp1, exp2;
 @@
-(
--exp1 && exp2;
-|
-23;
-)
-+89;
+funcall();
+-expr;
++clearcell();

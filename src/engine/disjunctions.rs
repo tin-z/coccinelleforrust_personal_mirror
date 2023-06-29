@@ -2,7 +2,10 @@ use std::{borrow::BorrowMut, io::SeekFrom, ops::Deref};
 
 use itertools::{enumerate, Itertools};
 
-use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode};
+use crate::{
+    parsing_cocci::ast0::{Pluses, Snode},
+    parsing_rs::ast_rs::Rnode, commons::util::{attachfront, attachback},
+};
 
 #[derive(Debug)]
 pub struct Disjunction(pub Vec<Vec<Snode>>);
@@ -28,36 +31,41 @@ impl Disjunction {
         }
         let tmpdisj = self.0[i].clone();
         self.0[i][j].set_children(nodes.0.remove(0));
-        for (ctr, disj) in enumerate(nodes.0){
+        for (ctr, disj) in enumerate(nodes.0) {
             let mut newdisj = tmpdisj.clone();
             newdisj[j].set_children(disj);
             self.0.insert(i + ctr + 1, newdisj);
-
         }
-        
     }
 
+    pub fn attachpluses(&mut self, pluses: Pluses) {
+        for disj in &mut self.0 {
+            println!("count------------");
+            attachfront(&mut disj[0], pluses.0.clone());
+            let len = disj.len();
+            attachback(&mut disj[len-1], pluses.1.clone());
+            println!("count----------------------");
+        }
+    }
 }
 
 pub fn getdisjunctions<'a>(mut nodes: Disjunction) -> Disjunction {
-    let mut tmpdisjs: Vec<Vec<Snode>> = vec![];//for each disjunction branch
+    let mut tmpdisjs: Vec<Vec<Snode>> = vec![]; //for each disjunction branch
     for disj in nodes.0.clone() {
         let mut newvec: Vec<Vec<Snode>> = vec![vec![]];
         //it may split into more branches if it has disjunctions inside
         for node in disj {
             if node.wrapper.isdisj {
+                let (disjs, pluses) = node.getdisjs();
                 //let tmpdisj = nodes.0[gi + i].remove(gj + j);
-                let disjchildren = Disjunction(
-                    node.getdisjs()
-                        .iter()
-                        .map(|x| x.children.clone())
-                        .collect_vec(),
-                );
+                let mut disjchildren =
+                    Disjunction(disjs.iter().map(|x| x.children.clone()).collect_vec());
+                disjchildren.attachpluses(pluses);
                 let expandeddisj = getdisjunctions(disjchildren);
                 //the above expands any inner disjunctions
                 let tmpvec = newvec.clone();
-                newvec = vec![];//this discards the current disjunction to be
-                //rebuilt
+                newvec = vec![]; //this discards the current disjunction to be
+                                 //rebuilt
                 for vec in tmpvec {
                     for disjvec in expandeddisj.0.clone() {
                         let mut tmpvec = vec.clone();
@@ -66,9 +74,7 @@ pub fn getdisjunctions<'a>(mut nodes: Disjunction) -> Disjunction {
                     }
                 }
                 //nodes.add(gi + i, gj + j, getdisjunctions(disjtmp));
-            }
-            else {
-
+            } else {
                 let tmpvec = newvec;
                 newvec = vec![];
                 //let tmp = getdisjunctions(Disjunction(vec![node.children]));
@@ -78,8 +84,7 @@ pub fn getdisjunctions<'a>(mut nodes: Disjunction) -> Disjunction {
                         vec.push(node.clone());
                         newvec.push(vec);
                     }
-                }
-                else {
+                } else {
                     for mut vec in tmpvec {
                         let tmpnode = node.clone();
                         for i in getdisjunctions(Disjunction(vec![node.children.clone()])).0 {
@@ -89,9 +94,8 @@ pub fn getdisjunctions<'a>(mut nodes: Disjunction) -> Disjunction {
                             tmpvec.push(newdisj);
                             newvec.push(tmpvec);
                         }
-                    } 
+                    }
                 }
-                
             }
         }
         tmpdisjs.extend(newvec);

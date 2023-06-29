@@ -33,6 +33,8 @@ fn transformfile(coccifile: String, rsfile: String) {
     let rustcode = fs::read_to_string(rsfile).expect("This shouldnt be empty");
 
     let mut rules = processcocci(&patchstring);
+    //rules[0].patch.plus.print_tree();
+    println!("Whole rule - \n{}", rules[0].patch.plus.astnode.to_string());
 
 
 
@@ -41,20 +43,26 @@ fn transformfile(coccifile: String, rsfile: String) {
 
     let looper = Looper::new(tokenf);
 
-    let a: Disjunction = getdisjunctions(Disjunction(vec![
+    let mut a: Disjunction = getdisjunctions(Disjunction(vec![
         getstmtlist(&mut rules[0].patch.minus).clone().children,
     ]));
-
-    worksnode(&mut rules[0].patch.minus, (), &mut |x: &mut Snode, _| {
-        if x.wrapper.plusesaft.len() != 0 {
-            println!("{:#?} attahced after {}", x.wrapper.plusesaft, x.astnode.to_string());
+    
+    for disj in &mut a.0 {
+        for node in disj {
+            worksnode(node, (), &mut |x: &mut Snode, _| {
+                if x.wrapper.plusesaft.len() != 0 {
+                    println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
+                }
+                if x.wrapper.plusesbef.len() != 0 {
+                    println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
+                }
+                if let Some(MODKIND::MINUS) = x.wrapper.modkind {
+                }
+            });
         }
-        if x.wrapper.plusesbef.len() != 0 {
-            println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
-        }
-        if let Some(MODKIND::MINUS) = x.wrapper.modkind {
-        }
-    });
+        
+    }
+    
 
     let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
 

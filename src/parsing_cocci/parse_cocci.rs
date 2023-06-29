@@ -14,7 +14,7 @@ use std::{borrow::BorrowMut, ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
-    commons::util::{self, getstmtlist, removestmtbraces, worksnode},
+    commons::util::{self, getstmtlist, removestmtbracesaddpluses, worksnode, attachfront, attachback},
     parsing_rs::ast_rs::Rnode,
     syntaxerror,
 };
@@ -156,14 +156,22 @@ impl Patch {
                         (Some(MODKIND::MINUS), _) => {
                             //minus code
                             //with any thing other than a plus
-                            ak.wrapper.plusesbef = pvec;
+                            attachfront(ak, pvec);
                             pvec = vec![];
                             a = achildren.next();
                         }
                         (None, None) => {
                             //context code
                             //with context code
-                            ak.wrapper.plusesbef = pvec;
+                            if ak.wrapper.isdisj {
+                                //DISJUNCTIONS ARE THE ONLY PART
+                                //WHERE PLUSES ARE ADDED TO A NODE
+                                //AND NOT A TOKEN
+                                ak.wrapper.plusesbef.extend(pvec);
+                            }
+                            else {
+                                attachfront(ak, pvec);
+                            }
                             pvec = vec![];
                             Patch::tagplus_aux(ak, bk);
                             a = achildren.next();
@@ -199,7 +207,14 @@ impl Patch {
             if a.is_none() {
                 panic!("Plus without context.");
             }
-            a.unwrap().wrapper.plusesaft = pvec;
+            let a = a.unwrap();
+            println!("Attaching {:?} back to {}", pvec, a.astnode.to_string());
+            if a.wrapper.isdisj {
+                a.wrapper.plusesaft.extend(pvec);
+            }
+            else {
+                attachback(a, pvec);
+            }
         }
     }
 
@@ -323,14 +338,16 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
+    println!("plusbuf -\n{}", plusbuf);
     let mut p = Patch {
         plus: wrap_root(plusbuf.as_str()),
         minus: wrap_root(minusbuf.as_str()),
     };
+    p.minus.print_tree();
     p.setmetavars(metavars);
     p.setmods();
-    removestmtbraces(&mut p.minus);
-    removestmtbraces(&mut p.plus);
+    removestmtbracesaddpluses(&mut p.minus);
+    removestmtbracesaddpluses(&mut p.plus);
     p.tagplus();
     p
 }
@@ -398,7 +415,7 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
                 minusbuf.push_str(holder);
             }
             Some('|') => {
-                let holder = "} else if COCCIVAR {";
+                let holder = "} else if COCCIVAR {\n";
                 plusbuf.push_str(holder);
                 minusbuf.push_str(holder);
             }

@@ -15,6 +15,8 @@ pub struct Snode {
     pub children: Vec<Snode>,
 }
 
+pub type Pluses = (Vec<Snode>, Vec<Snode>);
+
 impl Debug for Snode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Snode")
@@ -112,21 +114,22 @@ impl<'a> Snode {
             | RANGE_EXPR
             | BIN_EXPR
             | EXPR_STMT
-            | LITERAL 
+            | LITERAL
             | NAME_REF => true,
             _ => false,
         }
     }
 
-    pub fn getdisjs(&'a self) -> Vec<&'a Snode> {
+    pub fn getdisjs(&'a self) -> (Vec<&'a Snode>, Pluses) {
         if !self.wrapper.isdisj {
-            return vec![];
+            return (vec![], (vec![], vec![]));
         }
-
         fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode> {
+            //this function also returns the plus at the end of a disjunction
             let mut disjs: Vec<&Snode> = vec![];
+            let mut plus1: Vec<Snode> = vec![];
             if node.wrapper.isdisj {
-                disjs.push(&node.children[2].children[0]);
+                disjs.push(&node.children[2].children[0]); //stmtlist is pushed
                 match &node.children[..] {
                     [_ifkw, _cond, _block, _elsekw, ifblock] => {
                         disjs.append(&mut collectdisjs(ifblock));
@@ -136,7 +139,8 @@ impl<'a> Snode {
             }
             return disjs;
         }
-        return collectdisjs(&self);
+        let disjs= collectdisjs(&self);
+        return (disjs, (self.wrapper.plusesbef.clone(), self.wrapper.plusesaft.clone()));
     }
 }
 
@@ -350,7 +354,7 @@ pub struct Wrap {
     index: usize,
     pub mcodekind: Mcodekind,
     exp_ty: Option<Type>,
-    bef_aft: DotsBefAft,//needed?
+    bef_aft: DotsBefAft, //needed?
     pub plusesbef: Vec<Snode>,
     pub plusesaft: Vec<Snode>,
     pub metavar: MetaVar,
