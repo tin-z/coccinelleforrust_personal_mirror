@@ -145,7 +145,6 @@ impl<'a, 'b> Looper<'a> {
                         if a.wrapper.plusesbef.len() != 0 {
                             env.pluses
                                 .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
-                            println!("Plus added.");
                         }
                         if a.wrapper.plusesaft.len() != 0 {
                             env.pluses

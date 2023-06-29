@@ -40,11 +40,9 @@ impl Disjunction {
 
     pub fn attachpluses(&mut self, pluses: Pluses) {
         for disj in &mut self.0 {
-            println!("count------------");
             attachfront(&mut disj[0], pluses.0.clone());
             let len = disj.len();
             attachback(&mut disj[len-1], pluses.1.clone());
-            println!("count----------------------");
         }
     }
 }

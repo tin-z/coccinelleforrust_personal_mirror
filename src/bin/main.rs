@@ -51,10 +51,10 @@ fn transformfile(coccifile: String, rsfile: String) {
         for node in disj {
             worksnode(node, (), &mut |x: &mut Snode, _| {
                 if x.wrapper.plusesaft.len() != 0 {
-                    println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
+                    //println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
                 }
                 if x.wrapper.plusesbef.len() != 0 {
-                    println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
+                    //println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
                 }
                 if let Some(MODKIND::MINUS) = x.wrapper.modkind {
                 }
@@ -82,8 +82,6 @@ fn transformfile(coccifile: String, rsfile: String) {
     println!("\n\nTransformed Code - \n");
     transformedcode.displaytree();
     println!();
-    println!("Pluses -> {:#?}", envs[0].pluses);
-
     //rules[0].patch.minus.print_tree();
 }
 
