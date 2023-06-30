@@ -28,11 +28,7 @@ impl Debug for Snode {
 
 impl<'a> Snode {
     pub fn new_root(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Snode>) -> Snode {
-        Snode {
-            wrapper: wrapper,
-            astnode: syntax,
-            children: children,
-        }
+        Snode { wrapper: wrapper, astnode: syntax, children: children }
     }
 
     pub fn set_children(&mut self, children: Vec<Snode>) {
@@ -139,7 +135,7 @@ impl<'a> Snode {
             }
             return disjs;
         }
-        let disjs= collectdisjs(&self);
+        let disjs = collectdisjs(&self);
         return (disjs, (self.wrapper.plusesbef.clone(), self.wrapper.plusesaft.clone()));
     }
 }
@@ -328,11 +324,7 @@ impl MetaVar {
     }
 
     pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar {
-        let minfo = (
-            String::from(rulename),
-            String::from(name),
-            KeepBinding::UNITARY,
-        );
+        let minfo = (String::from(rulename), String::from(name), KeepBinding::UNITARY);
         match ty {
             "expression" => MetaVar::Exp(minfo),
             "identifier" => MetaVar::Id(minfo),
@@ -417,10 +409,7 @@ impl Wrap {
     }
 
     pub fn getlogilinenos(&self) -> (usize, usize) {
-        (
-            self.info.pos_info.logical_start,
-            self.info.pos_info.logical_end,
-        )
+        (self.info.pos_info.logical_start, self.info.pos_info.logical_end)
     }
 
     pub fn setmodkind(&mut self, modkind: String) {
@@ -446,16 +435,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         node.text_range().start().into(),
     );
 
-    let info = Info::new(
-        pos_info,
-        false,
-        false,
-        vec![],
-        vec![],
-        vec![],
-        vec![],
-        false,
-    );
+    let info = Info::new(pos_info, false, false, vec![], vec![], vec![], vec![], false);
     let wrap: Wrap = Wrap::new(
         info,
         0,
@@ -501,12 +481,7 @@ pub fn wrap_root(contents: &str) -> Snode {
     if errors.len() > 0 {
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
-            println!(
-                "Error : {} at line: {}, col {}",
-                error.to_string(),
-                lindex.line,
-                lindex.col
-            );
+            println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
             println!("{}", parse.syntax_node().to_string());
             exit(1);
         }

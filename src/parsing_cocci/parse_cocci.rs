@@ -14,7 +14,9 @@ use std::{borrow::BorrowMut, ops::Deref, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
-    commons::util::{self, getstmtlist, removestmtbracesaddpluses, worksnode, attachfront, attachback},
+    commons::util::{
+        self, attachback, attachfront, getstmtlist, removestmtbracesaddpluses, worksnode,
+    },
     parsing_rs::ast_rs::Rnode,
     syntaxerror,
 };
@@ -58,11 +60,7 @@ fn makemetavar(
             if let Some(mvar) = rule.metavars.iter().find(|x| x.getname() == var) {
                 return mvar.clone();
             } else {
-                syntaxerror!(
-                    lino,
-                    format!("no such metavariable in rule {}", rule.name),
-                    varname
-                )
+                syntaxerror!(lino, format!("no such metavariable in rule {}", rule.name), varname)
             }
         }
         _ => syntaxerror!(lino, "Invalid meta-variable name", varname),
@@ -165,8 +163,7 @@ impl Patch {
                                 //WHERE PLUSES ARE ADDED TO A NODE
                                 //AND NOT A TOKEN
                                 ak.wrapper.plusesbef.extend(pvec);
-                            }
-                            else {
+                            } else {
                                 attachfront(ak, pvec);
                             }
                             pvec = vec![];
@@ -207,8 +204,7 @@ impl Patch {
             let a = a.unwrap();
             if a.wrapper.isdisj {
                 a.wrapper.plusesaft.extend(pvec);
-            }
-            else {
+            } else {
                 attachback(a, pvec);
             }
         }
@@ -245,17 +241,11 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
             match cond.kind() {
                 Tag::AMP2 => {
                     //Recurses
-                    Dep::AndDep(Box::new((
-                        getdep(rules, lino, lhs),
-                        getdep(rules, lino, rhs),
-                    )))
+                    Dep::AndDep(Box::new((getdep(rules, lino, lhs), getdep(rules, lino, rhs))))
                 }
                 Tag::PIPE2 => {
                     //Recurses
-                    Dep::OrDep(Box::new((
-                        getdep(rules, lino, lhs),
-                        getdep(rules, lino, rhs),
-                    )))
+                    Dep::OrDep(Box::new((getdep(rules, lino, lhs), getdep(rules, lino, rhs))))
                 }
                 _ => syntaxerror!(lino, "Dependance must be a boolean expression"),
             }
@@ -334,10 +324,7 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
-    let mut p = Patch {
-        plus: wrap_root(plusbuf.as_str()),
-        minus: wrap_root(minusbuf.as_str()),
-    };
+    let mut p = Patch { plus: wrap_root(plusbuf.as_str()), minus: wrap_root(minusbuf.as_str()) };
     p.setmetavars(metavars);
     p.setmods();
     removestmtbracesaddpluses(&mut p.minus);
@@ -454,10 +441,7 @@ pub fn handle_metavar_decl(
                 if !metavars.iter().any(|x| x.getname() == var) {
                     metavars.push(makemetavar(rules, rulename, &var, ty, lino));
                 } else {
-                    syntaxerror!(
-                        offset + lino,
-                        format!("Redefining {} metavariable {}", ty, var)
-                    );
+                    syntaxerror!(offset + lino, format!("Redefining {} metavariable {}", ty, var));
                 }
             }
         }

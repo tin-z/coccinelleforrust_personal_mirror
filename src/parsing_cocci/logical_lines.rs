@@ -1,14 +1,14 @@
-use super::{parse_cocci::Rule, ast0::Snode};
+use super::{ast0::Snode, parse_cocci::Rule};
 
-pub fn set_logilines_aux(mut prevline: usize, node: &mut Snode, mut bnos: usize) -> usize{
+pub fn set_logilines_aux(mut prevline: usize, node: &mut Snode, mut bnos: usize) -> usize {
     if node.children.len() == 0 {
         // this is only for testing will be removed after enough tests
 
         let mut start = node.wrapper.getlinenos().0;
-        let logicalblanks = node.wrapper.getlinenos().0-bnos;
+        let logicalblanks = node.wrapper.getlinenos().0 - bnos;
         if logicalblanks > prevline {
-            start+=1;
-            bnos += logicalblanks-prevline-1;
+            start += 1;
+            bnos += logicalblanks - prevline - 1;
         }
         node.wrapper.set_logilines_end(start);
         bnos

@@ -12,3 +12,4 @@ ide-db = { path = "src/rust-analyzer/crates/ide-db" }
 either = "1.8.0"
 regex = "1.7.0"
 itertools = "0.10.5"
+rand = "0.8.5"

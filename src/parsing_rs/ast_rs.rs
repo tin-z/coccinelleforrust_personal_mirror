@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fs;
 
 use itertools::izip;
 use parser::SyntaxKind;
@@ -117,23 +118,32 @@ impl Rnode {
         self.print_tree_aux(&String::from("--"));
     }
 
-    pub fn displaytree(&self) {
-        print!("{}", self.wrapper.wspaces.0);
+    pub fn gettokenstream(&self) -> String{
+        let mut data = String::new();
+        data.push_str(&format!("{}", self.wrapper.wspaces.0));
         for plusbef in &self.wrapper.plussed.0 {
-            plusbef.displaytree();
+            data.push_str(&plusbef.gettokenstream());
         }
 
         if self.children.len() == 0 && !self.wrapper.isremoved {
-            print!("{}", self.astnode.to_string());
+            data.push_str(&format!("{}", self.astnode.to_string()));
         }
         for i in &self.children {
-            i.displaytree();
+            data.push_str(&i.gettokenstream());
         }
 
         for plusaft in &self.wrapper.plussed.1 {
-            plusaft.displaytree();
+            data.push_str(&plusaft.gettokenstream());
         }
-        print!("{}", self.wrapper.wspaces.1);
+        data.push_str(&format!("{}", self.wrapper.wspaces.1));
+
+
+        return data;
+    }
+
+    pub fn writetreetofile(&self, filename: &str) {
+        let data = self.gettokenstream();
+        fs::write(filename, data).expect("Unable to write file");
     }
 
     pub fn isexpr(&self) -> bool {

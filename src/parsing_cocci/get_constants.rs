@@ -24,9 +24,9 @@
     after the . or -> is probably unusual. *)
 */
 
+use crate::syntaxerror;
 use std::collections::BTreeSet;
 use std::ops::Deref;
-use crate::{syntaxerror};
 
 // -----------------------------------------------------------------------
 // This phase collects everything.  One can then filter out what it not
@@ -47,23 +47,22 @@ pub enum Combine {
 }
 use Combine::*;
 
-
 static false_on_top_err: &str =
     &"No rules apply.  Perhaps your semantic patch doesn't contain any +/-/* code, or you have a failed dependency.";
 
 fn str_concat_fn<T>(lst: &BTreeSet<T>, op: &dyn Fn(&T) -> String, bet: &str) -> String {
-    let strs : Vec<String> = lst.into_iter().map(|x| op(x)).collect();
+    let strs: Vec<String> = lst.into_iter().map(|x| op(x)).collect();
     strs.join(format!(" {bet} ").as_str())
 }
 
-fn dep2c<'a> (dep: &'a Combine) -> String {
+fn dep2c<'a>(dep: &'a Combine) -> String {
     match dep {
         And(l) => format!("({})", str_concat_fn(&l, &dep2c, &"&")),
         Or(l) => format!("({})", str_concat_fn(&l, &dep2c, &"|")),
         Not(x) => format!("!({})", dep2c(x)),
         Elem(x) => x.to_string(),
         False => String::from("false"),
-        True => String::from("true")
+        True => String::from("true"),
     }
 }
 
@@ -72,34 +71,36 @@ fn dep2c<'a> (dep: &'a Combine) -> String {
 // grep only does or
 
 fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
-    fn rec (collected: &mut BTreeSet<String>, strict: bool, cmb: &Combine) {
+    fn rec(collected: &mut BTreeSet<String>, strict: bool, cmb: &Combine) {
         match cmb {
-            Elem(x) => { collected.insert(x.to_string()); }
+            Elem(x) => {
+                collected.insert(x.to_string());
+            }
             Not(_) => syntaxerror!(0, "not unexpected in grep arg"),
-            And(l) | Or(l) =>
+            And(l) | Or(l) => {
                 for x in l.iter() {
                     rec(collected, strict, x);
-                },
-            True =>
+                }
+            }
+            True => {
                 if strict {
                     syntaxerror!(0, "True should not be in the final result")
-                }
-                else {
+                } else {
                     collected.insert(String::from("True"));
-                },
-            False =>
+                }
+            }
+            False => {
                 if strict {
                     syntaxerror!(0, false_on_top_err)
-                }
-                else {
+                } else {
                     collected.insert(String::from("False"));
                 }
+            }
         }
     }
     match x {
         True => None,
-        False if strict =>
-            syntaxerror!(0, false_on_top_err),
+        False if strict => syntaxerror!(0, false_on_top_err),
         _ => {
             let mut collected = BTreeSet::new();
             rec(&mut collected, strict, x);
@@ -126,7 +127,7 @@ fn mk_false() -> BTreeSet<BTreeSet<String>> {
     BTreeSet::from([BTreeSet::new()])
 }
 
-fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
+fn cnf(strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>, ()> {
     match dep {
         Elem(x) => Ok(BTreeSet::from([BTreeSet::from([x.to_string()])])),
         Not(_) => syntaxerror!(0, "not unexpected in coccigrep arg"),
@@ -150,21 +151,17 @@ fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
             let icount = ors.iter().filter(|x| x.len() <= 1).count();
             if icount > max_cnf {
                 Err(())
-            }
-            else {
+            } else {
                 if ors.len() == 0 {
                     Ok(mk_false())
-                }
-                else {
+                } else {
                     let fst = ors.swap_remove(0);
                     let mut prev = fst;
                     for cur in ors {
-                        let curval: Vec<BTreeSet<BTreeSet<String>>> =
-                            cur.iter().map(|x| {
-                                prev.iter().map(|y| {
-                                    x.union(&y).cloned().collect()
-                                }).collect()
-                            }).collect();
+                        let curval: Vec<BTreeSet<BTreeSet<String>>> = cur
+                            .iter()
+                            .map(|x| prev.iter().map(|y| x.union(&y).cloned().collect()).collect())
+                            .collect();
                         // drain prev
                         prev.clear();
                         // prev is now empty; reuse it
@@ -180,8 +177,7 @@ fn cnf (strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>,()> {
         False => {
             if strict {
                 syntaxerror!(0, false_on_top_err)
-            }
-            else {
+            } else {
                 Ok(mk_false())
             }
         }
