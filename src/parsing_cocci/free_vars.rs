@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::vec;
 
 use super::parse_cocci::Rule;
-use super::ast0::{Befaft::*, KeepBinding, Mcodekind::*, MetaVar, Replacement::*, Rnode};
+use super::ast0::{Befaft::*, KeepBinding, Mcodekind::*, MetaVar, Replacement::*, Snode};
 use crate::syntaxerror;
 use crate::commons::util::worktree;
 
@@ -34,8 +34,8 @@ fn collect_unitary_nonunitary(free_usage: &Vec<MetaVar>) -> (HashSet<MetaVar>, H
     (unitary, nonunitary)
 }
 
-fn collect_refs(mut root: &mut Rnode, add: &mut dyn FnMut(MetaVar)) {
-    let mut work = |node: &mut Rnode| {
+fn collect_refs(mut root: &mut Snode, add: &mut dyn FnMut(MetaVar)) {
+    let mut work = |node: &mut Snode| {
         if let Tag::NAME_REF = node.astnode.kind() {
             match &node.wrapper.metavar {
                 MetaVar::NoMeta => {}
@@ -46,26 +46,26 @@ fn collect_refs(mut root: &mut Rnode, add: &mut dyn FnMut(MetaVar)) {
     worktree(&mut root, &mut work)
 }
 
-fn collect_minus_refs_unitary_nonunitary(root: &mut Rnode) -> (HashSet<MetaVar>, HashSet<MetaVar>) {
+fn collect_minus_refs_unitary_nonunitary(root: &mut Snode) -> (HashSet<MetaVar>, HashSet<MetaVar>) {
     let mut refs: Vec<MetaVar> = vec![];
     let mut add = |x| refs.push(x);
     collect_refs(root, &mut add);
     collect_unitary_nonunitary(&refs)
 }
 
-fn collect_plus_refs(mut root: &mut Rnode) -> HashSet<MetaVar> {
+fn collect_plus_refs(mut root: &mut Snode) -> HashSet<MetaVar> {
     let mut refs: HashSet<MetaVar> = HashSet::new();
     let mut add = |x| {
         refs.insert(x);
     };
-    let mut work_exp_list_list = |expss: &mut Vec<Vec<Rnode>>| {
+    let mut work_exp_list_list = |expss: &mut Vec<Vec<Snode>>| {
         for x in expss.iter_mut() {
             for y in x.iter_mut() {
                 collect_refs(y, &mut add)
             }
         }
     };
-    let mut work = |node: &mut Rnode| match &mut node.wrapper.mcodekind {
+    let mut work = |node: &mut Snode| match &mut node.wrapper.mcodekind {
         MINUS(REPLACEMENT(rexpss)) => work_exp_list_list(rexpss),
         MINUS(NOREPLACEMENT) => {}
         CONTEXT(BEFORE(beforeexpss)) => work_exp_list_list(beforeexpss),

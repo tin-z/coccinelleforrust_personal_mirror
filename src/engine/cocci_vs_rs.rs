@@ -1,11 +1,11 @@
-use std::{ vec};
+use std::vec;
 
-use itertools::{Itertools};
+use itertools::Itertools;
 use parser::SyntaxKind;
 
 use crate::{
     fail,
-    parsing_cocci::ast0::{Snode},
+    parsing_cocci::ast0::Snode,
     parsing_cocci::ast0::{MetaVar, MODKIND},
     parsing_rs::ast_rs::Rnode,
 };
@@ -25,10 +25,7 @@ pub struct MetavarBinding<'a> {
 impl<'a> MetavarBinding<'a> {
     fn new(rname: String, varname: String, rnode: &'a Rnode) -> MetavarBinding<'a> {
         return MetavarBinding {
-            metavarinfo: MetavarName {
-                rulename: rname,
-                varname: varname,
-            },
+            metavarinfo: MetavarName { rulename: rname, varname: varname },
             rnode: rnode,
         };
     }
@@ -45,11 +42,7 @@ pub struct Environment<'a> {
 impl<'a> Environment<'a> {
     pub fn add(&mut self, env: Self) {
         for binding in env.bindings {
-            if !self
-                .bindings
-                .iter()
-                .any(|x| x.metavarinfo.varname == binding.metavarinfo.varname)
-            {
+            if !self.bindings.iter().any(|x| x.metavarinfo.varname == binding.metavarinfo.varname) {
                 self.bindings.push(binding);
             }
         }
@@ -63,12 +56,7 @@ impl<'a> Environment<'a> {
     }
 
     pub fn new() -> Environment<'a> {
-        Environment {
-            failed: false,
-            bindings: vec![],
-            minuses: vec![],
-            pluses: vec![],
-        }
+        Environment { failed: false, bindings: vec![], minuses: vec![], pluses: vec![] }
     }
 }
 
@@ -77,6 +65,15 @@ enum MetavarMatch<'a, 'b> {
     Maybe(&'b Snode, &'a Rnode),
     Match,
     Exists,
+}
+
+fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
+    if a.wrapper.plusesbef.len() != 0 {
+        env.pluses.push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
+    }
+    if a.wrapper.plusesaft.len() != 0 {
+        env.pluses.push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
+    }
 }
 
 pub struct Looper<'a> {
@@ -139,14 +136,7 @@ impl<'a, 'b> Looper<'a> {
                             }
                             _ => {}
                         }
-                        if a.wrapper.plusesbef.len() != 0 {
-                            env.pluses
-                                .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
-                        }
-                        if a.wrapper.plusesaft.len() != 0 {
-                            env.pluses
-                                .push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
-                        }
+                        addplustoenv(a, b, &mut env);
 
                         env.add(renv);
                     } else {
@@ -163,26 +153,11 @@ impl<'a, 'b> Looper<'a> {
                         Some(MODKIND::PLUS) => {}
                         None => {}
                     }
-
-                    if a.wrapper.plusesbef.len() != 0 {
-                        env.pluses
-                            .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
-                    }
-                    if a.wrapper.plusesaft.len() != 0 {
-                        env.pluses
-                            .push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
-                    }
+                    addplustoenv(a, b, &mut env);
                     env.addbinding(binding);
                 }
                 MetavarMatch::Exists => {
-                    if a.wrapper.plusesbef.len() != 0 {
-                        env.pluses
-                            .push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
-                    }
-                    if a.wrapper.plusesaft.len() != 0 {
-                        env.pluses
-                            .push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
-                    }
+                    addplustoenv(a, b, &mut env);
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
                             env.minuses.push(b.getpos());

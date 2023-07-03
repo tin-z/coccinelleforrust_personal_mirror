@@ -209,7 +209,7 @@ pub enum Befaft {
 
 #[derive(PartialEq, Clone)]
 pub enum Mcodekind {
-    MINUS(),
+    MINUS(Replacement),
     PLUS(Count),
     CONTEXT(Befaft),
     MIXED(Befaft),
