@@ -1,10 +1,9 @@
 use coccinelleforrust::{
-    commons::util::{getstmtlist, worktree, visitrnode},
+    commons::util::{getstmtlist, visitrnode},
     engine::{disjunctions::{getdisjunctions, Disjunction}, cocci_vs_rs::{Looper, MetavarBinding}},
     parsing_cocci::parse_cocci::{self, processcocci},
     parsing_cocci::{
-        ast0::{wrap_root, MetaVar, Snode},
-        logical_lines::set_logilines,
+        ast0::{ Snode},
     },
     parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
 };

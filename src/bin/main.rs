@@ -1,3 +1,4 @@
+use clap::Parser;
 use coccinelleforrust::{
     commons::util::{getstmtlist, visitrnode, worksnode},
     engine::disjunctions::getdisjunctions,
@@ -12,8 +13,32 @@ use coccinelleforrust::{
 };
 use itertools::Itertools;
 use rand::Rng;
-use std::fs;
 use std::process::Command;
+use std::{
+    fs,
+    path::{self, Path},
+    process::exit,
+};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct CoccinelleForRust {
+    /// Path of Semantic Patch File path
+    #[arg(short, long)]
+    coccifile: String,
+
+    /// Path of Rust Target file path
+    #[arg(short, long)]
+    targetpath: String,
+
+    /// Path of transformed file path
+    #[arg(short, long)]
+    output: Option<String>,
+
+    /// rustfmt config file path
+    #[arg(short, long, default_value_t = String::from("rustfmt.toml"))]
+    rustfmt_config: String,
+}
 
 fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // this is
@@ -25,9 +50,9 @@ fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     vec![]
 }
 
-fn transformfile(coccifile: String, rsfile: String) {
-    let patchstring = fs::read_to_string(coccifile).expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string(rsfile).expect("This shouldnt be empty");
+fn transformfile(args: &CoccinelleForRust) {
+    let patchstring = fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string(args.targetpath.as_str()).expect("This shouldnt be empty");
     let mut rng = rand::thread_rng();
 
     let mut rules = processcocci(&patchstring);
@@ -36,36 +61,39 @@ fn transformfile(coccifile: String, rsfile: String) {
     let rnode = processrs(&rustcode);
     let mut transformedcode = processrs(&rustcode);
 
-    let looper = Looper::new(tokenf);
+    for mut rule in rules {
 
-    let mut a: Disjunction =
-        getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
+        let looper = Looper::new(tokenf);
+        let mut a: Disjunction = getdisjunctions(Disjunction(vec![
+            getstmtlist(&mut rule.patch.minus).clone().children,
+        ]));
 
-    for disj in &mut a.0 {
-        for node in disj {
-            worksnode(node, (), &mut |x: &mut Snode, _| {
-                if x.wrapper.plusesaft.len() != 0 {
-                    //println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
-                }
-                if x.wrapper.plusesbef.len() != 0 {
-                    //println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
-                }
-                if let Some(MODKIND::MINUS) = x.wrapper.modkind {}
-            });
+        for disj in &mut a.0 {
+            for node in disj {
+                worksnode(node, (), &mut |x: &mut Snode, _| {
+                    if x.wrapper.plusesaft.len() != 0 {
+                        //println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
+                    }
+                    if x.wrapper.plusesbef.len() != 0 {
+                        //println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
+                    }
+                    if let Some(MODKIND::MINUS) = x.wrapper.modkind {}
+                });
+            }
         }
-    }
 
-    let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
+        let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
 
-    for env in envs.clone() {
-        transform(&mut transformedcode, &env);
+        for env in envs.clone() {
+            transform(&mut transformedcode, &env);
+        }
     }
 
     let randfilename = format!("tmp{}.rs", rng.gen::<u32>());
     transformedcode.writetreetofile(&randfilename);
     Command::new("rustfmt")
         .arg("--config-path")
-        .arg("src/rustfmt.toml")
+        .arg(args.rustfmt_config.as_str())
         .arg(&randfilename)
         .output()
         .expect("rustfmt failed");
@@ -74,13 +102,50 @@ fn transformfile(coccifile: String, rsfile: String) {
     println!("After Formatting:\n\n{}", data);
 
     fs::remove_file(&randfilename).expect("No file found.");
-    //rules[0].patch.minus.print_tree();
+
+    if let Some(outputfile) = &args.output {
+        if let Err(written) = fs::write(outputfile, data) {
+            eprintln!("Error in writing file.\n{:?}",written);
+        }
+    }
+}
+
+fn makechecks(args: &CoccinelleForRust) {
+    if !Path::new(args.targetpath.as_str()).exists() {
+        eprintln!("Target file/path does not exist.");
+        exit(1);
+    }
+
+    if !Path::new(args.coccifile.as_str()).exists() {
+        eprintln!("Semantic file/path does not exist.");
+        exit(1);
+    }
+}
+
+fn findfmtconfig(args: &mut CoccinelleForRust) {
+    let height_lim: usize = 5;
+
+    let mut target = Path::new(args.targetpath.as_str()).parent().unwrap().to_path_buf();
+    for i in 0..height_lim {
+        let mut paths = fs::read_dir(target.to_str().unwrap())
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.is_ok())
+            .map(|x| x.unwrap().path().to_str().unwrap().to_string())
+            .collect_vec();
+        let path = paths.into_iter().find(|x| x.ends_with("rustfmt.toml"));
+        if let Some(path) = path {
+            args.rustfmt_config = path;
+            break;
+        } else {
+            target = target.join("../");
+        }
+    }
 }
 
 fn main() {
-    let file = std::env::args().collect_vec()[1..].join(" ");
-    let coccifile = String::from(format!("{}.cocci", file));
-    let rsfile = String::from(format!("{}.rs", file));
-    transformfile(coccifile, rsfile);
-}
+    let args = CoccinelleForRust::parse();
 
+    makechecks(&args);
+    transformfile(&args);
+}

@@ -1,15 +1,12 @@
-use std::{clone, iter::zip, ops::Deref, vec};
+use std::{ vec};
 
-use ide_db::base_db::Env;
-use itertools::{enumerate, Itertools};
+use itertools::{Itertools};
 use parser::SyntaxKind;
-use regex::bytes::CaptureLocations;
-use syntax::ast::{Meta, PathExpr};
 
 use crate::{
     fail,
-    parsing_cocci::ast0::{fill_wrap, Snode, Wrap},
-    parsing_cocci::ast0::{Mcodekind, MetaVar, MODKIND},
+    parsing_cocci::ast0::{Snode},
+    parsing_cocci::ast0::{MetaVar, MODKIND},
     parsing_rs::ast_rs::Rnode,
 };
 
