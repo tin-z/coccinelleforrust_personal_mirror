@@ -58,27 +58,14 @@ fn collect_plus_refs(mut root: &mut Snode) -> HashSet<MetaVar> {
     let mut add = |x| {
         refs.insert(x);
     };
-    let mut work_exp_list_list = |expss: &mut Vec<Vec<Snode>>| {
+    let mut work_exp_list_list = |expss: &mut Vec<Snode>| {
         for x in expss.iter_mut() {
-            for y in x.iter_mut() {
-                collect_refs(y, &mut add)
-            }
+                collect_refs(x, &mut add)
         }
     };
-    let mut work = |node: &mut Snode| match &mut node.wrapper.mcodekind {
-        MINUS(REPLACEMENT(rexpss)) => work_exp_list_list(rexpss),
-        MINUS(NOREPLACEMENT) => {}
-        CONTEXT(BEFORE(beforeexpss)) => work_exp_list_list(beforeexpss),
-        CONTEXT(AFTER(afterexpss)) => work_exp_list_list(afterexpss),
-        CONTEXT(BEFOREAFTER(beforeexpss, afterexpss)) => {
-            work_exp_list_list(beforeexpss);
-            work_exp_list_list(afterexpss)
-        }
-        CONTEXT(NOTHING) => {}
-        _ => syntaxerror!(
-            0,
-            "unexpected PLUS or MIXED in free_vars::collect_plus_refs"
-        ),
+    let mut work = |node: &mut Snode| {
+        work_exp_list_list(&mut node.wrapper.plusesbef);
+        work_exp_list_list(&mut node.wrapper.plusesaft);
     };
     worktree(&mut root, &mut work);
     refs

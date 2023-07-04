@@ -4,12 +4,12 @@ use std::{
 };
 
 use crate::{
-    commons::util::workrnode,
-    parsing_cocci::ast0::Snode,
-    parsing_rs::ast_rs::{Rnode, Wrap},
+    commons::util::{workrnode, getstmtlist, worksnode, visitrnode},
+    parsing_cocci::{ast0::{Snode, MODKIND}, parse_cocci::processcocci},
+    parsing_rs::{ast_rs::{Rnode, Wrap}, parse_rs::processrs}, engine::cocci_vs_rs::MetavarBinding,
 };
 
-use super::cocci_vs_rs::Environment;
+use super::{cocci_vs_rs::{Environment, Looper}, disjunctions::{Disjunction, getdisjunctions}};
 
 fn duplicaternode(node: &Rnode) -> Rnode {
     let mut rnode = Rnode {
@@ -87,4 +87,54 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         return shouldgodeeper;
     };
     workrnode(node, f);
+}
+
+
+pub fn transformfile(patchstring: String, rustcode: String) -> Rnode{
+    fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+        // this is
+        // Tout will have the generic types in itself
+        // ie  ('a * 'b) tout //Ocaml syntax
+        // Should I replace Snode and Rnode with generic types?
+        // transformation.ml's tokenf
+        // info_to_fixpos
+        vec![]
+    }
+
+    let rules = processcocci(&patchstring);
+    //rules[0].patch.plus.print_tree();
+
+    let rnode = processrs(&rustcode);
+    let mut transformedcode = processrs(&rustcode);
+
+    for mut rule in rules {
+
+        let looper = Looper::new(tokenf);
+        let mut a: Disjunction = getdisjunctions(Disjunction(vec![
+            getstmtlist(&mut rule.patch.minus).clone().children,
+        ]));
+
+        for disj in &mut a.0 {
+            for node in disj {
+                worksnode(node, (), &mut |x: &mut Snode, _| {
+                    if x.wrapper.plusesaft.len() != 0 {
+                        //println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
+                    }
+                    if x.wrapper.plusesbef.len() != 0 {
+                        //println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
+                    }
+                    if let Some(MODKIND::MINUS) = x.wrapper.modkind {}
+                });
+            }
+        }
+
+        let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
+
+        for env in envs.clone() {
+            transform(&mut transformedcode, &env);
+        }
+    }
+
+    return transformedcode;
+
 }

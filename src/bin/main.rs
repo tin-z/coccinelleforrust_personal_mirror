@@ -1,7 +1,7 @@
 use clap::Parser;
 use coccinelleforrust::{
     commons::util::{getstmtlist, visitrnode, worksnode},
-    engine::disjunctions::getdisjunctions,
+    engine::{disjunctions::getdisjunctions, transformation},
     engine::{
         cocci_vs_rs::{Looper, MetavarBinding},
         disjunctions::Disjunction,
@@ -55,40 +55,7 @@ fn transformfile(args: &CoccinelleForRust) {
     let rustcode = fs::read_to_string(args.targetpath.as_str()).expect("This shouldnt be empty");
     let mut rng = rand::thread_rng();
 
-    let mut rules = processcocci(&patchstring);
-    //rules[0].patch.plus.print_tree();
-
-    let rnode = processrs(&rustcode);
-    let mut transformedcode = processrs(&rustcode);
-
-    for mut rule in rules {
-
-        let looper = Looper::new(tokenf);
-        let mut a: Disjunction = getdisjunctions(Disjunction(vec![
-            getstmtlist(&mut rule.patch.minus).clone().children,
-        ]));
-
-        for disj in &mut a.0 {
-            for node in disj {
-                worksnode(node, (), &mut |x: &mut Snode, _| {
-                    if x.wrapper.plusesaft.len() != 0 {
-                        //println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
-                    }
-                    if x.wrapper.plusesbef.len() != 0 {
-                        //println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
-                    }
-                    if let Some(MODKIND::MINUS) = x.wrapper.modkind {}
-                });
-            }
-        }
-
-        let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
-
-        for env in envs.clone() {
-            transform(&mut transformedcode, &env);
-        }
-    }
-
+    let transformedcode = transformation::transformfile(patchstring, rustcode);
     let randfilename = format!("tmp{}.rs", rng.gen::<u32>());
     transformedcode.writetreetofile(&randfilename);
     Command::new("rustfmt")

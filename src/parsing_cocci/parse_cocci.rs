@@ -12,7 +12,7 @@ use core::panic;
 /// (+/-) code
 use std::{borrow::BorrowMut, ops::Deref, vec};
 
-use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
+use super::{ast0::{wrap_root, MetaVar, Snode, MODKIND}, free_vars::{self, free_vars}};
 use crate::{
     commons::util::{
         self, attachback, attachfront, getstmtlist, removestmtbracesaddpluses, worksnode,
@@ -510,6 +510,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
 
         lastruleline = lino;
     }
+    free_vars(&mut rules);
     rules
     //flag_logilines(0, &mut root);
 }
