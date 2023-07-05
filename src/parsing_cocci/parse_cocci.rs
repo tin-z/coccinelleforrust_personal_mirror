@@ -259,7 +259,7 @@ pub struct Rule {
     pub metavars: Vec<MetaVar>,
     pub unusedmetavars: Vec<MetaVar>,
     pub patch: Patch,
-    pub freevars: Vec<Name>,
+    pub freevars: Vec<MetaVar>,
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -399,9 +399,9 @@ fn buildrule(
     minusbuf.push_str("}");
 
     let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
-    let unsedmetavars = currpatch.getunusedmetavars(metavars.clone());
+    let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 
-    for metavar in &unsedmetavars {
+    for metavar in &unusedmetavars {
         println!("Warning: Unused metavariable {}.{}", metavar.getrulename(), metavar.getname());
         if let Some(index) = metavars.iter().position(|x| x.getname() == metavar.getname()) {
             //All this will be optimised when using hashsets
@@ -409,13 +409,20 @@ fn buildrule(
         }
     }
 
+    let mut freevars: Vec<MetaVar> = vec![];
+    for metavar in &metavars {
+        if metavar.getrulename() != currrulename {
+            freevars.push(metavar.clone());
+        }
+    }
+
     let rule = Rule {
         name: Name::from(currrulename),
         dependson: currdepends,
         metavars: metavars,
-        unusedmetavars: unsedmetavars,
+        unusedmetavars: unusedmetavars,
         patch: currpatch,
-        freevars: vec![],
+        freevars: freevars,
     };
     rule
 }
