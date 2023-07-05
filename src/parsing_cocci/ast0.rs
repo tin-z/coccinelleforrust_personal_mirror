@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::process::exit;
 
+use crate::engine::cocci_vs_rs::MetavarName;
+
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
@@ -187,7 +189,7 @@ impl PositionInfo {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Count {
     ONE,
     MINUS,
@@ -207,12 +209,12 @@ pub enum Befaft {
     NOTHING,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Mcodekind {
-    MINUS(Replacement),
+    //MINUS(Replacement),
     PLUS(Count),
-    CONTEXT(Befaft),
-    MIXED(Befaft),
+    //CONTEXT(Befaft),
+    //MIXED(Befaft),
 }
 
 #[derive(Clone, PartialEq)]
@@ -261,9 +263,9 @@ pub enum KeepBinding {
     SAVED,      //Need a witness
 }
 
-type Minfo = (String, String, KeepBinding); //rulename, metavar name, keepbinding
+type Minfo = (MetavarName, KeepBinding); //rulename, metavar name, keepbinding
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq)]
+#[derive(Clone, Hash, Debug, Eq)]
 pub enum MetaVar {
     NoMeta,
     Exp(Minfo),
@@ -276,8 +278,8 @@ impl MetaVar {
             MetaVar::NoMeta => {
                 panic!("Should never happen");
             }
-            MetaVar::Id(minfo) => minfo.1.as_str(),
-            MetaVar::Exp(minfo) => minfo.1.as_str(),
+            MetaVar::Id(minfo) => minfo.0.varname.as_str(),
+            MetaVar::Exp(minfo) => minfo.0.varname.as_str(),
         }
     }
 
@@ -295,10 +297,10 @@ impl MetaVar {
                 panic!("Should not occur.");
             }
             Self::Exp(minfo) => {
-                minfo.2 = binding;
+                minfo.1 = binding;
             }
             Self::Id(minfo) => {
-                minfo.2 = binding;
+                minfo.1 = binding;
             }
         }
     }
@@ -318,13 +320,13 @@ impl MetaVar {
             Self::NoMeta => {
                 panic!("Should not occur.");
             }
-            Self::Exp(minfo) => &minfo.0,
-            Self::Id(minfo) => &minfo.0,
+            Self::Exp(minfo) => &minfo.0.rulename.as_str(),
+            Self::Id(minfo) => &minfo.0.rulename.as_str(),
         }
     }
 
     pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar {
-        let minfo = (String::from(rulename), String::from(name), KeepBinding::UNITARY);
+        let minfo = (MetavarName { rulename: rulename.to_string(), varname: name.to_string()}, KeepBinding::UNITARY);
         match ty {
             "expression" => MetaVar::Exp(minfo),
             "identifier" => MetaVar::Id(minfo),
@@ -337,6 +339,17 @@ impl MetaVar {
             MetaVar::NoMeta => true,
             _ => false,
         }
+    }
+    
+    fn eqname(&self, other: &MetavarName) -> bool {
+        self.getname() == other.varname && self.getrulename() == other.rulename
+    }
+}
+
+impl PartialEq for MetaVar {
+
+    fn eq(&self, other: &Self) -> bool {
+        self.getname() == other.getname() && self.getrulename() == other.getrulename()
     }
 }
 
@@ -439,7 +452,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let wrap: Wrap = Wrap::new(
         info,
         0,
-        Mcodekind::MIXED(Befaft::NOTHING),
+        Mcodekind::PLUS(Count::ONE),
         None, //will be filled later with type inference
         DotsBefAft {},
         vec![],

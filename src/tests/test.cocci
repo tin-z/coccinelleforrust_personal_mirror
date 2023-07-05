@@ -15,4 +15,5 @@ expr;
 expression rule1.expr;
 @@
 
-hello();
+-hello();
++expr;

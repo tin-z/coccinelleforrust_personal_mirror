@@ -22,7 +22,7 @@ pub enum ParseInfo {
     FakeTok(String, VirtualPosition),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Danger {
     DangerStart,
     DangerEnd,
@@ -30,6 +30,7 @@ pub enum Danger {
     NoDanger,
 }
 
+#[derive(Eq, PartialEq, Hash)]
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
@@ -71,11 +72,18 @@ impl Wrap {
     }
 }
 
+#[derive(Eq, Hash)]
 pub struct Rnode {
     pub wrapper: Wrap,
     pub astnode: SyntaxElement, //Not SyntaxNode because we need to take
     //care of the whitespaces
     pub children: Vec<Rnode>,
+}
+
+impl PartialEq for Rnode {
+    fn eq(&self, other: &Self) -> bool {
+        other.equals(other)
+    }
 }
 
 impl Rnode {

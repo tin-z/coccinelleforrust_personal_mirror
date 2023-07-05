@@ -1,4 +1,4 @@
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq,)]
 pub struct PositionInfo {
     pub line_start: usize,
     pub line_end: usize,
@@ -28,7 +28,7 @@ impl PositionInfo {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ParseInfo {
     str: String,
     pub charstart: usize,

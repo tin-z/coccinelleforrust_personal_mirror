@@ -10,7 +10,7 @@ use core::panic;
 ///
 /// _context_
 /// (+/-) code
-use std::{borrow::BorrowMut, ops::Deref, vec};
+use std::{borrow::BorrowMut, collections::HashSet, ops::Deref, vec};
 
 use super::{
     ast0::{wrap_root, MetaVar, Snode, MODKIND},
@@ -235,7 +235,7 @@ impl Patch {
         let mut f = |x: &Snode| match &x.wrapper.metavar {
             MetaVar::NoMeta => {}
             MetaVar::Exp(info) | MetaVar::Id(info) => {
-                if let Some(index) = bindings.iter().position(|node| node.getname() == info.1)
+                if let Some(index) = bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but
                 //different rulenames
                 {
@@ -260,6 +260,7 @@ pub struct Rule {
     pub unusedmetavars: Vec<MetaVar>,
     pub patch: Patch,
     pub freevars: Vec<MetaVar>,
+    pub usedafter: HashSet<MetavarName>,
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -398,6 +399,7 @@ fn buildrule(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
+    println!("{}\n{}", plusbuf, minusbuf);
     let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
     let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 
@@ -423,6 +425,7 @@ fn buildrule(
         unusedmetavars: unusedmetavars,
         patch: currpatch,
         freevars: freevars,
+        usedafter: HashSet::new(),
     };
     rule
 }
@@ -513,6 +516,19 @@ fn handleprepatch(contents: &str) {
     }
 }
 
+fn setusedafter(rules: &mut Vec<Rule>) {
+    let mut tmp: HashSet<MetavarName> = HashSet::new();
+    for rule in rules.iter_mut().rev() {
+        rule.usedafter = tmp.clone();
+        for freevar in &rule.freevars {
+            tmp.insert(MetavarName {
+                rulename: freevar.getrulename().to_string(),
+                varname: freevar.getname().to_string(),
+            });
+        }
+    }
+}
+
 pub fn processcocci(contents: &str) -> Vec<Rule> {
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
@@ -567,7 +583,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
 
         lastruleline = lino;
     }
-    free_vars(&mut rules);
+    setusedafter(&mut rules);
     rules
     //flag_logilines(0, &mut root);
 }

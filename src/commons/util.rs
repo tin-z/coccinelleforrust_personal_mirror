@@ -1,18 +1,17 @@
 use itertools::Itertools;
 use parser::SyntaxKind;
-use syntax::{SyntaxElement, SourceFile, SyntaxNode};
+use syntax::{SourceFile, SyntaxElement, SyntaxNode};
 
-use crate::{parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode, engine::cocci_vs_rs::{MetavarBinding, Environment}};
+use crate::{
+    engine::cocci_vs_rs::{Environment, MetavarBinding},
+    parsing_cocci::ast0::Snode,
+    parsing_rs::ast_rs::Rnode,
+};
 
 #[macro_export]
 macro_rules! fail {
     () => {
-        return Environment {
-            failed: true, 
-            bindings: vec![],
-            minuses: vec![],
-            pluses: vec![]
-        }
+        return Environment { failed: true, bindings: vec![], minuses: vec![], pluses: vec![] }
     };
 }
 
@@ -59,7 +58,6 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-
 pub fn collecttree(mut node: &Snode, f: &mut dyn FnMut(&Snode)) {
     //use async function to wrap the for loop
     //for other cases TODO
@@ -97,22 +95,28 @@ pub fn worksnode<T>(mut node: &mut Snode, t: T, f: &mut dyn FnMut(&mut Snode, T)
     t
 }
 
-pub fn workrnode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool){
+pub fn workrnode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool) {
     //use async function to wrap the for loop
     //for other cases TODO
     let t = f(node);
-    if !t { return }
+    if !t {
+        return;
+    }
     for child in &mut node.children {
         workrnode(child, f);
     }
 }
 
-pub fn visitrnode<'a>(nodea: &Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
+pub fn visitrnode<'a>(
+    nodea: &Vec<Vec<Snode>>,
+    nodeb: &'a Rnode,
+    f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool),
+) -> Vec<Environment<'a>> {
     //use async function to wrap the for loop
     //for other cases TODO
     let mut environments = vec![];
     let tmp = f(nodea, &vec![nodeb]);
-        
+
     if tmp.1 {
         environments.extend(tmp.0);
     }
@@ -120,21 +124,18 @@ pub fn visitrnode<'a>(nodea: &Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&Vec
     loop {
         if let Some(child) = nodebchildren.next() {
             environments.extend(visitrnode(nodea, child, f));
-            
+
             let tmp = f(nodea, &nodebchildren.clone().collect_vec());
-            
+
             if tmp.1 {
                 environments.extend(tmp.0);
             }
-        }
-        else {
+        } else {
             break;
         }
-        
     }
     return environments;
 }
-
 
 pub fn isexpr(node1: &Snode) -> bool {
     use SyntaxKind::*;
@@ -179,18 +180,22 @@ pub fn isexpr(node1: &Snode) -> bool {
     }
 }
 
-
 pub fn removestmtbracesaddpluses<'a>(node: &'a mut Snode) {
     //since the patch is wrapped in a function to be parsed
     //this function extracts the stmtlist inside it and removes the curly
     //braces from the start and end of the block
+
+    //This also deals with pluses at the end of a patch which are attached to the
+    //ending curly brace
     let stmtlist = &mut node.children[0] //function
         .children[3] //blockexpr
         .children[0]; //stmtlist
     stmtlist.children.remove(0);
-    let tmp = stmtlist.children.remove(stmtlist.children.len() - 1);
+    let tmp = stmtlist.children.remove(stmtlist.children.len() - 1); //right brace
     let len = stmtlist.children.len();
-    attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
+    if len!=0 {//for empty patches
+        attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
+    }
 }
 
 pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
@@ -202,7 +207,6 @@ pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
         .children[0]; //stmtlist
     return stmtlist;
 }
-
 
 pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
     if node.children.len() == 0 {

@@ -10,13 +10,13 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MetavarName {
     pub rulename: String,
     pub varname: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding<'a> {
     pub metavarinfo: MetavarName,
     pub rnode: &'a Rnode,
@@ -151,7 +151,11 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
-                    let binding = MetavarBinding::new(minfo.0.clone(), minfo.1.clone(), b);
+                    let binding = MetavarBinding::new(
+                        minfo.0.rulename.to_string(),
+                        minfo.0.varname.to_string(),
+                        b,
+                    );
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
                             env.minuses.push(b.getpos());
@@ -242,7 +246,7 @@ impl<'a, 'b> Looper<'a> {
         &'a self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-        inhertiedbindings: Vec<MetavarBinding<'a>>
+        inhertiedbindings: Vec<MetavarBinding<'a>>,
     ) -> (Vec<Environment<'a>>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;

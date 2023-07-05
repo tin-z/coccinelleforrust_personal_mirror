@@ -8,3 +8,7 @@ fn main() {
         target;
     }
 }
+
+fn other() {
+    hello();
+}
