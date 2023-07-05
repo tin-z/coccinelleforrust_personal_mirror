@@ -12,15 +12,21 @@ use core::panic;
 /// (+/-) code
 use std::{borrow::BorrowMut, ops::Deref, vec};
 
-use super::{ast0::{wrap_root, MetaVar, Snode, MODKIND}, free_vars::{self, free_vars}};
+use super::{
+    ast0::{wrap_root, MetaVar, Snode, MODKIND},
+    free_vars::{self, free_vars},
+};
 use crate::{
     commons::util::{
-        self, attachback, attachfront, getstmtlist, removestmtbracesaddpluses, worksnode,
+        self, attachback, attachfront, collecttree, getstmtlist, removestmtbracesaddpluses,
+        worksnode, worktree,
     },
+    engine::cocci_vs_rs::{MetavarBinding, MetavarName},
     parsing_rs::ast_rs::Rnode,
     syntaxerror,
 };
 use parser::SyntaxKind;
+use syntax::ast::Meta;
 
 type Tag = SyntaxKind;
 type Name = String;
@@ -58,9 +64,20 @@ fn makemetavar(
             let var = var.deref();
             let rule = getrule(rules, &rulen, lino);
             if let Some(mvar) = rule.metavars.iter().find(|x| x.getname() == var) {
+                if let Some(minfo) = rule.unusedmetavars.iter().find(|x| x.getname() == var) {
+                    syntaxerror!(
+                        lino,
+                        format!(
+                            "Metavariable {} is unused un rule {}",
+                            minfo.getname(),
+                            minfo.getrulename()
+                        ),
+                        varname
+                    );
+                }
                 return mvar.clone();
             } else {
-                syntaxerror!(lino, format!("no such metavariable in rule {}", rule.name), varname)
+                syntaxerror!(lino, format!("No such metavariable in rule {}", rule.name), varname)
             }
         }
         _ => syntaxerror!(lino, "Invalid meta-variable name", varname),
@@ -213,12 +230,34 @@ impl Patch {
     pub fn tagplus(&mut self) {
         Patch::tagplus_aux(&mut self.minus, &mut self.plus);
     }
+
+    pub fn getunusedmetavars(&self, mut bindings: Vec<MetaVar>) -> Vec<MetaVar> {
+        let mut f = |x: &Snode| match &x.wrapper.metavar {
+            MetaVar::NoMeta => {}
+            MetaVar::Exp(info) | MetaVar::Id(info) => {
+                if let Some(index) = bindings.iter().position(|node| node.getname() == info.1)
+                //only varname is checked because a rule cannot have two metavars with same name but
+                //different rulenames
+                {
+                    //this removes the metavaraible from the list of unused vars
+                    //when encountered
+                    bindings.remove(index);
+                };
+            }
+        };
+
+        collecttree(&self.minus, &mut f);
+        collecttree(&self.plus, &mut f);
+
+        return bindings;
+    }
 }
 
 pub struct Rule {
     pub name: Name,
     pub dependson: Dep,
     pub metavars: Vec<MetaVar>,
+    pub unusedmetavars: Vec<MetaVar>,
     pub patch: Patch,
     pub freevars: Vec<Name>,
 }
@@ -338,7 +377,7 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
 fn buildrule(
     currrulename: &Name,
     currdepends: Dep,
-    metavars: Vec<MetaVar>,
+    mut metavars: Vec<MetaVar>,
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
@@ -360,10 +399,21 @@ fn buildrule(
     minusbuf.push_str("}");
 
     let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
+    let unsedmetavars = currpatch.getunusedmetavars(metavars.clone());
+
+    for metavar in &unsedmetavars {
+        println!("Warning: Unused metavariable {}.{}", metavar.getrulename(), metavar.getname());
+        if let Some(index) = metavars.iter().position(|x| x.getname() == metavar.getname()) {
+            //All this will be optimised when using hashsets
+            metavars.remove(index);
+        }
+    }
+
     let rule = Rule {
         name: Name::from(currrulename),
         dependson: currdepends,
         metavars: metavars,
+        unusedmetavars: unsedmetavars,
         patch: currpatch,
         freevars: vec![],
     };

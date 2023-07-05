@@ -59,6 +59,16 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
+
+pub fn collecttree(mut node: &Snode, f: &mut dyn FnMut(&Snode)) {
+    //use async function to wrap the for loop
+    //for other cases TODO
+    f(node);
+    for child in &node.children {
+        collecttree(child, f);
+    }
+}
+
 pub fn worktree(mut node: &mut Snode, f: &mut dyn FnMut(&mut Snode)) {
     //use async function to wrap the for loop
     //for other cases TODO
@@ -97,7 +107,7 @@ pub fn workrnode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool){
     }
 }
 
-pub fn visitrnode<'a>(nodea: &'a Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&'a Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
+pub fn visitrnode<'a>(nodea: &Vec<Vec<Snode>>, nodeb: &'a Rnode, f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment<'a>>, bool)) -> Vec<Environment<'a>>{
     //use async function to wrap the for loop
     //for other cases TODO
     let mut environments = vec![];

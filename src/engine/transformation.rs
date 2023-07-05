@@ -3,6 +3,8 @@ use std::{
     process::Child,
 };
 
+use itertools::Itertools;
+
 use crate::{
     commons::util::{workrnode, getstmtlist, worksnode, visitrnode},
     parsing_cocci::{ast0::{Snode, MODKIND}, parse_cocci::processcocci},
@@ -106,10 +108,10 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Rnode{
 
     let rnode = processrs(&rustcode);
     let mut transformedcode = processrs(&rustcode);
+    let mut patchbindings: Vec<Vec<MetavarBinding>> = vec![];
+    let looper = Looper::new(tokenf);
 
     for mut rule in rules {
-
-        let looper = Looper::new(tokenf);
         let mut a: Disjunction = getdisjunctions(Disjunction(vec![
             getstmtlist(&mut rule.patch.minus).clone().children,
         ]));
@@ -127,12 +129,14 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Rnode{
                 });
             }
         }
-
-        let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
-
+        //let metavars = rule.metavars;
+        let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l, vec![]));
         for env in envs.clone() {
             transform(&mut transformedcode, &env);
+            patchbindings.push(env.bindings.clone());
         }
+        
+        //rulebindings.extend(envs.iter().map(|x| x.bindings.clone()).collect_vec());
     }
 
     return transformedcode;

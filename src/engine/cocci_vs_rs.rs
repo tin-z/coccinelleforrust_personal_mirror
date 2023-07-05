@@ -55,6 +55,12 @@ impl<'a> Environment<'a> {
         self.bindings.push(binding);
     }
 
+    pub fn addbindings(&mut self, bindings: &Vec<MetavarBinding<'a>>) {
+        for binding in bindings {
+            self.bindings.push(binding.clone());
+        }
+    }
+
     pub fn new() -> Environment<'a> {
         Environment { failed: false, bindings: vec![], minuses: vec![], pluses: vec![] }
     }
@@ -89,7 +95,7 @@ impl<'a, 'b> Looper<'a> {
 
     pub fn matchnodes(
         &self,
-        nodevec1: &Vec<&'a Snode>,
+        nodevec1: &Vec<&Snode>,
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment<'a>,
     ) -> Environment<'a> {
@@ -234,13 +240,16 @@ impl<'a, 'b> Looper<'a> {
 
     pub fn handledisjunctions(
         &'a self,
-        disjs: &'a Vec<Vec<Snode>>,
+        disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-    ) -> (Vec<Environment>, bool) {
+        inhertiedbindings: Vec<MetavarBinding<'a>>
+    ) -> (Vec<Environment<'a>>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
-            let env = self.matchnodes(&disj.iter().collect_vec(), node2, Environment::new());
+            let mut inheritedenv = Environment::new();
+            inheritedenv.addbindings(&inhertiedbindings);
+            let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
             matched = matched || !env.failed;
             if !env.failed {
                 environments.push(env);

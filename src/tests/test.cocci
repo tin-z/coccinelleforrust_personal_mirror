@@ -10,3 +10,9 @@ expr;
 23;
 +exp();
 )
+
+@rule2@
+expression rule1.expr;
+@@
+
+hello();
