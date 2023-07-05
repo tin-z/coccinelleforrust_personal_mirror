@@ -3,17 +3,19 @@ expression expr, exp1, exp2;
 @@
 exp1();
 (
+cinder;
 expr;
 +clearcell();
 +exp1;
 |
-23;
-+exp();
+block;
+exp2(23);
++steer();
 )
 
 @rule2@
-expression rule1.expr;
+expression rule1.expr, rule1.exp2, e;
 @@
 
--hello();
-+expr;
+-hello(e);
++expr(exp2);

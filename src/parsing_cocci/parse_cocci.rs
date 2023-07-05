@@ -399,7 +399,6 @@ fn buildrule(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    println!("{}\n{}", plusbuf, minusbuf);
     let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
     let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 

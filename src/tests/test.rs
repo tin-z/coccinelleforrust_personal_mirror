@@ -1,14 +1,16 @@
 fn main() {
     lotsof();
-    extra();
+    block;
+    extra(23);
     if st {
         haha;
 
         funcall();
+        cinder;
         target;
     }
 }
 
 fn other() {
-    hello();
+    hello(3);
 }

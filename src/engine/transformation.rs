@@ -39,7 +39,7 @@ fn duplicaternode(node: &Rnode) -> Rnode {
     return rnode;
 }
 
-fn copytornodewithenv(rulename: &String, snode: Snode, env: &Environment) -> Rnode {
+fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
         if let Some(index) =
             env.bindings.iter().position(|x| x.metavarinfo.varname == snode.astnode.to_string())
@@ -51,20 +51,20 @@ fn copytornodewithenv(rulename: &String, snode: Snode, env: &Environment) -> Rno
     }
     let mut rnode = Rnode { wrapper: Wrap::dummy(), astnode: snode.astnode, children: vec![] };
     for child in snode.children {
-        rnode.children.push(copytornodewithenv(rulename, child, env));
+        rnode.children.push(copytornodewithenv(child, env));
     }
     rnode
 }
 
-fn snodetornode(rulename: &String, snodes: Vec<Snode>, env: &Environment) -> Vec<Rnode> {
+fn snodetornode(snodes: Vec<Snode>, env: &Environment) -> Vec<Rnode> {
     let mut rnodevec = vec![];
     for snode in snodes {
-        rnodevec.push(copytornodewithenv(rulename, snode, env));
+        rnodevec.push(copytornodewithenv(snode, env));
     }
     rnodevec
 }
 
-pub fn transform(rulename: &String, node: &mut Rnode, env: &Environment) {
+pub fn transform(node: &mut Rnode, env: &Environment) {
     let f = &mut |x: &mut Rnode| -> bool {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
@@ -82,10 +82,10 @@ pub fn transform(rulename: &String, node: &mut Rnode, env: &Environment) {
         }
         for (pluspos, pluses) in env.pluses.clone() {
             if pos.0 == pluspos && x.children.len() == 0 {
-                x.wrapper.plussed.0 = snodetornode(rulename, pluses, env);
+                x.wrapper.plussed.0 = snodetornode(pluses, env);
                 //println!("======================== {:?}", x);
             } else if pos.1 == pluspos && x.children.len() == 0 {
-                x.wrapper.plussed.1 = snodetornode(rulename, pluses, env);
+                x.wrapper.plussed.1 = snodetornode(pluses, env);
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
             }
@@ -156,14 +156,14 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Rnode {
             }
             let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l, bindings.clone()));
             for env in envs.clone() {
-                transform(&rule.name, &mut transformedcode, &env);
+                transform(&mut transformedcode, &env);
                 tmpbindings.push(env.bindings.clone());
             }
         }
         patchbindings.extend(tmpbindings);
 
         trimpatchbindings(&mut patchbindings, rule.usedafter);
-        //rulebindings.extend(envs.iter().map(|x| x.bindings.clone()).collect_vec());
+        //removes unneeded and duplicate bindings
     }
 
     return transformedcode;

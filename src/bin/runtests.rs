@@ -46,7 +46,7 @@ fn main() {
         let looper = Looper::new(tokenf);
     //let (g, matched) = looper.getbindings(getstmtlist(&mut rules[0].patch.plus), &rnode);
         let a: Disjunction = getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
-        let envs = visitrnode(&a.0, &rnode, &|a, b| { looper.handledisjunctions(a, b) });
+        let envs = visitrnode(&a.0, &rnode, &|a, b| { looper.handledisjunctions(a, b, vec![]) });
         let mut output: String = String::new();
         for env in envs {
             for var in env.bindings {
