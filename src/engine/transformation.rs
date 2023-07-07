@@ -2,14 +2,17 @@ use std::{
     cmp::{max, min},
     collections::HashSet,
     hash::Hash,
-    process::Child,
+    process::{exit, Child},
 };
 
-use itertools::Itertools;
+use itertools::{enumerate, Itertools};
 use syntax::ast::Meta;
 
 use crate::{
-    commons::util::{getstmtlist, visitrnode, workrnode, worksnode},
+    commons::{
+        info::ParseError,
+        util::{getstmtlist, visitrnode, workrnode, worksnode},
+    },
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
         ast0::{MetaVar, Snode, MODKIND},
@@ -22,9 +25,38 @@ use crate::{
 };
 
 use super::{
-    cocci_vs_rs::{Environment, Looper, MetavarName},
+    cocci_vs_rs::{Environment, Looper, MetavarName, Modifiers},
     disjunctions::{getdisjunctions, Disjunction},
 };
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ConcreteBinding {
+    pub metavarinfo: MetavarName,
+    pub rnode: Rnode,
+}
+
+impl<'a> ConcreteBinding {
+    fn new(rname: String, varname: String, rnode: Rnode) -> ConcreteBinding {
+        return ConcreteBinding {
+            metavarinfo: MetavarName { rulename: rname, varname: varname },
+            rnode: rnode,
+        };
+    }
+
+    fn frommvarbinding(binding: &MetavarBinding) -> ConcreteBinding {
+        return ConcreteBinding {
+            metavarinfo: binding.metavarinfo.clone(),
+            rnode: binding.rnode.clone(),
+        };
+    }
+
+    pub fn tomvarbinding(&'a self) -> MetavarBinding<'a> {
+        return MetavarBinding {
+            metavarinfo: self.metavarinfo.clone(),
+            rnode: &self.rnode,
+        };
+    }
+}
 
 fn duplicaternode(node: &Rnode) -> Rnode {
     let mut rnode =
@@ -65,10 +97,10 @@ fn snodetornode(snodes: Vec<Snode>, env: &Environment) -> Vec<Rnode> {
 }
 
 pub fn transform(node: &mut Rnode, env: &Environment) {
-    let f = &mut |x: &mut Rnode| -> bool {
+    let findplusses = &mut |x: &mut Rnode| -> bool {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
-        for minus in env.minuses.clone() {
+        for minus in env.modifiers.minuses.clone() {
             if pos == minus {
                 x.wrapper.isremoved = true;
                 shouldgodeeper = true;
@@ -80,7 +112,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
                 //overlaps with the node we go deeper
             }
         }
-        for (pluspos, pluses) in env.pluses.clone() {
+        for (pluspos, pluses) in env.modifiers.pluses.clone() {
             if pos.0 == pluspos && x.children.len() == 0 {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
                 //println!("======================== {:?}", x);
@@ -92,7 +124,15 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         }
         return shouldgodeeper;
     };
-    workrnode(node, f);
+    workrnode(node, findplusses);
+
+    let integratepluses = &mut |x: Rnode| -> bool {
+        let mut newchildren = vec![];
+        for child in x.children {
+            newchildren.extend(child.wrapper.plussed.0)
+        }
+        true
+    };
 }
 
 fn trimpatchbindings(
@@ -109,25 +149,26 @@ fn trimpatchbindings(
     //this line removes duplicates ^
 }
 
-pub fn transformfile(patchstring: String, rustcode: String) -> Rnode {
+pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, ParseError> {
     fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
-        // this is
-        // Tout will have the generic types in itself
-        // ie  ('a * 'b) tout //Ocaml syntax
-        // Should I replace Snode and Rnode with generic types?
-        // transformation.ml's tokenf
-        // info_to_fixpos
         vec![]
     }
 
     let rules = processcocci(&patchstring);
-    //rules[0].patch.plus.print_tree();
 
-    let rnode = processrs(&rustcode);
-    let mut transformedcode = processrs(&rustcode);
+    let parsedrnode = processrs(&rustcode);
+    let mut rnode = match parsedrnode {
+        Ok(node) => node,
+        Err(()) => {
+            return Err(ParseError::TARGETERROR);
+        }
+    };
+    //If this passes then The rnode has been parsed successfully
+    let mut transformedcode = rnode.clone();
+
     let mut patchbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
     let looper = Looper::new(tokenf);
-
+    let rnodes: Vec<Rnode> = vec![];//somewhere to store
     for mut rule in rules {
         let mut a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
@@ -149,22 +190,28 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Rnode {
 
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![];
         for bindings in &patchbindings {
-            if !(rule.freevars.iter().all(|x| bindings.iter().find(|y| y.metavarinfo == x.getminfo().0).is_some())) {
+            if !(rule
+                .freevars
+                .iter()
+                .all(|x| bindings.iter().find(|y| y.metavarinfo == x.getminfo().0).is_some()))
+            {
                 //if all inherited dependencies of this rule is not satisfied by the bindings then move on
                 //to the next bindings
                 continue;
             }
-            let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l, bindings.clone()));
+            let envs =
+                visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l, bindings.clone()));
+
             for env in envs.clone() {
                 transform(&mut transformedcode, &env);
                 tmpbindings.push(env.bindings.clone());
             }
         }
+        trimpatchbindings(&mut tmpbindings, rule.usedafter);
         patchbindings.extend(tmpbindings);
-
-        trimpatchbindings(&mut patchbindings, rule.usedafter);
         //removes unneeded and duplicate bindings
+
     }
 
-    return transformedcode;
+    return Ok(transformedcode);
 }

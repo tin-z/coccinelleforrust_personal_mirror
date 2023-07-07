@@ -55,3 +55,8 @@ impl ParseInfo {
         ParseInfo { str: String::new(), charstart: 0, charend: 0, line: 0, column: 0, file: String::new() }
     }
 }
+
+pub enum ParseError {
+    TARGETERROR,//This means there has been an error in parsing the target file
+    RULEERROR(String)//This means there is an error after transformation
+}

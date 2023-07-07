@@ -3,7 +3,7 @@ use ide_db::{
     LineIndexDatabase,
 };
 use parser::SyntaxKind;
-use syntax::{AstNode, SourceFile, SyntaxElement};
+use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxError};
 
 use crate::{
     commons::info::{ParseInfo, PositionInfo},
@@ -29,10 +29,26 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     wrap
 }
 
-pub fn processrs(contents: &str) -> Rnode {
+pub fn processrs(contents: &str) -> Result<Rnode, ()> {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
-    let root = SourceFile::parse(contents).tree();
+    let parse = SourceFile::parse(contents);
+    let errors = parse.errors();
+
+    if errors.len() != 0 {
+        for error in errors {
+            let lindex = lindex.line_col(error.range().start());
+            println!(
+                "Error : {} at line: {}, col {}",
+                error.to_string(),
+                lindex.line,
+                lindex.col
+            );
+        }
+        return Err(());
+    }
+    let root = parse.syntax_node();
+
     let wrap_node = &|node: SyntaxElement,
                       estring: String,
                       df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
@@ -55,9 +71,9 @@ pub fn processrs(contents: &str) -> Rnode {
         }
         rnode
     };
-    work_node(
+    Ok(work_node(
         wrap_node,
         String::new(),
-        SyntaxElement::Node(root.syntax().clone()),
-    )
+        SyntaxElement::Node(root),
+    ))
 }

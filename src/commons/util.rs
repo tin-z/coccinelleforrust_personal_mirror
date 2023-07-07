@@ -11,7 +11,7 @@ use crate::{
 #[macro_export]
 macro_rules! fail {
     () => {
-        return Environment { failed: true, bindings: vec![], minuses: vec![], pluses: vec![] }
+        return Environment { failed: true, bindings: vec![], modifiers: Modifiers{ minuses: vec![], pluses: vec![] } }
     };
 }
 

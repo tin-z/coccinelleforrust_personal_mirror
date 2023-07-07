@@ -30,7 +30,7 @@ pub enum Danger {
     NoDanger,
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Clone)]
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
@@ -72,7 +72,7 @@ impl Wrap {
     }
 }
 
-#[derive(Eq, Hash)]
+#[derive(Eq, Hash, Clone)]
 pub struct Rnode {
     pub wrapper: Wrap,
     pub astnode: SyntaxElement, //Not SyntaxNode because we need to take

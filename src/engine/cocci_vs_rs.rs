@@ -10,6 +10,8 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
+use super::transformation::ConcreteBinding;
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MetavarName {
     pub rulename: String,
@@ -32,11 +34,16 @@ impl<'a> MetavarBinding<'a> {
 }
 
 #[derive(Clone, Debug)]
+pub struct Modifiers {
+    pub minuses: Vec<(usize, usize)>,
+    pub pluses: Vec<(usize, Vec<Snode>)>,
+}
+
+#[derive(Clone, Debug)]
 pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
-    pub minuses: Vec<(usize, usize)>,
-    pub pluses: Vec<(usize, Vec<Snode>)>,
+    pub modifiers: Modifiers
 }
 
 impl<'a> Environment<'a> {
@@ -47,8 +54,8 @@ impl<'a> Environment<'a> {
             }
         }
         //self.bindings.extend(env.bindings);
-        self.minuses.extend(env.minuses);
-        self.pluses.extend(env.pluses);
+        self.modifiers.minuses.extend(env.modifiers.minuses);
+        self.modifiers.pluses.extend(env.modifiers.pluses);
     }
 
     pub fn addbinding(&mut self, binding: MetavarBinding<'a>) {
@@ -62,7 +69,11 @@ impl<'a> Environment<'a> {
     }
 
     pub fn new() -> Environment<'a> {
-        Environment { failed: false, bindings: vec![], minuses: vec![], pluses: vec![] }
+        Environment {
+            failed: false,
+            bindings: vec![],
+            modifiers: Modifiers { minuses: vec![], pluses: vec![] },
+        }
     }
 }
 
@@ -75,11 +86,25 @@ enum MetavarMatch<'a, 'b> {
 
 fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     if a.wrapper.plusesbef.len() != 0 {
-        env.pluses.push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
+        env.modifiers.pluses.push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
     }
     if a.wrapper.plusesaft.len() != 0 {
-        env.pluses.push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
+        env.modifiers.pluses.push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
     }
+}
+
+fn getmoddednodes<'a>(nodevec2: &Vec<&'a Rnode>) -> Vec<&'a Rnode> {
+    let nodevec2tmp = nodevec2.iter().filter(|x| !x.wrapper.isremoved).map(|x| *x);
+    //removes minuses from previous rules
+    let mut nodevec2 = vec![];
+    for i in nodevec2tmp {
+        nodevec2.extend(i.wrapper.plussed.0.iter());
+        nodevec2.push(i);
+        nodevec2.extend(i.wrapper.plussed.1.iter());
+    }
+    //adds pluses from previous rules' modifications
+
+    return nodevec2;
 }
 
 pub struct Looper<'a> {
@@ -101,6 +126,7 @@ impl<'a, 'b> Looper<'a> {
     ) -> Environment<'a> {
         let mut nodevec1 = nodevec1.iter();
         let mut nodevec2 = nodevec2.iter();
+
         let mut a: &Snode;
         let mut b: &Rnode;
 
@@ -138,7 +164,7 @@ impl<'a, 'b> Looper<'a> {
                     if !renv.failed {
                         match a.wrapper.modkind {
                             Some(MODKIND::MINUS) => {
-                                env.minuses.push(b.getpos());
+                                env.modifiers.minuses.push(b.getpos());
                             }
                             _ => {}
                         }
@@ -158,7 +184,7 @@ impl<'a, 'b> Looper<'a> {
                     );
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
-                            env.minuses.push(b.getpos());
+                            env.modifiers.minuses.push(b.getpos());
                         }
                         Some(MODKIND::PLUS) => {}
                         None => {}
@@ -170,7 +196,7 @@ impl<'a, 'b> Looper<'a> {
                     addplustoenv(a, b, &mut env);
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
-                            env.minuses.push(b.getpos());
+                            env.modifiers.minuses.push(b.getpos());
                         }
                         Some(MODKIND::PLUS) => {}
                         None => {}
@@ -246,8 +272,8 @@ impl<'a, 'b> Looper<'a> {
         &'a self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-        inhertiedbindings: Vec<MetavarBinding<'a>>,
-    ) -> (Vec<Environment<'a>>, bool) {
+        inhertiedbindings: Vec<MetavarBinding<'b>>,
+    ) -> (Vec<Environment<'a>>, bool) where 'b: 'a{
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
