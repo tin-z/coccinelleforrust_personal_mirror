@@ -57,7 +57,7 @@ fn transformfile(args: &CoccinelleForRust) {
 
     let transformedcode = transformation::transformfile(patchstring, rustcode);
     let randfilename = format!("tmp{}.rs", rng.gen::<u32>());
-    transformedcode.writetreetofile(&randfilename);
+    transformedcode.ok().unwrap().writetreetofile(&randfilename);
     Command::new("rustfmt")
         .arg("--config-path")
         .arg(args.rustfmt_config.as_str())

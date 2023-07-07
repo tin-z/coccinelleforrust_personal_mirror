@@ -40,7 +40,7 @@ fn main() {
 
         let mut rules = processcocci(&patchstring);
         println!("here");
-        let mut rnode = processrs(&rustcode);
+        let mut rnode = processrs(&rustcode).ok().unwrap();
         //rules[0].patch.plus.print_tree();
         //rnode.print_tree();
         let looper = Looper::new(tokenf);
