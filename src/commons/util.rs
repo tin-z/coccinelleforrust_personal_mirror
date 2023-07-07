@@ -95,7 +95,7 @@ pub fn worksnode<T>(mut node: &mut Snode, t: T, f: &mut dyn FnMut(&mut Snode, T)
     t
 }
 
-pub fn workrnode(mut node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool) {
+pub fn workrnode(node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool) {
     //use async function to wrap the for loop
     //for other cases TODO
     let t = f(node);
