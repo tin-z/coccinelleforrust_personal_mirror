@@ -17,5 +17,4 @@ exp2(23);
 expression rule1.expr, rule1.exp2, e;
 @@
 
--hello(e);
-+expr(exp2);
+-clear

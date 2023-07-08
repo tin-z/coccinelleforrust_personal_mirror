@@ -22,16 +22,25 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 }
 
 static PREFIX: &str = "./src/tests";
-fn checkbindings(bindings1: Vec<MetavarBinding>, bindings2: Vec<(&str, &str)>) -> bool {
-    assert!(bindings1.len() == bindings2.len());
-    for binding2 in bindings2 {
-        for binding1 in bindings1.clone() {
-            if binding2.0 == binding1.metavarinfo.varname {
-                return binding2.1 == binding1.rnode.astnode.to_string();
+fn checkbindings(bindings1: Vec<Vec<MetavarBinding>>, bindings2: Vec<(&str, &str)>) -> usize {
+    let mut ctr: usize = 0;
+    'outer:
+    for bindingvec1 in bindings1.clone() {
+        if bindingvec1.len()!=bindings2.len() {
+            continue;
+        }
+        for binding2 in bindings2.clone() {
+            for binding1 in bindingvec1.clone() {
+                if binding2.0 == binding1.metavarinfo.varname {
+                    if binding2.1 != binding1.rnode.astnode.to_string() {
+                        continue 'outer;
+                    }
+                }
             }
         }
+        ctr+=1;
     }
-    true
+    return ctr;
 }
 
 fn testfile(cocci: &str, rs: &str, gbindings: Vec<Vec<(&str, &str)>>) {
@@ -50,17 +59,136 @@ fn testfile(cocci: &str, rs: &str, gbindings: Vec<Vec<(&str, &str)>>) {
     let a: Disjunction =
         getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
     let envs = visitrnode(&a.0, &rnode, &|a, b| looper.handledisjunctions(a, b, vec![]));
-    assert!(envs.len() == gbindings.len());
     let gbindings1 = envs.into_iter().map(|x| x.bindings).collect_vec();
-    for (binding1, binding2) in izip!(gbindings1, gbindings) {
-        assert!(checkbindings(binding1, binding2));
+    let mut totalbindings: usize = 0;
+    for binding1 in gbindings {
+        totalbindings += checkbindings(gbindings1.clone(), binding1);
     }
+    println!("{}", totalbindings);
+    assert!(gbindings1.len() == totalbindings)
 }
 
 #[test]
 pub fn test1() {
     testfile("bindings/test1.cocci", "bindings/test1.rs", vec![
-        vec![("e", "force")],
         vec![("e", "force")]
+    ]);
+}
+
+#[test]
+pub fn test2() {
+    testfile("bindings/test2.cocci", "bindings/test2.rs", vec![
+        vec![
+            ("e1", "a"),
+            ("e2", "b")
+            ],
+        vec![
+            ("e1", "1"),
+            ("e2", "2")
+            ]
+    ]);
+}
+
+#[test]
+pub fn test3() {
+    testfile("bindings/test3.cocci", "bindings/test3.rs", vec![
+        vec![
+            ("e1", "f.func()"),
+            ("e3", "23"),
+            ("e2", "8")
+            ]
+    ]);
+}
+
+#[test]
+pub fn test4() {
+    testfile("bindings/test4.cocci", "bindings/test4.rs", vec![
+        vec![
+            ("e1", "f.func()"),
+            ("e3", "23")
+            ]
+    ]);
+}
+
+#[test]
+pub fn test5() {
+    testfile("bindings/test5.cocci", "bindings/test5.rs", vec![
+        vec![
+            ("e1", "f.func()"),
+            ("e3", "23"),
+            ("i", "h"),
+            ("e2", "8"),
+            ("e4", "12")
+            ]
+    ]);
+}
+
+#[test]
+pub fn test6() {
+    testfile("bindings/test6.cocci", "bindings/test6.rs", vec![
+        vec![
+            ("e2", "rigthhand"),
+            ]
+    ]);
+}
+
+#[test]
+pub fn test7() {
+    testfile("bindings/test7.cocci", "bindings/test7.rs", vec![
+        vec![
+            ("e2", "rigthhand"),
+            ]
+    ]);
+}
+
+#[test]
+pub fn test8() {
+    testfile("bindings/test8.cocci", "bindings/test8.rs", vec![
+        vec![
+            ("e1", "f.func()"),
+            ("e3", "23"),
+            ("i", "h"),
+            ("e2", "8")
+            ]
+    ]);
+}
+
+#[test]
+pub fn test9() {
+    testfile("bindings/test9.cocci", "bindings/test9.rs", vec![
+        vec![
+            ("e1", "f.func()"),
+            ("e3", "23"),
+            ("i", "h"),
+            ("e2", "8"),
+            ("i1", "a"),
+            ("i2", "b"),
+            ("e4", "funccall()")
+            ]
+    ]);
+}
+
+
+#[test]
+pub fn test10() {
+    testfile("bindings/test10.cocci", "bindings/test10.rs", vec![
+        vec![
+            ("e1", "f.func()"),
+            ("e3", "23"),
+            ("i", "h"),
+            ("e2", "8"),
+            ("i1", "(a, b)"),
+            ("e4", "funccall()")
+            ]
+    ]);
+}
+
+#[test]
+pub fn test11() {
+    testfile("bindings/test11.cocci", "bindings/test11.rs", vec![
+        vec![
+            ("x", "2"),
+            ("y", "1")
+            ]
     ]);
 }
