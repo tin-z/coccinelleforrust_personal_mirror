@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 /*
 (*
  * This file is part of Coccinelle, licensed under the terms of the GPL v2.
@@ -23,222 +25,333 @@
     that that was completely safe either, although eg putting a newline
     after the . or -> is probably unusual. *)
 */
-#![allow(dead_code)]
-use crate::syntaxerror;
-use std::collections::BTreeSet;
-use std::ops::Deref;
 
-// -----------------------------------------------------------------------
-// This phase collects everything.  One can then filter out what it not
-// wanted
+use regex::Regex;
+use std::collections::BTreeSet;
+use std::collections::HashMap;
+use super::parse_cocci::Rule;
+use crate::parsing_cocci::ast0::Snode;
+use crate::{syntaxerror,commons};
+use parser::SyntaxKind;
+
+type Tag = SyntaxKind;
+
+// --------------------------------------------------------------------
+// String management
+
+struct SeparatedList<'a, Iterable, Item: std::fmt::Display>
+where &'a Iterable: std::iter::IntoIterator<Item=Item>
+{
+    sep: &'a str,
+    iterable: &'a Iterable,
+}
+
+impl<'a, Iterable, Item: std::fmt::Display> std::fmt::Display
+    for SeparatedList<'a, Iterable, Item>
+where &'a Iterable: std::iter::IntoIterator<Item=Item>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	let mut iter = self.iterable.into_iter();
+	if let Some(first) = iter.next() {
+	    first.fmt(f);
+	    for item in iter {
+		self.sep.fmt(f);
+		item.fmt(f);
+	    }
+	}
+	Ok(())
+    }
+}
+
+fn separated_list<'a, Iterable, Item: std::fmt::Display>(
+    sep: &'a str, iterable: &'a Iterable) -> SeparatedList<'a, Iterable, Item>
+where &'a Iterable: std::iter::IntoIterator<Item=Item>
+{
+    SeparatedList { sep, iterable }
+}
+
+// --------------------------------------------------------------------
+// Basic data type
 
 // True means nothing was found
-// False should never drift to the top, it is the neutral element of or
+// False should never reach the top, it is the neutral element of or
 // and an or is never empty
 
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub enum Combine {
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum Combine<'a> {
     True,
     False,
-    Elem(String),
-    And(Box<BTreeSet<Combine>>),
-    Or(Box<BTreeSet<Combine>>),
-    Not(Box<Combine>),
+    Elem(&'a str),
+    And(Box<BTreeSet<Combine<'a>>>),
+    Or(Box<BTreeSet<Combine<'a>>>),
+    Not(Box<Combine<'a>>),
 }
 use Combine::*;
 
-static FALSE_ON_TOP_ERR: &str =
-    &"No rules apply.  Perhaps your semantic patch doesn't contain any +/-/* code, or you have a failed dependency.";
-
-fn str_concat_fn<T>(lst: &BTreeSet<T>, op: &dyn Fn(&T) -> String, bet: &str) -> String {
-    let strs: Vec<String> = lst.into_iter().map(|x| op(x)).collect();
-    strs.join(format!(" {bet} ").as_str())
+// an iterator for Combine
+pub struct CombineIterator<'c, 's> {
+    stack: Vec<&'c Combine<'s>>
 }
 
-fn dep2c<'a>(dep: &'a Combine) -> String {
-    match dep {
-        And(l) => format!("({})", str_concat_fn(&l, &dep2c, &"&")),
-        Or(l) => format!("({})", str_concat_fn(&l, &dep2c, &"|")),
-        Not(x) => format!("!({})", dep2c(x)),
-        Elem(x) => x.to_string(),
-        False => String::from("false"),
-        True => String::from("true"),
+impl<'c, 's> Iterator for CombineIterator<'c, 's> {
+    type Item = &'c Combine<'s>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+	let result = self.stack.pop();
+	if let Some(item) = result {
+	    match item {
+		And(l) | Or(l) => self.stack.extend(l.iter()),
+		Not(e) => self.stack.push(e),
+		_ => ()
+	    }
+	}
+	result
     }
 }
 
-// ---------------------------------------------------------------------------------------
-// interpretation for use with grep
-// grep only does or
+impl<'c, 's> IntoIterator for &'c Combine<'s> {
+    type Item = &'c Combine<'s>;
+    type IntoIter = CombineIterator<'c, 's>;
 
-fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
-    fn rec(collected: &mut BTreeSet<String>, strict: bool, cmb: &Combine) {
+    fn into_iter(self) -> Self::IntoIter {
+	CombineIterator { stack: Vec::from([self]) }
+    }
+}
+
+impl<'a> std::fmt::Display for Combine<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	match self {
+            And(l) => write!(f, "({})", separated_list(" & ", &**l)),
+            Or(l) => write!(f, "({})", separated_list(" | ", &**l)),
+            Not(x) => write!(f, "!({})", x),
+            Elem(x) => x.fmt(f),
+            False => write!(f, "false"),
+            True => write!(f, "true")
+	}
+    }
+}
+
+// --------------------------------------------------------------------
+// various constants
+
+static FALSE_ON_TOP_ERR: &str =
+    "No rules apply.  Perhaps your semantic patch doesn't contain any +/-/* code, or you have a failed dependency.";
+
+// --------------------------------------------------------------------
+// Case for grep.  In this case, we don't care about the difference between
+// and and or, and we don't support not, so we can just iterate over the
+// tree, and collect the leaves.
+
+type Clause<'a> = BTreeSet<&'a str>;
+type CNF<'a> = BTreeSet<Clause<'a>>;
+
+fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Clause<'a>> {
+    if let True = x {
+        return None;
+    };
+    let mut collected = BTreeSet::new();
+    for cmb in x {
         match cmb {
-            Elem(x) => {
-                collected.insert(x.to_string());
-            }
-            Not(_) => syntaxerror!(0, "not unexpected in grep arg"),
-            And(l) | Or(l) => {
-                for x in l.iter() {
-                    rec(collected, strict, x);
-                }
-            }
-            True => {
+            Elem(x) => { collected.insert(*x); }
+            Not(_) => syntaxerror!(0, "Not unexpected in grep arg"),
+            And(_) | Or(_) => (),
+            True =>
                 if strict {
                     syntaxerror!(0, "True should not be in the final result")
-                } else {
-                    collected.insert(String::from("True"));
                 }
-            }
-            False => {
+                else {
+                    collected.insert("True");
+                },
+            False =>
                 if strict {
                     syntaxerror!(0, FALSE_ON_TOP_ERR)
-                } else {
-                    collected.insert(String::from("False"));
                 }
-            }
+                else {
+                    collected.insert("False");
+                }
         }
     }
-    match x {
-        True => None,
-        False if strict => syntaxerror!(0, FALSE_ON_TOP_ERR),
-        _ => {
-            let mut collected = BTreeSet::new();
-            rec(&mut collected, strict, x);
-            Some(collected)
-        }
-    }
+    Some(collected)
 }
 
-// ---------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------
 // interpretation for use with git grep
 
 // convert to cnf, give up if the result is too complex
 static MAX_CNF: usize = 5;
 
-fn opt_union_set(longer: &mut BTreeSet<BTreeSet<String>>, shorter: BTreeSet<BTreeSet<String>>) {
-    for x in shorter {
-        if !(longer.iter().any(|y| x.is_subset(y))) {
-            longer.insert(x);
-        }
-    }
-}
-
-fn mk_false() -> BTreeSet<BTreeSet<String>> {
+fn mk_false<'a>() -> CNF<'a> {
     BTreeSet::from([BTreeSet::new()])
 }
 
-fn cnf(strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>, ()> {
+fn big_and<'a, I: IntoIterator<Item=Clause<'a>>>(iter: I) -> CNF<'a> {
+    let mut res = BTreeSet::new();
+    for x in iter {
+        if !(res.iter().any(|y| x.is_subset(y))) {
+            res.insert(x);
+        }
+    }
+    res
+}
+
+fn cnf<'a> (strict:bool, dep: &Combine<'a>) -> Result<CNF<'a>,()> {
     match dep {
-        Elem(x) => Ok(BTreeSet::from([BTreeSet::from([x.to_string()])])),
+        Elem(x) => Ok(BTreeSet::from([BTreeSet::from([*x])])),
         Not(_) => syntaxerror!(0, "not unexpected in coccigrep arg"),
         And(l) => {
-            let l = l.deref();
             if l.is_empty() {
                 syntaxerror!(0, "and should not be empty")
             }
-            let mut res = BTreeSet::new();
-            for x in l.iter() {
-                opt_union_set(&mut res, cnf(strict, x)?)
-            }
-            Ok(res)
+            let l: Vec<CNF<'a>> =
+                l.iter().map(|x| cnf(strict, x)).collect::<Result<_,_>>()?;
+            Ok(big_and(l.into_iter().flatten()))
         }
         Or(l) => {
-            let l = l.deref();
-            let mut ors = Vec::new();
-            for x in l {
-                ors.push(cnf(strict, x)?)
+            if l.is_empty() {
+                syntaxerror!(0, "or should not be empty")
             }
-            let icount = ors.iter().filter(|x| x.len() <= 1).count();
+            let l: Vec<CNF<'a>> =
+                l.iter().map(|x| cnf(strict, x)).collect::<Result<_,_>>()?;
+            let icount =
+                l.iter().filter(|x| x.len() > 1).take(MAX_CNF + 1).count();
             if icount > MAX_CNF {
-                Err(())
-            } else {
-                if ors.len() == 0 {
-                    Ok(mk_false())
-                } else {
-                    let fst = ors.swap_remove(0);
-                    let mut prev = fst;
-                    for cur in ors {
-                        let curval: Vec<BTreeSet<BTreeSet<String>>> = cur
-                            .iter()
-                            .map(|x| prev.iter().map(|y| x.union(&y).cloned().collect()).collect())
-                            .collect();
-                        // drain prev
-                        prev.clear();
-                        // prev is now empty; reuse it
-                        for x in curval {
-                            opt_union_set(&mut prev, x);
-                        }
-                    }
-                    Ok(prev)
-                }
+                return Err(())
             }
+            Ok(l.into_iter().reduce(|acc, cur| {
+                big_and(cur.iter().flat_map(|x| {
+                    acc.iter().map(|y| {
+                        x.union(&y).cloned().collect()
+                    })
+                }))
+            }).unwrap_or_else(mk_false))
         }
         True => Ok(BTreeSet::new()),
         False => {
             if strict {
                 syntaxerror!(0, FALSE_ON_TOP_ERR)
-            } else {
+            }
+            else {
                 Ok(mk_false())
             }
         }
     }
 }
 
-/*
-fn interpret_cocci_git_grep (strict: bool, x: &Combine) -> Option<(Regex, Vec<Regex>, Vec<String>)> {
-    fn optimize (l : BTreeSet<BTreeSet<String>>) -> BTreeSet<BTreeSet<String>> {
-        let l = l.iter().map(|x| (x.len(), x)).collect();
-        let l = l.sort().reverse().map(|(_,x)| x).collect;
-        let mut res = BTreeSet::<BTreeSet<String>>::new();
-        for cur in l {
-            if !res.any(|x| cur.is_subset(x)) {
-                res.insert(cur)
+fn optimize<'a> (l : CNF<'a>) -> CNF<'a> {
+    let mut l: Vec<_> = l.into_iter().map(|x| (x.len(), x)).collect();
+    l.sort();
+    l.reverse();
+    big_and(l.into_iter().map(|(_,x)| x))
+}
+
+fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
+    let mut acc = BTreeSet::<&'a str>::new();
+    for dep in dep {
+        match dep {
+            Elem(x) => { acc.insert(x.clone()); }
+            And(_) | Or(_) | True | False => (),
+            Not(x) => syntaxerror!(0, "Not unexpected in atoms")
+        }
+    }
+    acc
+}
+
+// ------------------------------------------
+
+fn count_atoms<'a>(l: &CNF<'a>) -> Vec<(&'a str,u32)> {
+    let mut tbl = HashMap::new();
+    // collect counts
+    for &x in l.into_iter().flatten() {
+        tbl.entry(x).and_modify(|counter| *counter += 1).or_insert(1);
+    };
+    // convert to a vector (element, count)
+    let mut res : Vec<(&'a str,u32)> = tbl.into_iter().collect();
+    // sort by counts
+    res.sort_by_key(|(_,ct)| *ct); // why does * eliminate a lifetime error?
+    res
+}
+
+fn extend<'a>(element : &'a str, res : &mut Clause<'a>, available : &mut CNF<'a>) {
+    let mut added : Clause<'a> = BTreeSet::new();
+    available
+        .retain(|l| !(l.contains(element)) || { l.iter().for_each(|x| { added.insert(x); }); false });
+    available.retain(|l| !(l.is_subset(&added)));
+    res.extend(added);
+}
+
+fn leftres_rightres<'a>(tbl : &mut dyn DoubleEndedIterator<Item = &'a str>,
+                        available : &mut CNF<'a>) -> (Clause<'a>,Clause<'a>) {
+    let mut leftres : Clause<'a> = BTreeSet::new();
+    let mut rightres : Clause<'a> = BTreeSet::new();
+    while let (false,Some(f)) = (available.is_empty(),tbl.next()) {
+        match tbl.next_back() {
+            Some(b) => {
+                extend(f, &mut leftres, available);
+                extend(b, &mut rightres, available);
+            }
+            None => { // in the middle
+                leftres.extend(available.iter().flatten());
             }
         }
-        res
     }
-    fn atoms (dep: &Combine) -> BTreeSet<String> {
-        fn rec (dep: &Combine, acc: BTreeSet<String>) {
-            match dep {
-                Elem(x) => { acc.insert(x); }
-                Not(x) => syntaxerror!(0, "not unexpected in atoms"),
-                And(l) | Or(l) => {
-                    for x in l.deref() {
-                        rec(x, acc)
-                    }
-                }
-                True | False => {}
-            }
-        }
-        let acc = BTreeSet::new();
-        rec(dep, acc)
-    }
-    fn wordify(x: &String) -> String {
-        format!("\\b{}\\b", x.to_string())
-    }
+    (leftres,rightres)
+}
+
+fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(l);
+    let mut available = l.clone();
+    // run extend
+    let mut preres : CNF<'a> = CNF::new();
+    tbl.retain(|&(f,ct)| ct > 1 || {
+        let mut res = BTreeSet::new();
+        extend(f, &mut res, &mut available);
+        if !(res.is_empty()) {
+            preres.insert(res);
+        };
+        false
+    } );
+    // make indices explicit in tbl
+    let mut ltbl = tbl.into_iter().map(|(x,_)| x); // map to make it double ended
+    let (leftres,rightres) = leftres_rightres(&mut ltbl,&mut available);
+    if !leftres.is_empty() { preres.insert(leftres); }
+    if !rightres.is_empty() { preres.insert(rightres); }
+    preres
+}
+
+// ------------------------------------------
+
+fn wordify<'a>(x: &'a &str) -> String {
+    format!("\\b{}\\b", x.to_string())
+}
+
+fn orify<'a>(l: &BTreeSet<&'a str>) -> Regex {
+    let list: Vec<String> = l.iter().map(wordify).collect();
+    let str = format!("{}", separated_list(" \\| ", &list));
+    Regex::new(str.as_str()).unwrap()
+}
+
+fn interpret_cocci_git_grep<'a> (strict: bool, x: &Combine<'a>) ->
+    Option<(Regex, Vec<Regex>, Vec<String>)> {
     match x {
         True => None,
-        False if strict => syntaxerror!(0, false_on_top_err),
-        _ => {
-            let resfn = || { // allow use of ?
-                fn orify(l: BTreeSet<String>) -> Regex {
-                    let str = str_concat_fn(l, wordify, &"\\|");
-                    Regex::new(str.as_str()).unwrap()
-                }
-                let res1: Regex = orify(atoms(&x)); // all atoms
+        False if strict => syntaxerror!(0, FALSE_ON_TOP_ERR),
+        _ => { // allow use of ?
+              (|| {
+                let res1: Regex = orify(&atoms(x)); // all atoms
                 let res = cnf(strict, x)?;
                 let res = optimize(res);
-                let res = /*Cocci_grep.split*/ res; // Must fix!!!
+                let res = split(&res);
                 let res2: Vec<Regex> = res.iter().map(orify).collect(); // atoms in conjunction
                 let res3: Vec<String> =
-                    res.iter().map(|x| format!("\\( -e {} \\)", x.join(" -e "))).collect();
-                Ok((res1,res2,res3))
-            };
-            match resfn() {
-                Ok(x) => Some(x),
-                Err(_) => None
-            }
+                    res.iter().map(|x| {
+                                   let x : Vec<String> =
+                                       x.iter().map(|x| x.to_string()).collect();
+                                   format!("\\( -e {} \\)", separated_list(" -e ", &x)) }).collect();
+                Ok::<(regex::Regex, Vec<regex::Regex>, Vec<std::string::String>), ()>((res1,res2,res3))
+             })().ok()
         }
     }
 }
-*/
+
+// -------------------------------------------------------------------------
+
