@@ -1,7 +1,7 @@
 use coccinelleforrust::{
     commons::util::{getstmtlist, visitrnode},
     engine::{disjunctions::{getdisjunctions, Disjunction}, cocci_vs_rs::{Looper, MetavarBinding}},
-    parsing_cocci::parse_cocci::{self, processcocci},
+    parsing_cocci::parse_cocci::{processcocci},
     parsing_cocci::{
         ast0::{ Snode},
     },
@@ -10,7 +10,8 @@ use coccinelleforrust::{
 
 use std::fs;
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+#[allow(dead_code)]
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // this is
     // Tout will have the generic types in itself
     // ie ('a * 'b) tout //Ocaml syntax
@@ -40,7 +41,7 @@ fn main() {
 
         let mut rules = processcocci(&patchstring);
         println!("here");
-        let mut rnode = processrs(&rustcode).ok().unwrap();
+        let rnode = processrs(&rustcode).ok().unwrap();
         //rules[0].patch.plus.print_tree();
         //rnode.print_tree();
         let looper = Looper::new(tokenf);

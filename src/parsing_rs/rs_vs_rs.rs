@@ -1,6 +1,7 @@
 use crate::parsing_cocci::ast0::Snode;
 use itertools::izip;
 
+#[allow(dead_code)]
 fn matcher(a: &Snode, b: &Snode) -> bool {
     match (a.kind(), b.kind()) {
         _ => {

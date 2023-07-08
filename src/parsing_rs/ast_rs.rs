@@ -3,13 +3,12 @@ use std::fs;
 
 use itertools::izip;
 use parser::SyntaxKind;
-use syntax::{NodeOrToken, SourceFile, SyntaxElement, SyntaxNode};
+use syntax::{NodeOrToken, SourceFile, SyntaxElement};
 use SyntaxKind::*;
 
 use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
 
-use super::parse_rs::fill_wrap;
 
 type VirtualPosition = (info::ParseInfo, usize);
 

@@ -23,7 +23,7 @@
     that that was completely safe either, although eg putting a newline
     after the . or -> is probably unusual. *)
 */
-
+#![allow(dead_code)]
 use crate::syntaxerror;
 use std::collections::BTreeSet;
 use std::ops::Deref;
@@ -47,7 +47,7 @@ pub enum Combine {
 }
 use Combine::*;
 
-static false_on_top_err: &str =
+static FALSE_ON_TOP_ERR: &str =
     &"No rules apply.  Perhaps your semantic patch doesn't contain any +/-/* code, or you have a failed dependency.";
 
 fn str_concat_fn<T>(lst: &BTreeSet<T>, op: &dyn Fn(&T) -> String, bet: &str) -> String {
@@ -91,7 +91,7 @@ fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
             }
             False => {
                 if strict {
-                    syntaxerror!(0, false_on_top_err)
+                    syntaxerror!(0, FALSE_ON_TOP_ERR)
                 } else {
                     collected.insert(String::from("False"));
                 }
@@ -100,7 +100,7 @@ fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
     }
     match x {
         True => None,
-        False if strict => syntaxerror!(0, false_on_top_err),
+        False if strict => syntaxerror!(0, FALSE_ON_TOP_ERR),
         _ => {
             let mut collected = BTreeSet::new();
             rec(&mut collected, strict, x);
@@ -113,7 +113,7 @@ fn interpret_grep(strict: bool, x: &Combine) -> Option<BTreeSet<String>> {
 // interpretation for use with git grep
 
 // convert to cnf, give up if the result is too complex
-static max_cnf: usize = 5;
+static MAX_CNF: usize = 5;
 
 fn opt_union_set(longer: &mut BTreeSet<BTreeSet<String>>, shorter: BTreeSet<BTreeSet<String>>) {
     for x in shorter {
@@ -149,7 +149,7 @@ fn cnf(strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>, ()> {
                 ors.push(cnf(strict, x)?)
             }
             let icount = ors.iter().filter(|x| x.len() <= 1).count();
-            if icount > max_cnf {
+            if icount > MAX_CNF {
                 Err(())
             } else {
                 if ors.len() == 0 {
@@ -176,7 +176,7 @@ fn cnf(strict: bool, dep: &Combine) -> Result<BTreeSet<BTreeSet<String>>, ()> {
         True => Ok(BTreeSet::new()),
         False => {
             if strict {
-                syntaxerror!(0, false_on_top_err)
+                syntaxerror!(0, FALSE_ON_TOP_ERR)
             } else {
                 Ok(mk_false())
             }

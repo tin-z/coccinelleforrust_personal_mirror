@@ -10,8 +10,6 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
-use super::transformation::ConcreteBinding;
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MetavarName {
     pub rulename: String,
@@ -93,6 +91,7 @@ fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     }
 }
 
+#[allow(dead_code)]
 fn getmoddednodes<'a>(nodevec2: &Vec<&'a Rnode>) -> Vec<&'a Rnode> {
     let nodevec2tmp = nodevec2.iter().filter(|x| !x.wrapper.isremoved).map(|x| *x);
     //removes minuses from previous rules
@@ -108,12 +107,12 @@ fn getmoddednodes<'a>(nodevec2: &Vec<&'a Rnode>) -> Vec<&'a Rnode> {
 }
 
 pub struct Looper<'a> {
-    tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
+    _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
 }
 
 impl<'a, 'b> Looper<'a> {
-    pub fn new(tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
-        Looper { tokenf }
+    pub fn new(_tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
+        Looper { _tokenf }
     }
 
     //actual matching function. Takes two nodes and recursively matches them

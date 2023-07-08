@@ -1,14 +1,13 @@
 // For each rule return the list of variables that are used after it.
 // Also augment various parts of each rule with unitary, inherited, and freshness
 // information
-
+#![allow(dead_code)]
 use parser::SyntaxKind;
 use std::collections::HashSet;
 use std::vec;
 
 use super::parse_cocci::Rule;
-use super::ast0::{Befaft::*, KeepBinding, Mcodekind::*, MetaVar, Replacement::*, Snode};
-use crate::syntaxerror;
+use super::ast0::{KeepBinding, MetaVar, Snode};
 use crate::commons::util::worktree;
 
 type Tag = SyntaxKind;

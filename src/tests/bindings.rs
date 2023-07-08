@@ -1,19 +1,17 @@
-use std::{fs, iter::zip};
-
-
+#![allow(dead_code)]
+use std::{fs};
 use itertools::{izip, Itertools};
-use syntax::ast::Meta;
 
 use crate::{
     commons::util::{getstmtlist, visitrnode},
     engine::{
-        cocci_vs_rs::{Looper, MetavarBinding, Environment},
+        cocci_vs_rs::{Looper, MetavarBinding},
         disjunctions::{getdisjunctions, Disjunction},
     },
     parsing_cocci::{ast0::Snode, parse_cocci::processcocci},
     parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
 };
-fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // this is
     // Tout will have the generic types in itself
     // ie ('a * 'b) tout //Ocaml syntax

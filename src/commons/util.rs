@@ -1,9 +1,8 @@
 use itertools::Itertools;
 use parser::SyntaxKind;
-use syntax::{SourceFile, SyntaxElement, SyntaxNode};
 
 use crate::{
-    engine::cocci_vs_rs::{Environment, MetavarBinding},
+    engine::cocci_vs_rs::{Environment},
     parsing_cocci::ast0::Snode,
     parsing_rs::ast_rs::Rnode,
 };
@@ -58,7 +57,7 @@ pub fn tuple_of_maybe_3<T>(v: &mut Vec<T>) -> [&mut T; 3] {
     }
 }
 
-pub fn collecttree(mut node: &Snode, f: &mut dyn FnMut(&Snode)) {
+pub fn collecttree(node: &Snode, f: &mut dyn FnMut(&Snode)) {
     //use async function to wrap the for loop
     //for other cases TODO
     f(node);

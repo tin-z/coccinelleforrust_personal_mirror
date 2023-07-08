@@ -6,8 +6,8 @@ use crate::engine::cocci_vs_rs::MetavarName;
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::{IfExpr, Type};
-use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
+use syntax::ast::{Type};
+use syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
 /// Semantic Path Node
@@ -125,7 +125,6 @@ impl<'a> Snode {
         fn collectdisjs<'b>(node: &'b Snode) -> Vec<&'b Snode> {
             //this function also returns the plus at the end of a disjunction
             let mut disjs: Vec<&Snode> = vec![];
-            let mut plus1: Vec<Snode> = vec![];
             if node.wrapper.isdisj {
                 disjs.push(&node.children[2].children[0]); //stmtlist is pushed
                 match &node.children[..] {
@@ -339,10 +338,6 @@ impl MetaVar {
             MetaVar::NoMeta => true,
             _ => false,
         }
-    }
-    
-    fn eqname(&self, other: &MetavarName) -> bool {
-        self.getname() == other.varname && self.getrulename() == other.rulename
     }
 }
 

@@ -1,16 +1,14 @@
 use ide_db::{
     line_index::{LineCol, LineIndex},
-    LineIndexDatabase,
 };
 use parser::SyntaxKind;
-use syntax::{AstNode, SourceFile, SyntaxElement, SyntaxError};
+use syntax::{SourceFile, SyntaxElement};
 
 use crate::{
-    commons::info::{ParseInfo, PositionInfo},
+    commons::info::{ParseInfo},
     parsing_rs::visitor_ast::work_node,
 };
 
-use super::ast_rs;
 use super::ast_rs::{Rnode, Wrap};
 
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {

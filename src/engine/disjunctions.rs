@@ -2,7 +2,7 @@ use itertools::{enumerate, Itertools};
 
 use crate::{
     parsing_cocci::ast0::{Pluses, Snode},
-    parsing_rs::ast_rs::Rnode, commons::util::{attachfront, attachback},
+    commons::util::{attachfront, attachback},
 };
 
 #[derive(Debug)]
@@ -11,15 +11,6 @@ pub struct Disjunction(pub Vec<Vec<Snode>>);
 impl Disjunction {
     pub fn new() -> Disjunction {
         Disjunction(vec![])
-    }
-
-    pub fn add(&mut self, i: usize, j: usize, nodes: Disjunction) {
-        let prevnodes = self.0.remove(i);
-        for (ctr, disj) in enumerate(nodes.0) {
-            let mut tmp = prevnodes.clone();
-            tmp.extend(disj);
-            self.0.insert(ctr, tmp);
-        }
     }
 
     pub fn setchildren(&mut self, i: usize, j: usize, mut nodes: Disjunction) {
@@ -45,7 +36,7 @@ impl Disjunction {
     }
 }
 
-pub fn getdisjunctions<'a>(mut nodes: Disjunction) -> Disjunction {
+pub fn getdisjunctions<'a>(nodes: Disjunction) -> Disjunction {
     let mut tmpdisjs: Vec<Vec<Snode>> = vec![]; //for each disjunction branch
     for disj in nodes.0.clone() {
         let mut newvec: Vec<Vec<Snode>> = vec![vec![]];
@@ -81,7 +72,7 @@ pub fn getdisjunctions<'a>(mut nodes: Disjunction) -> Disjunction {
                         newvec.push(vec);
                     }
                 } else {
-                    for mut vec in tmpvec {
+                    for vec in tmpvec {
                         let tmpnode = node.clone();
                         for i in getdisjunctions(Disjunction(vec![node.children.clone()])).0 {
                             let mut newdisj = tmpnode.clone();

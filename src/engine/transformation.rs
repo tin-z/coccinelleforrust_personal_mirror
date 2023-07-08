@@ -2,11 +2,7 @@ use std::{
     cmp::{max, min},
     collections::HashSet,
     hash::Hash,
-    process::{exit, Child},
 };
-
-use itertools::{enumerate, Itertools};
-use syntax::ast::Meta;
 
 use crate::{
     commons::{
@@ -15,8 +11,8 @@ use crate::{
     },
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
-        ast0::{MetaVar, Snode, MODKIND},
-        parse_cocci::{processcocci, Rule},
+        ast0::{Snode, MODKIND},
+        parse_cocci::{processcocci},
     },
     parsing_rs::{
         ast_rs::{Rnode, Wrap},
@@ -25,7 +21,7 @@ use crate::{
 };
 
 use super::{
-    cocci_vs_rs::{Environment, Looper, MetavarName, Modifiers},
+    cocci_vs_rs::{Environment, Looper, MetavarName},
     disjunctions::{getdisjunctions, Disjunction},
 };
 
@@ -35,6 +31,7 @@ pub struct ConcreteBinding {
     pub rnode: Rnode,
 }
 
+#[allow(dead_code)]
 impl<'a> ConcreteBinding {
     fn new(rname: String, varname: String, rnode: Rnode) -> ConcreteBinding {
         return ConcreteBinding {
@@ -125,14 +122,6 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         return shouldgodeeper;
     };
     workrnode(node, findplusses);
-
-    let integratepluses = &mut |x: Rnode| -> bool {
-        let mut newchildren = vec![];
-        for child in x.children {
-            newchildren.extend(child.wrapper.plussed.0)
-        }
-        true
-    };
 }
 
 fn trimpatchbindings(
@@ -150,14 +139,14 @@ fn trimpatchbindings(
 }
 
 pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, ParseError> {
-    fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+    fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
         vec![]
     }
 
     let rules = processcocci(&patchstring);
 
     let parsedrnode = processrs(&rustcode);
-    let mut rnode = match parsedrnode {
+    let rnode = match parsedrnode {
         Ok(node) => node,
         Err(()) => {
             return Err(ParseError::TARGETERROR);
@@ -168,7 +157,7 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
 
     let mut patchbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
     let looper = Looper::new(tokenf);
-    let rnodes: Vec<Rnode> = vec![];//somewhere to store
+    //let rnodes: Vec<Rnode> = vec![];//somewhere to store
     for mut rule in rules {
         let mut a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));

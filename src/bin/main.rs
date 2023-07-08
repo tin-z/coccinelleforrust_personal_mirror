@@ -1,22 +1,18 @@
 use clap::Parser;
 use coccinelleforrust::{
-    commons::util::{getstmtlist, visitrnode, worksnode},
-    engine::{disjunctions::getdisjunctions, transformation},
+    engine::{transformation},
     engine::{
-        cocci_vs_rs::{Looper, MetavarBinding},
-        disjunctions::Disjunction,
-        transformation::transform,
+        cocci_vs_rs::{MetavarBinding},
     },
     parsing_cocci::ast0::Snode,
-    parsing_cocci::{ast0::MODKIND, parse_cocci::processcocci},
-    parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
+    parsing_rs::{ast_rs::Rnode},
 };
 use itertools::Itertools;
 use rand::Rng;
 use std::process::Command;
 use std::{
     fs,
-    path::{self, Path},
+    path::{Path},
     process::exit,
 };
 
@@ -40,7 +36,8 @@ struct CoccinelleForRust {
     rustfmt_config: String,
 }
 
-fn tokenf<'a>(node1: &'a Snode, node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+#[allow(dead_code)]
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // this is
     // Tout will have the generic types in itself
     // ie  ('a * 'b) tout //Ocaml syntax
@@ -89,12 +86,13 @@ fn makechecks(args: &CoccinelleForRust) {
     }
 }
 
+#[allow(dead_code)]
 fn findfmtconfig(args: &mut CoccinelleForRust) {
     let height_lim: usize = 5;
 
     let mut target = Path::new(args.targetpath.as_str()).parent().unwrap().to_path_buf();
-    for i in 0..height_lim {
-        let mut paths = fs::read_dir(target.to_str().unwrap())
+    for _ in 0..height_lim {
+        let paths = fs::read_dir(target.to_str().unwrap())
             .unwrap()
             .into_iter()
             .filter(|x| x.is_ok())

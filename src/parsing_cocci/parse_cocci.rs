@@ -10,23 +10,20 @@ use core::panic;
 ///
 /// _context_
 /// (+/-) code
-use std::{borrow::BorrowMut, collections::HashSet, ops::Deref, vec};
+use std::{collections::HashSet, ops::Deref, vec};
 
 use super::{
     ast0::{wrap_root, MetaVar, Snode, MODKIND},
-    free_vars::{self, free_vars},
 };
 use crate::{
     commons::util::{
-        self, attachback, attachfront, collecttree, getstmtlist, removestmtbracesaddpluses,
-        worksnode, worktree,
+        self, attachback, attachfront, collecttree, removestmtbracesaddpluses,
+        worksnode
     },
-    engine::cocci_vs_rs::{MetavarBinding, MetavarName},
-    parsing_rs::ast_rs::Rnode,
+    engine::cocci_vs_rs::{MetavarName},
     syntaxerror,
 };
 use parser::SyntaxKind;
-use syntax::ast::Meta;
 
 type Tag = SyntaxKind;
 type Name = String;

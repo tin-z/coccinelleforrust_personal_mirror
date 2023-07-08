@@ -4,8 +4,6 @@ use std::vec;
 use syntax;
 use syntax::SyntaxElement;
 
-use crate::commons::info::ParseInfo;
-
 use super::ast0::Snode;
 
 type Tag = SyntaxKind;
