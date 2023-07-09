@@ -355,3 +355,80 @@ fn interpret_cocci_git_grep<'a> (strict: bool, x: &Combine<'a>) ->
 
 // -------------------------------------------------------------------------
 
+fn interpret_idutils<'a>(dep: Combine<'a>) -> Option<Combine<'a>> {
+    match dep {
+        True => None,
+        x => Some(x)
+    }
+}
+
+// -------------------------------------------------------------------------
+
+fn build_and<'a>(x: Combine<'a>, y: Combine<'a>) -> Combine<'a> {
+    if x == y {
+        x
+    }
+    else {
+        match (x,y) {
+            (True,x) | (x,True) => x,
+            (False,_x) | (_x,False) => False,
+            (And(l1),And(l2)) => And(Box::new(l1.union(&*l2).cloned().collect())),
+            (x,Or(l)) if l.contains(&x) => x,
+            (Or(l),x) if l.contains(&x) => x,
+            (Or(l1),Or(l2)) if l1.intersection(&*l2).count() > 0 => {
+                let inner =
+                    build_and
+                        (l1.difference(&*l2).cloned().fold(False, build_or),
+                         l2.difference(&*l1).cloned().fold(False, build_or));
+                l1.intersection(&*l2).cloned().fold(inner, build_or)
+            }
+            (x,And(l)) | (And(l),x) => {
+                if l.contains(&x) {
+                    And(l)
+                }
+                else {
+                    let mut others: BTreeSet<Combine<'a>> =
+                        l.into_iter().filter(|y| {if let Or(l) = y { !l.contains(&x) } else { true }}).collect();
+                    others.insert(x);
+                    And(Box::new(others))
+                }
+            }
+            (x,y) => And(Box::new(BTreeSet::from([x,y])))
+        }
+    }
+}
+
+fn build_or<'a>(x: Combine<'a>, y: Combine<'a>) -> Combine<'a> {
+    if x == y {
+        x
+    }
+    else {
+        match (x,y) {
+            (True,_x) | (_x,True) => True,
+            (False,x) | (x,False) => x,
+            (Or(l1),Or(l2)) => Or(Box::new(l1.union(&*l2).cloned().collect())),
+            (x,And(l)) if l.contains(&x) => x,
+            (And(l),x) if l.contains(&x) => x,
+            (And(l1),And(l2)) if !(l1.intersection(&*l2).count() == 0) => {
+                let inner =
+                    build_or
+                        (l1.difference(&*l2).cloned().fold(True, build_and),
+                         l2.difference(&*l1).cloned().fold(True, build_and));
+                l1.intersection(&*l2).cloned().fold(inner, build_and)
+            }
+            (x,Or(l)) | (Or(l),x) => {
+                if l.contains(&x) {
+                    Or(l)
+                }
+                else {
+                    let mut others: BTreeSet<Combine<'a>> =
+                        l.into_iter().filter(|y| {if let And(l) = y { !l.contains(&x) } else { true }}).collect();
+                    others.insert(x);
+                    Or(Box::new(others))
+                }
+            }
+            (x,y) => Or(Box::new(BTreeSet::from([x,y])))
+        }
+    }
+}
+
