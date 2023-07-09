@@ -131,12 +131,13 @@ impl Rnode {
         for plusbef in &self.wrapper.plussed.0 {
             data.push_str(&plusbef.gettokenstream());
         }
-
-        if self.children.len() == 0 && !self.wrapper.isremoved {
-            data.push_str(&format!("{}", self.astnode.to_string()));
-        }
-        for i in &self.children {
-            data.push_str(&i.gettokenstream());
+        if !self.wrapper.isremoved {
+            if self.children.len() == 0 {
+                data.push_str(&format!("{}", self.astnode.to_string()));
+            }
+            for i in &self.children {
+                data.push_str(&i.gettokenstream());
+            }
         }
 
         for plusaft in &self.wrapper.plussed.1 {

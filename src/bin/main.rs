@@ -5,7 +5,7 @@ use coccinelleforrust::{
         cocci_vs_rs::{MetavarBinding},
     },
     parsing_cocci::ast0::Snode,
-    parsing_rs::{ast_rs::Rnode},
+    parsing_rs::{ast_rs::Rnode}, interface::interface::CoccinelleForRust,
 };
 use itertools::Itertools;
 use rand::Rng;
@@ -15,26 +15,6 @@ use std::{
     path::{Path},
     process::exit,
 };
-
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct CoccinelleForRust {
-    /// Path of Semantic Patch File path
-    #[arg(short, long)]
-    coccifile: String,
-
-    /// Path of Rust Target file path
-    #[arg(short, long)]
-    targetpath: String,
-
-    /// Path of transformed file path
-    #[arg(short, long)]
-    output: Option<String>,
-
-    /// rustfmt config file path
-    #[arg(short, long, default_value_t = String::from("rustfmt.toml"))]
-    rustfmt_config: String,
-}
 
 #[allow(dead_code)]
 fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {

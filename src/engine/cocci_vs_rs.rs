@@ -41,7 +41,7 @@ pub struct Modifiers {
 pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
-    pub modifiers: Modifiers
+    pub modifiers: Modifiers,
 }
 
 impl<'a> Environment<'a> {
@@ -254,8 +254,9 @@ impl<'a, 'b> Looper<'a> {
                         MetaVar::Id(_info) => {
                             if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
                                 return MetavarMatch::Match;
+                            } else {
+                                return MetavarMatch::Maybe(node1, node2);
                             }
-                            return MetavarMatch::Fail;
                         }
                         MetaVar::NoMeta => {
                             panic!("Should never occur");
@@ -272,7 +273,10 @@ impl<'a, 'b> Looper<'a> {
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
         inhertiedbindings: Vec<MetavarBinding<'b>>,
-    ) -> (Vec<Environment<'a>>, bool) where 'b: 'a{
+    ) -> (Vec<Environment<'a>>, bool)
+    where
+        'b: 'a,
+    {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {

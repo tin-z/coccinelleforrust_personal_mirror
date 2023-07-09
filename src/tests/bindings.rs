@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use std::{fs};
-use itertools::{izip, Itertools};
+use itertools::{Itertools};
 
 use crate::{
     commons::util::{getstmtlist, visitrnode},
