@@ -31,6 +31,8 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use super::parse_cocci::Rule;
 use crate::parsing_cocci::ast0::Snode;
+use crate::parsing_cocci::ast0::MetaVar;
+use crate::commons::util::worktree_pure;
 use crate::{syntaxerror,commons};
 use parser::SyntaxKind;
 
@@ -432,3 +434,17 @@ fn build_or<'a>(x: Combine<'a>, y: Combine<'a>) -> Combine<'a> {
     }
 }
 
+fn keep(x: &String) -> Combine<'_> { Elem(x) }
+fn drop(_: &String) -> Combine<'_> { True }
+
+fn find_constants<'a>(rule: &'a Rule) -> BTreeSet<&'a str> {
+    let mut res : BTreeSet<&'a str> = BTreeSet::new();
+    let mut work = |node: &'a Snode| {
+        if node.astnode.kind() == Tag::PATH_EXPR
+            && node.wrapper.metavar != MetaVar::NoMeta {
+	    res.insert(node.astnode.as_token().unwrap().text());
+        }
+    };
+    worktree_pure(&rule.patch.minus, &mut work);
+    res
+}
