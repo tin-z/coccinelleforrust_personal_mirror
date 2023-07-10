@@ -12,7 +12,7 @@ use crate::{
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
         ast0::{Snode, MODKIND},
-        parse_cocci::{processcocci},
+        parse_cocci::processcocci,
     },
     parsing_rs::{
         ast_rs::{Rnode, Wrap},
@@ -48,10 +48,7 @@ impl<'a> ConcreteBinding {
     }
 
     pub fn tomvarbinding(&'a self) -> MetavarBinding<'a> {
-        return MetavarBinding {
-            metavarinfo: self.metavarinfo.clone(),
-            rnode: &self.rnode,
-        };
+        return MetavarBinding { metavarinfo: self.metavarinfo.clone(), rnode: &self.rnode };
     }
 }
 
@@ -98,7 +95,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
         for minus in env.modifiers.minuses.clone() {
-            if pos == minus {
+            if pos == minus || pos.0>=minus.0 && pos.1<=minus.1{
                 x.wrapper.isremoved = true;
                 shouldgodeeper = true;
             } else if max(pos.0, minus.0) <= min(pos.1, minus.1) {
@@ -199,7 +196,6 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
         trimpatchbindings(&mut tmpbindings, rule.usedafter);
         patchbindings.extend(tmpbindings);
         //removes unneeded and duplicate bindings
-
     }
 
     return Ok(transformedcode);
