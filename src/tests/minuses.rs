@@ -42,3 +42,19 @@ pub fn test3() {
         testtransformation("minuses/test3.cocci", "minuses/test3.rs", "minuses/expected3.rs")
     )
 }
+
+
+#[test]
+pub fn test4() {
+    assert!(
+        testtransformation("minuses/test4.cocci", "minuses/test4.rs", "minuses/expected4.rs")
+    )
+}
+
+
+#[test]
+pub fn test5() {
+    assert!(
+        testtransformation("minuses/test5.cocci", "minuses/test5.rs", "minuses/expected5.rs")
+    )
+}
