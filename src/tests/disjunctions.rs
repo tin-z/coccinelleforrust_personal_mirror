@@ -6,7 +6,7 @@ use crate::{
     parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
 };
 
-static PREFIX: &str = "./src/tests/";
+static PREFIX: &str = "./src/tests/disjunctions/";
 fn transformfile(coccifile: &str, rsfile: &str) -> Rnode {
     let patchstring =
         fs::read_to_string(format!("{}{}", PREFIX, coccifile)).expect("This shouldnt be empty.");
@@ -28,25 +28,20 @@ fn testtransformation(coccifile: &str, rsfile: &str, expectedfile: &str) -> bool
 
 #[test]
 pub fn test1() {
-    assert!(testtransformation("minuses/test1.cocci", "minuses/test1.rs", "minuses/expected1.rs"))
+    assert!(testtransformation("test1.cocci", "test1.rs", "expected1.rs"))
 }
 
 #[test]
 pub fn test2() {
-    assert!(testtransformation("minuses/test2.cocci", "minuses/test2.rs", "minuses/expected2.rs"))
+    assert!(testtransformation("test2.cocci", "test2.rs", "expected2.rs"))
 }
 
 #[test]
 pub fn test3() {
-    assert!(testtransformation("minuses/test3.cocci", "minuses/test3.rs", "minuses/expected3.rs"))
+    assert!(testtransformation("test3.cocci", "test3.rs", "expected3.rs"))
 }
 
 #[test]
 pub fn test4() {
-    assert!(testtransformation("minuses/test4.cocci", "minuses/test4.rs", "minuses/expected4.rs"))
-}
-
-#[test]
-pub fn test5() {
-    assert!(testtransformation("minuses/test5.cocci", "minuses/test5.rs", "minuses/expected5.rs"))
+    assert!(testtransformation("test4.cocci", "test4.rs", "expected4.rs"))
 }
