@@ -12,3 +12,8 @@ expression rule1.e1;
 if e1 > 0 {
 +testing();
 }
+
+@rule3@
+@@
+
+-testing();
