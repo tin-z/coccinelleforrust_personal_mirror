@@ -43,8 +43,6 @@ pub struct Modifiers {
 pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
-    //Try to convert inherited bindings from Concrete to Metavar
-    //though it should not affect performance much
     pub modifiers: Modifiers,
 }
 
@@ -250,10 +248,10 @@ impl<'a, 'b> Looper<'a, 'b> {
             metavar => {
                 //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
-                let mvarbindings = self.inheritedbindings.iter().map(|x| x.tomvarbinding()).collect_vec();
+                let inheritedbindings = self.inheritedbindings.iter().map(|x| x.tomvarbinding()).collect_vec();
                 if let Some(binding) = bindings
                     .iter()
-                    .chain(mvarbindings.iter())
+                    .chain(inheritedbindings.iter())
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
                     if binding.rnode.equals(node2) {

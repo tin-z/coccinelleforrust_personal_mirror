@@ -57,6 +57,8 @@ impl ParseInfo {
 }
 
 pub enum ParseError {
-    TARGETERROR,//This means there has been an error in parsing the target file
-    RULEERROR(String)//This means there is an error after transformation
+    TARGETERROR(String),//This means there has been an error in parsing the target file
+                        //It contains the error
+    RULEERROR(String, String)//This means there is an error after transformation
+                        //It contains the rulename and error
 }

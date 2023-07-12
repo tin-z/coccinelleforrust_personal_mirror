@@ -12,15 +12,12 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, ops::Deref, vec};
 
-use super::{
-    ast0::{wrap_root, MetaVar, Snode, MODKIND},
-};
+use super::ast0::{wrap_root, MetaVar, Snode, MODKIND};
 use crate::{
     commons::util::{
-        self, attachback, attachfront, collecttree, removestmtbracesaddpluses,
-        worksnode
+        self, attachback, attachfront, collecttree, removestmtbracesaddpluses, worksnode,
     },
-    engine::cocci_vs_rs::{MetavarName},
+    engine::cocci_vs_rs::MetavarName,
     syntaxerror,
 };
 use parser::SyntaxKind;
@@ -232,7 +229,8 @@ impl Patch {
         let mut f = |x: &Snode| match &x.wrapper.metavar {
             MetaVar::NoMeta => {}
             MetaVar::Exp(info) | MetaVar::Id(info) => {
-                if let Some(index) = bindings.iter().position(|node| node.getname() == info.0.varname)
+                if let Some(index) =
+                    bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but
                 //different rulenames
                 {
