@@ -1,5 +1,6 @@
 mod bindings;
+mod transformationtest;
 mod minuses;
 mod disjunctions;
-mod transformationtest;
 mod pluses;
+mod ruledependance;

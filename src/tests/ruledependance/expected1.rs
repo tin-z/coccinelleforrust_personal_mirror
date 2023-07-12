@@ -4,7 +4,7 @@ fn main() {
 }
 
 fn other() {
-    if 81>0 {
-        
+    if 81 > 0 {
+        testing();
     }
 }
