@@ -1,8 +1,6 @@
 use std::fmt::Debug;
 use std::process::exit;
 
-use crate::engine::cocci_vs_rs::MetavarName;
-
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
@@ -140,6 +138,14 @@ impl<'a> Snode {
         return (disjs, (self.wrapper.plusesbef.clone(), self.wrapper.plusesaft.clone()));
     }
 }
+
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MetavarName {
+    pub rulename: String,
+    pub varname: String,
+}
+
 
 #[derive(Clone, PartialEq)]
 pub struct Dummy {}

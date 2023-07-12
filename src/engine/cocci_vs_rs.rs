@@ -6,15 +6,9 @@ use parser::SyntaxKind;
 use crate::{
     fail,
     parsing_cocci::ast0::Snode,
-    parsing_cocci::ast0::{MetaVar, MODKIND},
+    parsing_cocci::ast0::{MetaVar, MODKIND, MetavarName},
     parsing_rs::ast_rs::Rnode,
 };
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct MetavarName {
-    pub rulename: String,
-    pub varname: String,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding<'a> {

@@ -11,7 +11,7 @@ use crate::{
     },
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
-        ast0::{Snode, MODKIND},
+        ast0::{Snode, MODKIND, MetavarName},
         parse_cocci::processcocci,
     },
     parsing_rs::{
@@ -21,7 +21,7 @@ use crate::{
 };
 
 use super::{
-    cocci_vs_rs::{Environment, Looper, MetavarName},
+    cocci_vs_rs::{Environment, Looper},
     disjunctions::{getdisjunctions, Disjunction},
 };
 
