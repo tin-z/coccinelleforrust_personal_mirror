@@ -2,15 +2,13 @@ use itertools::Itertools;
 use parser::SyntaxKind;
 
 use crate::{
-    engine::cocci_vs_rs::{Environment},
-    parsing_cocci::ast0::Snode,
-    parsing_rs::ast_rs::Rnode,
+    engine::cocci_vs_rs::Environment, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
 
 #[macro_export]
 macro_rules! fail {
     () => {
-        return Environment { failed: true, bindings: vec![], modifiers: Modifiers{ minuses: vec![], pluses: vec![] } }
+        return Environment::failed()
     };
 }
 
@@ -201,7 +199,8 @@ pub fn removestmtbracesaddpluses<'a>(node: &'a mut Snode) {
     stmtlist.children.remove(0);
     let tmp = stmtlist.children.remove(stmtlist.children.len() - 1); //right brace
     let len = stmtlist.children.len();
-    if len!=0 {//for empty patches
+    if len != 0 {
+        //for empty patches
         attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
     }
 }

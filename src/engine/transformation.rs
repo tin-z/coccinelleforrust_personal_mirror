@@ -4,6 +4,8 @@ use std::{
     hash::Hash,
 };
 
+use itertools::Itertools;
+
 use crate::{
     commons::{
         info::ParseError,
@@ -95,7 +97,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
         for minus in env.modifiers.minuses.clone() {
-            if pos == minus || pos.0>=minus.0 && pos.1<=minus.1{
+            if pos == minus || pos.0 >= minus.0 && pos.1 <= minus.1 {
                 x.wrapper.isremoved = true;
                 shouldgodeeper = true;
             } else if max(pos.0, minus.0) <= min(pos.1, minus.1) {
@@ -152,8 +154,9 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
     //If this passes then The rnode has been parsed successfully
     let mut transformedcode = rnode.clone();
 
+    let mut savedbindings: Vec<Vec<ConcreteBinding>> = vec![vec![]];
     let mut patchbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
-    let looper = Looper::new(tokenf);
+    
     //let rnodes: Vec<Rnode> = vec![];//somewhere to store
     for mut rule in rules {
         let mut a: Disjunction =
@@ -175,7 +178,10 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
         //let metavars = rule.metavars;
 
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![];
-        for bindings in &patchbindings {
+        for bindings in savedbindings.clone() {
+
+            
+
             if !(rule
                 .freevars
                 .iter()
@@ -185,8 +191,11 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
                 //to the next bindings
                 continue;
             }
-            let envs =
-                visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l, bindings.clone()));
+            let envs = visitrnode(&a.0, &rnode, &|k, l| {
+                let looper = Looper::new(tokenf, &bindings);
+                looper.handledisjunctions(k, l)
+            }
+            );
 
             for env in envs.clone() {
                 transform(&mut transformedcode, &env);
@@ -194,7 +203,14 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
             }
         }
         trimpatchbindings(&mut tmpbindings, rule.usedafter);
-        patchbindings.extend(tmpbindings);
+        //patchbindings.extend(tmpbindings);
+
+        savedbindings.extend(
+            tmpbindings
+                .into_iter()
+                .map(|x| x.into_iter().map(|y| ConcreteBinding::frommvarbinding(&y)).collect_vec())
+                .collect_vec(),
+        );
         //removes unneeded and duplicate bindings
     }
 

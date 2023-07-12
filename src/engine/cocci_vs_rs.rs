@@ -10,6 +10,8 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
+use super::transformation::ConcreteBinding;
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MetavarName {
     pub rulename: String,
@@ -41,6 +43,8 @@ pub struct Modifiers {
 pub struct Environment<'a> {
     pub failed: bool,
     pub bindings: Vec<MetavarBinding<'a>>,
+    //Try to convert inherited bindings from Concrete to Metavar
+    //though it should not affect performance much
     pub modifiers: Modifiers,
 }
 
@@ -69,6 +73,14 @@ impl<'a> Environment<'a> {
     pub fn new() -> Environment<'a> {
         Environment {
             failed: false,
+            bindings: vec![],
+            modifiers: Modifiers { minuses: vec![], pluses: vec![] },
+        }
+    }
+
+    pub fn failed() -> Environment<'a> {
+        Environment {
+            failed: true,
             bindings: vec![],
             modifiers: Modifiers { minuses: vec![], pluses: vec![] },
         }
@@ -106,13 +118,17 @@ fn getmoddednodes<'a>(nodevec2: &Vec<&'a Rnode>) -> Vec<&'a Rnode> {
     return nodevec2;
 }
 
-pub struct Looper<'a> {
+pub struct Looper<'a, 'b> {
     _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
+    inheritedbindings: &'b Vec<ConcreteBinding>,
 }
 
-impl<'a, 'b> Looper<'a> {
-    pub fn new(_tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>) -> Looper<'a> {
-        Looper { _tokenf }
+impl<'a, 'b> Looper<'a, 'b> {
+    pub fn new(
+        _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
+        inheritedbindings: &'b Vec<ConcreteBinding>,
+    ) -> Looper<'a, 'b> {
+        Looper { _tokenf, inheritedbindings }
     }
 
     //actual matching function. Takes two nodes and recursively matches them
@@ -234,8 +250,10 @@ impl<'a, 'b> Looper<'a> {
             metavar => {
                 //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
+                let mvarbindings = self.inheritedbindings.iter().map(|x| x.tomvarbinding()).collect_vec();
                 if let Some(binding) = bindings
                     .iter()
+                    .chain(mvarbindings.iter())
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
                     if binding.rnode.equals(node2) {
@@ -269,19 +287,16 @@ impl<'a, 'b> Looper<'a> {
     }
 
     pub fn handledisjunctions(
-        &'a self,
+        &self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-        inhertiedbindings: Vec<MetavarBinding<'b>>,
     ) -> (Vec<Environment<'a>>, bool)
-    where
-        'b: 'a,
     {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
-            let mut inheritedenv = Environment::new();
-            inheritedenv.addbindings(&inhertiedbindings);
+            let inheritedenv = Environment::new();
+            //inheritedenv.inheritedbindings = inhertiedbindings.clone();
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
             matched = matched || !env.failed;
             if !env.failed {

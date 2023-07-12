@@ -55,10 +55,11 @@ fn testfile(cocci: &str, rs: &str, gbindings: Vec<Vec<(&str, &str)>>) {
     let mut rules = processcocci(&patchstring);
     let rnode = processrs(&rustcode).ok().unwrap();
 
-    let looper = Looper::new(tokenf);
+    let v= vec![];
+    let looper = Looper::new(tokenf, &v);
     let a: Disjunction =
         getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
-    let envs = visitrnode(&a.0, &rnode, &|a, b| looper.handledisjunctions(a, b, vec![]));
+    let envs = visitrnode(&a.0, &rnode, &|a, b| looper.handledisjunctions(a, b));
     let gbindings1 = envs.into_iter().map(|x| x.bindings).collect_vec();
     let mut totalbindings: usize = 0;
     for binding1 in gbindings {
