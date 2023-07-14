@@ -366,83 +366,87 @@ fn interpret_idutils<'a>(dep: Combine<'a>) -> Option<Combine<'a>> {
 
 // -------------------------------------------------------------------------
 
-fn build_and<'a>(x: Combine<'a>, y: Combine<'a>) -> Combine<'a> {
+fn build_and<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
     if x == y {
-        x
+        x.clone()
     }
     else {
         match (x,y) {
-            (True,x) | (x,True) => x,
+            (True,x) | (x,True) => x.clone(),
             (False,_x) | (_x,False) => False,
             (And(l1),And(l2)) => And(Box::new(l1.union(&*l2).cloned().collect())),
-            (x,Or(l)) if l.contains(&x) => x,
-            (Or(l),x) if l.contains(&x) => x,
+            (x,Or(l)) if l.contains(&x) => x.clone(),
+            (Or(l),x) if l.contains(&x) => x.clone(),
             (Or(l1),Or(l2)) if l1.intersection(&*l2).count() > 0 => {
-                let inner =
-                    build_and
-                        (l1.difference(&*l2).cloned().fold(False, build_or),
-                         l2.difference(&*l1).cloned().fold(False, build_or));
-                l1.intersection(&*l2).cloned().fold(inner, build_or)
+                let a1 = l1.difference(&l2).fold(False, |acc,a| build_or(&acc,a));
+                let a2 = l2.difference(&*l1).fold(False, |acc,a| build_or(&acc,a));
+                let inner = build_and(&a1,&a2);
+                l1.intersection(&*l2).fold(inner, |acc,a| build_or(&acc,&a))
             }
             (x,And(l)) | (And(l),x) => {
-                if l.contains(&x) {
-                    And(l)
+                if l.contains(x) {
+                    And(l.clone())
                 }
                 else {
                     let mut others: BTreeSet<Combine<'a>> =
-                        l.into_iter().filter(|y| {if let Or(l) = y { !l.contains(&x) } else { true }}).collect();
-                    others.insert(x);
+                        l.iter().filter(|y| {if let Or(l) = y { !l.contains(&x) } else { true }}).collect();
+                    others.insert(x.clone());
                     And(Box::new(others))
                 }
             }
-            (x,y) => And(Box::new(BTreeSet::from([x,y])))
+            (x,y) => And(Box::new(BTreeSet::from([x.clone(),y.clone()])))
         }
     }
 }
 
-fn build_or<'a>(x: Combine<'a>, y: Combine<'a>) -> Combine<'a> {
+fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
     if x == y {
-        x
+        x.clone()
     }
     else {
         match (x,y) {
             (True,_x) | (_x,True) => True,
-            (False,x) | (x,False) => x,
+            (False,x) | (x,False) => x.clone(),
             (Or(l1),Or(l2)) => Or(Box::new(l1.union(&*l2).cloned().collect())),
-            (x,And(l)) if l.contains(&x) => x,
-            (And(l),x) if l.contains(&x) => x,
+            (x,And(l)) if l.contains(&x) => x.clone(),
+            (And(l),x) if l.contains(&x) => x.clone(),
             (And(l1),And(l2)) if !(l1.intersection(&*l2).count() == 0) => {
-                let inner =
-                    build_or
-                        (l1.difference(&*l2).cloned().fold(True, build_and),
-                         l2.difference(&*l1).cloned().fold(True, build_and));
-                l1.intersection(&*l2).cloned().fold(inner, build_and)
+                let a1 = l1.difference(&l2).fold(True, |acc,a| build_and(&acc,a));
+                let a2 = l2.difference(&*l1).fold(True, |acc,a| build_and(&acc,a));
+                let inner = build_or(&a1,&a2);
+                l1.intersection(&*l2).cloned().fold(inner, |acc,a| build_and(&acc,&a))
             }
             (x,Or(l)) | (Or(l),x) => {
                 if l.contains(&x) {
-                    Or(l)
+                    Or(l.clone())
                 }
                 else {
                     let mut others: BTreeSet<Combine<'a>> =
-                        l.into_iter().filter(|y| {if let And(l) = y { !l.contains(&x) } else { true }}).collect();
-                    others.insert(x);
+                        l.iter().filter(|y| {if let And(l) = y { !l.contains(&x) } else { true }}).collect();
+                    others.insert(x.clone());
                     Or(Box::new(others))
                 }
             }
-            (x,y) => Or(Box::new(BTreeSet::from([x,y])))
+            (x,y) => Or(Box::new(BTreeSet::from([x.clone(),y.clone()])))
         }
     }
 }
 
-fn keep(x: &String) -> Combine<'_> { Elem(x) }
-fn drop(_: &String) -> Combine<'_> { True }
-
-fn find_constants<'a>(rule: &'a Rule) -> BTreeSet<&'a str> {
-    let mut res : BTreeSet<&'a str> = BTreeSet::new();
+fn find_constants<'a>(rule: &'a Rule, env: HashMap<&str, &Combine<'a>>) -> Combine<'a> {
+    let mut res = True;
     let mut work = |node: &'a Snode| {
-        if node.astnode.kind() == Tag::PATH_EXPR
-            && node.wrapper.metavar != MetaVar::NoMeta {
-	    res.insert(node.astnode.as_token().unwrap().text());
+        if node.astnode.kind() == Tag::PATH_EXPR {
+            if node.wrapper.metavar == MetaVar::NoMeta {
+                if let Some(comb) = env.get(&*(rule.name)) { // want str for name
+                    res = build_and(comb,&res);
+                }
+                else {
+                    res = False;
+                }
+            }
+            else {
+	        res = build_and(&res,&Elem(node.astnode.as_token().unwrap().text()));
+            }
         }
     };
     worktree_pure(&rule.patch.minus, &mut work);
