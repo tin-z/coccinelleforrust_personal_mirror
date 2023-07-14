@@ -422,7 +422,7 @@ fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
                 }
                 else {
                     let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let And(l) = y { !l.contains(&x) } else { true }}).cloned().collect();
+                        l.iter().filter(|y| {if let And(l1) = y { !l1.contains(&x) } else { true }}).cloned().collect();
                     others.insert(x.clone());
                     Or(Box::new(others))
                 }
