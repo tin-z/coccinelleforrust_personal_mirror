@@ -10,7 +10,7 @@ use core::panic;
 ///
 /// _context_
 /// (+/-) code
-use std::{collections::HashSet, ops::Deref, vec};
+use std::{collections::HashSet, vec};
 
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND, MetavarName};
 use crate::{
@@ -54,7 +54,7 @@ fn makemetavar(
     match (split.get(0), split.get(1), split.get(2)) {
         (Some(var), None, None) => MetaVar::new(rulename, var, metatype),
         (Some(rulen), Some(var), None) => {
-            let var = var.deref();
+            let var = *var;
             let rule = getrule(rules, &rulen, lino);
             if let Some(mvar) = rule.metavars.iter().find(|x| x.getname() == var) {
                 if let Some(minfo) = rule.unusedmetavars.iter().find(|x| x.getname() == var) {
@@ -155,7 +155,7 @@ impl Patch {
                 (Some(ak), Some(bk)) => {
                     match (ak.wrapper.modkind, bk.wrapper.modkind) {
                         (_, Some(MODKIND::PLUS)) => {
-                            pvec.push(bk.deref().clone());
+                            pvec.push((*bk).clone());
                             b = bchildren.next();
                         }
                         (Some(MODKIND::MINUS), _) => {
@@ -188,7 +188,7 @@ impl Patch {
                 }
                 (None, Some(bk)) => match bk.wrapper.modkind {
                     Some(MODKIND::PLUS) => {
-                        pvec.push(bk.deref().clone());
+                        pvec.push((*bk).clone());
                         b = bchildren.next();
                     }
                     _ => {
@@ -483,7 +483,7 @@ pub fn handle_metavar_decl(
     for line in block {
         offset += 1;
         let line = line.trim();
-        if line.deref() == "" {
+        if line == "" {
             continue;
         }
         let mut tokens = line.split(&[',', ' ', ';'][..]);

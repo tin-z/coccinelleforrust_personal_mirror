@@ -250,7 +250,7 @@ fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
     let mut acc = BTreeSet::<&'a str>::new();
     for dep in dep {
         match dep {
-            Elem(x) => { acc.insert(x.clone()); }
+            Elem(x) => { acc.insert((*x).clone()); }
             And(_) | Or(_) | True | False => (),
             Not(x) => syntaxerror!(0, "Not unexpected in atoms")
         }
