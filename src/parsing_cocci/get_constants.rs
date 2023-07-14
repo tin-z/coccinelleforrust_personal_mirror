@@ -250,7 +250,7 @@ fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
     let mut acc = BTreeSet::<&'a str>::new();
     for dep in dep {
         match dep {
-            Elem(x) => { acc.insert(x.clone()); }
+            Elem(x) => { acc.insert(x); }
             And(_) | Or(_) | True | False => (),
             Not(x) => syntaxerror!(0, "Not unexpected in atoms")
         }
@@ -389,7 +389,7 @@ fn build_and<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
                 }
                 else {
                     let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let Or(l) = y { !l.contains(&x) } else { true }}).collect();
+                        l.iter().filter(|y| {if let Or(l1) = y { !l1.contains(x) } else { true }}).cloned().collect();
                     others.insert(x.clone());
                     And(Box::new(others))
                 }
@@ -422,7 +422,7 @@ fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
                 }
                 else {
                     let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let And(l) = y { !l.contains(&x) } else { true }}).collect();
+                        l.iter().filter(|y| {if let And(l) = y { !l.contains(&x) } else { true }}).cloned().collect();
                     others.insert(x.clone());
                     Or(Box::new(others))
                 }
