@@ -12,15 +12,12 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, ops::Deref, vec};
 
-use super::{
-    ast0::{wrap_root, MetaVar, Snode, MODKIND},
-};
+use super::ast0::{wrap_root, MetaVar, Snode, MODKIND, MetavarName};
 use crate::{
     commons::util::{
         self, attachback, attachfront, collecttree, removestmtbracesaddpluses,
         worksnode
     },
-    engine::cocci_vs_rs::{MetavarName},
     syntaxerror,
 };
 use parser::SyntaxKind;

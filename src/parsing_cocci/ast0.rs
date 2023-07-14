@@ -1,12 +1,10 @@
 use std::fmt::Debug;
 use std::process::exit;
 
-use crate::engine::cocci_vs_rs::MetavarName;
-
 use super::visitor_ast0::work_node;
 use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
-use syntax::ast::{Type};
+use syntax::ast::Type;
 use syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
@@ -140,6 +138,14 @@ impl<'a> Snode {
         return (disjs, (self.wrapper.plusesbef.clone(), self.wrapper.plusesaft.clone()));
     }
 }
+
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct MetavarName {
+    pub rulename: String,
+    pub varname: String,
+}
+
 
 #[derive(Clone, PartialEq)]
 pub struct Dummy {}
@@ -325,7 +331,10 @@ impl MetaVar {
     }
 
     pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar {
-        let minfo = (MetavarName { rulename: rulename.to_string(), varname: name.to_string()}, KeepBinding::UNITARY);
+        let minfo = (
+            MetavarName { rulename: rulename.to_string(), varname: name.to_string() },
+            KeepBinding::UNITARY,
+        );
         match ty {
             "expression" => MetaVar::Exp(minfo),
             "identifier" => MetaVar::Id(minfo),
@@ -342,7 +351,6 @@ impl MetaVar {
 }
 
 impl PartialEq for MetaVar {
-
     fn eq(&self, other: &Self) -> bool {
         self.getname() == other.getname() && self.getrulename() == other.getrulename()
     }

@@ -128,17 +128,21 @@ impl Rnode {
     pub fn gettokenstream(&self) -> String{
         let mut data = String::new();
         data.push_str(&format!("{}", self.wrapper.wspaces.0));
+        //pluses before current node
         for plusbef in &self.wrapper.plussed.0 {
             data.push_str(&plusbef.gettokenstream());
         }
-
-        if self.children.len() == 0 && !self.wrapper.isremoved {
+        //current node
+        if self.children.len() == 0 && !self.wrapper.isremoved{
             data.push_str(&format!("{}", self.astnode.to_string()));
         }
-        for i in &self.children {
-            data.push_str(&i.gettokenstream());
+        else {
+            for i in &self.children {
+                data.push_str(&i.gettokenstream());
+            }
         }
 
+        //plusses after current node
         for plusaft in &self.wrapper.plussed.1 {
             data.push_str(&plusaft.gettokenstream());
         }

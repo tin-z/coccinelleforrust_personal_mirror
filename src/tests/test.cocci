@@ -1,21 +1,15 @@
 @ rule1 @
 expression expr, exp1, exp2;
 @@
-exp1();
+
 (
-cinder;
-expr;
-+clearcell();
-+exp1;
+foo();
 |
-block;
-exp2(23);
-+steer();
+-bar();
 )
-
-@rule2@
-expression rule1.expr, rule1.exp2, e;
-@@
-
--hello(e);
-+expr(exp2);
+hallo();
+(
+what();
+|
+-want();
+)

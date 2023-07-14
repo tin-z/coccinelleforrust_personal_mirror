@@ -6,9 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syntax = { path = "src/rust-analyzer/crates/syntax" }
-parser = { path = "src/rust-analyzer/crates/parser" }
-ide-db = { path = "src/rust-analyzer/crates/ide-db" }
+syntax = { version = "0.0.160", package="ra_ap_syntax" }
+parser = { version = "0.0.160", package="ra_ap_parser" }
+ide-db = { version = "0.0.160", package="ra_ap_ide_db" }
+ide = { version = "0.0.160", package="ra_ap_ide" }
 either = "1.8.0"
 regex = "1.7.0"
 itertools = "0.10.5"
