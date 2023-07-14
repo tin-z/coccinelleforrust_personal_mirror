@@ -1,20 +1,14 @@
 use clap::Parser;
 use coccinelleforrust::{
-    engine::{transformation},
-    engine::{
-        cocci_vs_rs::{MetavarBinding},
-    },
-    parsing_cocci::ast0::Snode,
-    parsing_rs::{ast_rs::Rnode}, interface::interface::CoccinelleForRust,
+    engine::cocci_vs_rs::MetavarBinding, engine::transformation,
+    interface::interface::CoccinelleForRust, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
+
+use coccinelleforrust::commons::info::ParseError::*;
 use itertools::Itertools;
 use rand::Rng;
 use std::process::Command;
-use std::{
-    fs,
-    path::{Path},
-    process::exit,
-};
+use std::{fs, path::Path, process::exit};
 
 #[allow(dead_code)]
 fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
@@ -34,7 +28,19 @@ fn transformfile(args: &CoccinelleForRust) {
 
     let transformedcode = transformation::transformfile(patchstring, rustcode);
     let randfilename = format!("tmp{}.rs", rng.gen::<u32>());
-    transformedcode.ok().unwrap().writetreetofile(&randfilename);
+    let transformedcode = match transformedcode {
+        Ok(node) => node,
+        Err(TARGETERROR(errors)) => {
+            eprintln!("Error in reading target file.\n{}", errors);
+            panic!();
+        }
+        Err(RULEERROR(rulename, errors)) => {
+            eprintln!("Error in applying rule {}", rulename);
+            eprintln!("Error:\n{}", errors);
+            panic!();
+        }
+    };
+    transformedcode.writetreetofile(&randfilename);
     Command::new("rustfmt")
         .arg("--config-path")
         .arg(args.rustfmt_config.as_str())
@@ -49,7 +55,7 @@ fn transformfile(args: &CoccinelleForRust) {
 
     if let Some(outputfile) = &args.output {
         if let Err(written) = fs::write(outputfile, data) {
-            eprintln!("Error in writing file.\n{:?}",written);
+            eprintln!("Error in writing file.\n{:?}", written);
         }
     }
 }

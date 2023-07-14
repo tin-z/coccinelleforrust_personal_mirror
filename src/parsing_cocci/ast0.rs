@@ -470,7 +470,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     wrap
 }
 
-pub fn parsedisjs<'a>(mut node: &mut Snode) {
+pub fn parsedisjs<'a>(node: &mut Snode) {
     //for later
     if node.kind() == SyntaxKind::IF_EXPR {
         //println!("does it come here");

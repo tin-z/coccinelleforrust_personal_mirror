@@ -1,14 +1,14 @@
 use std::fmt::Debug;
 use std::fs;
+use std::mem::replace;
 
-use itertools::izip;
+use itertools::{enumerate, izip};
 use parser::SyntaxKind;
 use syntax::{NodeOrToken, SourceFile, SyntaxElement};
 use SyntaxKind::*;
 
 use crate::commons::info;
 use crate::parsing_cocci::ast0::Mcodekind;
-
 
 type VirtualPosition = (info::ParseInfo, usize);
 
@@ -88,21 +88,23 @@ impl PartialEq for Rnode {
 impl Rnode {
     pub fn headlesschildren(nodes: Vec<Rnode>) -> Rnode {
         let dummyhead = SourceFile::parse("").syntax_node();
-        Rnode {
-            wrapper: Wrap::dummy(),
-            astnode: NodeOrToken::Node(dummyhead),
-            children: nodes,
-        }
+        Rnode { wrapper: Wrap::dummy(), astnode: NodeOrToken::Node(dummyhead), children: nodes }
     }
 
-    //    pub fn new(node: SyntaxNode) -> Rnode {
-    //       return Rnode {
-    //           wrapper: Wrap::dummy(),
-    //            astnode: ,
-    //            children: (),
-    //        };
-    //    }
+    pub fn finalizetransformation(&mut self) -> (Vec<Rnode>, Vec<Rnode>) {
+        let mut toplus = vec![];
+        for (index, child) in enumerate(&mut self.children) {
+            toplus.push((index, child.finalizetransformation()));
+        }
 
+        for (index, (plusbef, plusaft)) in toplus {
+            self.children.splice(index..index, plusbef);
+            self.children.splice(index + 1..index + 1, plusaft);
+        }
+
+        let plussed = replace(&mut self.wrapper.plussed, (vec![], vec![]));
+        return plussed;
+    }
     pub fn kind(&self) -> SyntaxKind {
         self.astnode.kind()
     }
@@ -125,7 +127,7 @@ impl Rnode {
         self.print_tree_aux(&String::from("--"));
     }
 
-    pub fn gettokenstream(&self) -> String{
+    pub fn gettokenstream(&self) -> String {
         let mut data = String::new();
         data.push_str(&format!("{}", self.wrapper.wspaces.0));
         //pluses before current node
@@ -133,10 +135,9 @@ impl Rnode {
             data.push_str(&plusbef.gettokenstream());
         }
         //current node
-        if self.children.len() == 0 && !self.wrapper.isremoved{
+        if self.children.len() == 0 && !self.wrapper.isremoved {
             data.push_str(&format!("{}", self.astnode.to_string()));
-        }
-        else {
+        } else {
             for i in &self.children {
                 data.push_str(&i.gettokenstream());
             }
@@ -147,7 +148,6 @@ impl Rnode {
             data.push_str(&plusaft.gettokenstream());
         }
         data.push_str(&format!("{}", self.wrapper.wspaces.1));
-
 
         return data;
     }

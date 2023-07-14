@@ -1,13 +1,8 @@
-use ide_db::{
-    line_index::{LineCol, LineIndex},
-};
+use ide_db::line_index::{LineCol, LineIndex};
 use parser::SyntaxKind;
 use syntax::{SourceFile, SyntaxElement};
 
-use crate::{
-    commons::info::{ParseInfo},
-    parsing_rs::visitor_ast::work_node,
-};
+use crate::{commons::info::ParseInfo, parsing_rs::visitor_ast::work_node};
 
 use super::ast_rs::{Rnode, Wrap};
 
@@ -27,23 +22,19 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     wrap
 }
 
-pub fn processrs(contents: &str) -> Result<Rnode, ()> {
+pub fn processrs(contents: &str) -> Result<Rnode, String> {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
     let parse = SourceFile::parse(contents);
     let errors = parse.errors();
 
     if errors.len() != 0 {
+        let mut errorstr = String::new();
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
-            println!(
-                "Error : {} at line: {}, col {}",
-                error.to_string(),
-                lindex.line,
-                lindex.col
-            );
+            errorstr.push_str(&format!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col));
         }
-        return Err(());
+        return Err(errorstr);
     }
     let root = parse.syntax_node();
 
@@ -69,9 +60,5 @@ pub fn processrs(contents: &str) -> Result<Rnode, ()> {
         }
         rnode
     };
-    Ok(work_node(
-        wrap_node,
-        String::new(),
-        SyntaxElement::Node(root),
-    ))
+    Ok(work_node(wrap_node, String::new(), SyntaxElement::Node(root)))
 }
