@@ -1,19 +1,6 @@
 @ rule1 @
-expression expr, exp1, exp2;
+expression E, e, exp2, id1;
 @@
 
-bar();
-expr;
-want();
-
-@rule2@
-expression rule1.expr;
-@@
-
--want();
-+want(expr);
-
-@rule3@
-@@
-
--want(hallo());
+-E.get_parent_node_by_hir_id
++E.get_parent_node

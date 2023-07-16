@@ -105,7 +105,7 @@ fn snodetornode(
 }
 
 pub fn transform(node: &mut Rnode, env: &Environment, inheritedbindings: &Vec<ConcreteBinding>) {
-    let findplusses = &mut |x: &mut Rnode| -> bool {
+    let transformmods = &mut |x: &mut Rnode| -> bool {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
         for minus in env.modifiers.minuses.clone() {
@@ -120,11 +120,11 @@ pub fn transform(node: &mut Rnode, env: &Environment, inheritedbindings: &Vec<Co
                 //overlaps with the node we go deeper
             }
         }
-        for (pluspos, pluses) in env.modifiers.pluses.clone() {
-            if pos.0 == pluspos && x.children.len() == 0 {
+        for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
+            if pos.0 == pluspos && x.children.len() == 0 && isbef{
                 x.wrapper.plussed.0 = snodetornode(pluses, env, inheritedbindings);
                 //println!("======================== {:?}", x);
-            } else if pos.1 == pluspos && x.children.len() == 0 {
+            } else if pos.1 == pluspos && x.children.len() == 0 && !isbef{
                 x.wrapper.plussed.1 = snodetornode(pluses, env, inheritedbindings);
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
@@ -132,7 +132,7 @@ pub fn transform(node: &mut Rnode, env: &Environment, inheritedbindings: &Vec<Co
         }
         return shouldgodeeper;
     };
-    workrnode(node, findplusses);
+    workrnode(node, transformmods);
 }
 
 fn trimpatchbindings(
@@ -160,14 +160,14 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
     let mut rnode = match parsedrnode {
         Ok(node) => node,
         Err(errors) => {
-            return Err(ParseError::TARGETERROR(errors));
+            return Err(ParseError::TARGETERROR(errors, rustcode));
         }
     };
     //If this passes then The rnode has been parsed successfully
     let mut transformedcode = rnode.clone();
 
     let mut savedbindings: Vec<Vec<ConcreteBinding>> = vec![vec![]];
-
+    
     //let rnodes: Vec<Rnode> = vec![];//somewhere to store
     for mut rule in rules {
         let mut a: Disjunction =
@@ -202,7 +202,6 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
             let looper = Looper::new(tokenf, &bindings);
 
             let envs = visitrnode(&a.0, &rnode, &|k, l| looper.handledisjunctions(k, l));
-
             for env in envs.clone() {
                 transform(&mut transformedcode, &env, &bindings);
                 tmpbindings.push(env.bindings.clone());
@@ -218,10 +217,11 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
                 .collect_vec(),
         );
 
-        transformedcode = match processrs(&transformedcode.gettokenstream()) {
+        let transformedstring = transformedcode.gettokenstream();
+        transformedcode = match processrs(&transformedstring) {
             Ok(node) => node,
             Err(errors) => {
-                return Err(ParseError::RULEERROR(rule.name.clone(), errors));
+                return Err(ParseError::RULEERROR(rule.name.clone(), errors, transformedstring));
                 //this error is thrown if a previous transformation does
                 //some weird syntactically wrong transformation
             }

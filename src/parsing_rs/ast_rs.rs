@@ -134,7 +134,6 @@ impl Rnode {
         for plusbef in &self.wrapper.plussed.0 {
             data.push_str(&plusbef.gettokenstream());
         }
-        //current node
         if self.children.len() == 0 && !self.wrapper.isremoved {
             data.push_str(&format!("{}", self.astnode.to_string()));
         } else {
@@ -142,13 +141,15 @@ impl Rnode {
                 data.push_str(&i.gettokenstream());
             }
         }
-
+        //println!("modprogress2 - {}", data);
         //plusses after current node
         for plusaft in &self.wrapper.plussed.1 {
+        //    println!("plusaft - {:?}", self.astnode.to_string());
             data.push_str(&plusaft.gettokenstream());
+        //    println!("plusaft tokenstream - {:?}", data);
         }
         data.push_str(&format!("{}", self.wrapper.wspaces.1));
-
+        //println!("returning - {}", data);
         return data;
     }
 

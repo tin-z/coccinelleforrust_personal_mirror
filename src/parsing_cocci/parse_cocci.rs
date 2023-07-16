@@ -215,6 +215,7 @@ impl Patch {
             if a.wrapper.isdisj {
                 a.wrapper.plusesaft.extend(pvec);
             } else {
+                //println!("attaching {} to {:?}", a.gettokenstream(), pvec);
                 attachback(a, pvec);
             }
         }

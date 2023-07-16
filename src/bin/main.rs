@@ -21,29 +21,13 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     vec![]
 }
 
-fn transformfile(args: &CoccinelleForRust) {
-    let patchstring = fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string(args.targetpath.as_str()).expect("This shouldnt be empty");
+fn getformattedfile(cfr: &CoccinelleForRust, transformedcode: &Rnode) -> String{
     let mut rng = rand::thread_rng();
-
-    let transformedcode = transformation::transformfile(patchstring, rustcode);
     let randfilename = format!("tmp{}.rs", rng.gen::<u32>());
-    let transformedcode = match transformedcode {
-        Ok(node) => node,
-        Err(TARGETERROR(errors)) => {
-            eprintln!("Error in reading target file.\n{}", errors);
-            panic!();
-        }
-        Err(RULEERROR(rulename, errors)) => {
-            eprintln!("Error in applying rule {}", rulename);
-            eprintln!("Error:\n{}", errors);
-            panic!();
-        }
-    };
     transformedcode.writetreetofile(&randfilename);
     Command::new("rustfmt")
         .arg("--config-path")
-        .arg(args.rustfmt_config.as_str())
+        .arg(cfr.rustfmt_config.as_str())
         .arg(&randfilename)
         .output()
         .expect("rustfmt failed");
@@ -52,6 +36,30 @@ fn transformfile(args: &CoccinelleForRust) {
     println!("After Formatting:\n\n{}", data);
 
     fs::remove_file(&randfilename).expect("No file found.");
+    return data;
+}
+
+fn transformfile(args: &CoccinelleForRust) {
+    let patchstring = fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
+    let rustcode = fs::read_to_string(args.targetpath.as_str()).expect("This shouldnt be empty");
+
+    let transformedcode = transformation::transformfile(patchstring, rustcode);
+    
+    let transformedcode = match transformedcode {
+        Ok(node) => node,
+        Err(TARGETERROR(errors, file)) => {
+            eprintln!("Error in reading target file.\n{}", errors);
+            eprintln!("Unparsable file:\n{}", file);
+            panic!();
+        }
+        Err(RULEERROR(rulename, errors, file)) => {
+            eprintln!("Error in applying rule {}", rulename);
+            eprintln!("Error:\n{}", errors);
+            eprintln!("Unparsable file:\n{}", file);
+            panic!();
+        }
+    };
+    let data = getformattedfile(&args, &transformedcode);
 
     if let Some(outputfile) = &args.output {
         if let Err(written) = fs::write(outputfile, data) {

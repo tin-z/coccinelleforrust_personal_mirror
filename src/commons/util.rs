@@ -121,21 +121,25 @@ pub fn visitrnode<'a>(
     //use async function to wrap the for loop
     //for other cases TODO
     let mut environments = vec![];
-    let tmp = f(nodea, &vec![nodeb]);
+    //println!("sending single node");
+    //let tmp = f(nodea, &vec![nodeb]);
 
-    if tmp.1 {
-        environments.extend(tmp.0);
-    }
+    //if tmp.1 {
+    //    environments.extend(tmp.0);
+    //}
     let nodebchildren = &mut nodeb.children.iter();
+
     loop {
+        let tmp = f(nodea, &nodebchildren.clone().collect_vec());
+
+        if tmp.1 {
+            environments.extend(tmp.0);
+        }
+
+        //if nodebchildren.len() == 1 { break; }
+
         if let Some(child) = nodebchildren.next() {
             environments.extend(visitrnode(nodea, child, f));
-
-            let tmp = f(nodea, &nodebchildren.clone().collect_vec());
-
-            if tmp.1 {
-                environments.extend(tmp.0);
-            }
         } else {
             break;
         }

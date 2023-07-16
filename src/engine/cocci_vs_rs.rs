@@ -29,8 +29,8 @@ impl<'a> MetavarBinding<'a> {
 
 #[derive(Clone, Debug)]
 pub struct Modifiers {
-    pub minuses: Vec<(usize, usize)>,
-    pub pluses: Vec<(usize, Vec<Snode>)>,
+    pub minuses: Vec<(usize, usize)>,//start, end
+    pub pluses: Vec<(usize, bool, Vec<Snode>)>,//pos, isbefore?, actual plusses
 }
 
 #[derive(Clone, Debug)]
@@ -88,10 +88,10 @@ enum MetavarMatch<'a, 'b> {
 
 fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     if a.wrapper.plusesbef.len() != 0 {
-        env.modifiers.pluses.push((b.wrapper.info.charstart, a.wrapper.plusesbef.clone()));
+        env.modifiers.pluses.push((b.wrapper.info.charstart, true, a.wrapper.plusesbef.clone()));
     }
     if a.wrapper.plusesaft.len() != 0 {
-        env.modifiers.pluses.push((b.wrapper.info.charend, a.wrapper.plusesaft.clone()));
+        env.modifiers.pluses.push((b.wrapper.info.charend, false, a.wrapper.plusesaft.clone()));
     }
 }
 
@@ -133,7 +133,6 @@ impl<'a, 'b> Looper<'a, 'b> {
     ) -> Environment<'a> {
         let mut nodevec1 = nodevec1.iter();
         let mut nodevec2 = nodevec2.iter();
-
         let mut a: &Snode;
         let mut b: &Rnode;
 
