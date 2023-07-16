@@ -220,7 +220,11 @@ pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
 }
 
 pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
-    if node.children.len() == 0 {
+    if node.children.len() == 0 || !node.wrapper.metavar.isnotmeta() {
+        //attach to a token or a metavar
+        //a metavar does not always mean a token like an expr may be
+        //a path_expr
+        
         node.wrapper.plusesbef.extend(plus);
     } else {
         attachfront(&mut node.children[0], plus);

@@ -13,7 +13,7 @@ use crate::{
     },
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
-        ast0::{Snode, MODKIND, MetavarName},
+        ast0::{MetavarName, Snode, MODKIND},
         parse_cocci::processcocci,
     },
     parsing_rs::{
@@ -121,10 +121,10 @@ pub fn transform(node: &mut Rnode, env: &Environment, inheritedbindings: &Vec<Co
             }
         }
         for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
-            if pos.0 == pluspos && x.children.len() == 0 && isbef{
+            if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env, inheritedbindings);
                 //println!("======================== {:?}", x);
-            } else if pos.1 == pluspos && x.children.len() == 0 && !isbef{
+            } else if pos.1 == pluspos && x.children.len() == 0 && !isbef {
                 x.wrapper.plussed.1 = snodetornode(pluses, env, inheritedbindings);
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
@@ -167,8 +167,6 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
     let mut transformedcode = rnode.clone();
 
     let mut savedbindings: Vec<Vec<ConcreteBinding>> = vec![vec![]];
-    
-    //let rnodes: Vec<Rnode> = vec![];//somewhere to store
     for mut rule in rules {
         let mut a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
