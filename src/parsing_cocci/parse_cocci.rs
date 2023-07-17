@@ -12,12 +12,13 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, vec};
 
+use log::debug;
 use super::ast0::{wrap_root, MetaVar, Snode, MODKIND, MetavarName};
 use crate::{
     commons::util::{
         self, attachback, attachfront, collecttree, removestmtbracesaddpluses, worksnode,
     },
-    syntaxerror,
+    syntaxerror, debugcocci,
 };
 use parser::SyntaxKind;
 
@@ -524,6 +525,7 @@ fn setusedafter(rules: &mut Vec<Rule>) {
 }
 
 pub fn processcocci(contents: &str) -> Vec<Rule> {
+    debugcocci!("{}", "Started Parsing");
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
                       //mutable because I supply it with modifier statements

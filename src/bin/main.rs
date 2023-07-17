@@ -1,14 +1,15 @@
 use clap::Parser;
+use coccinelleforrust::commons::info::ParseError::*;
 use coccinelleforrust::{
     engine::cocci_vs_rs::MetavarBinding, engine::transformation,
     interface::interface::CoccinelleForRust, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
-
-use coccinelleforrust::commons::info::ParseError::*;
+use env_logger::{Builder, Env};
 use itertools::Itertools;
 use rand::Rng;
 use std::fs::DirEntry;
 use std::io;
+use std::io::Write;
 use std::process::Command;
 use std::{fs, path::Path, process::exit};
 
@@ -21,6 +22,18 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     // transformation.ml's tokenf
     // info_to_fixpos
     vec![]
+}
+
+fn init_logger(args: &CoccinelleForRust) {
+    let mut options = String::new();
+    if args.debug_cocci {
+        options.push_str("coccinelleforrust::parsing_cocci,");
+    }
+    let env = Env::default().default_filter_or(&options);
+
+    Builder::from_env(env)
+        .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
+        .init();
 }
 
 fn getformattedfile(cfr: &CoccinelleForRust, transformedcode: &Rnode) -> (String, String) {
@@ -53,7 +66,8 @@ fn getformattedfile(cfr: &CoccinelleForRust, transformedcode: &Rnode) -> (String
 
 fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
     for targetpath in files {
-        let patchstring = fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
+        let patchstring =
+            fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
         let rustcode = fs::read_to_string(targetpath.as_str()).expect("This shouldnt be empty");
 
         let transformedcode = transformation::transformfile(patchstring, rustcode);
@@ -82,8 +96,6 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
             }
         }
     }
-    
-
 }
 
 fn transformfile(args: &CoccinelleForRust) {
@@ -169,6 +181,7 @@ fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
 
 fn main() {
     let args = CoccinelleForRust::parse();
+    init_logger(&args);
 
     makechecks(&args);
     let targetpath = Path::new(&args.targetpath);

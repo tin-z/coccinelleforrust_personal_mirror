@@ -5,6 +5,7 @@ use crate::{
     engine::cocci_vs_rs::Environment, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
 
+
 #[macro_export]
 macro_rules! fail {
     () => {
@@ -22,6 +23,15 @@ macro_rules! syntaxerror {
     };
     ($err:expr, $name:expr) => {
         panic!("{:?}: {:?}", $name, $err)
+    };
+}
+
+#[macro_export]
+macro_rules! debugcocci {
+    ($fmt:expr, $($arg:expr),*) => {
+        if log::log_enabled!(log::Level::Debug) {
+            debug!("{}", format!($fmt, $($arg),*));
+        }
     };
 }
 

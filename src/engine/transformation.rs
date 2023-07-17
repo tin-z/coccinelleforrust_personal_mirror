@@ -9,11 +9,11 @@ use itertools::Itertools;
 use crate::{
     commons::{
         info::ParseError,
-        util::{getstmtlist, visitrnode, workrnode, worksnode},
+        util::{getstmtlist, visitrnode, workrnode},
     },
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
-        ast0::{MetavarName, Snode, MODKIND},
+        ast0::{MetavarName, Snode},
         parse_cocci::processcocci,
     },
     parsing_rs::{
@@ -168,23 +168,8 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
 
     let mut savedbindings: Vec<Vec<ConcreteBinding>> = vec![vec![]];
     for mut rule in rules {
-        let mut a: Disjunction =
+        let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
-
-        for disj in &mut a.0 {
-            for node in disj {
-                worksnode(node, (), &mut |x: &mut Snode, _| {
-                    if x.wrapper.plusesaft.len() != 0 {
-                        //println!("{:#?} attached after {}", x.wrapper.plusesaft, x.astnode.to_string());
-                    }
-                    if x.wrapper.plusesbef.len() != 0 {
-                        //println!("{:#?} before {}", x.wrapper.plusesbef, x.astnode.to_string());
-                    }
-                    if let Some(MODKIND::MINUS) = x.wrapper.modkind {}
-                });
-            }
-        }
-        //let metavars = rule.metavars;
 
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![];
         for bindings in savedbindings.clone() {
