@@ -7,6 +7,8 @@ use coccinelleforrust::{
 use coccinelleforrust::commons::info::ParseError::*;
 use itertools::Itertools;
 use rand::Rng;
+use std::fs::DirEntry;
+use std::io;
 use std::process::Command;
 use std::{fs, path::Path, process::exit};
 
@@ -21,22 +23,67 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
     vec![]
 }
 
-fn getformattedfile(cfr: &CoccinelleForRust, transformedcode: &Rnode) -> String{
+fn getformattedfile(cfr: &CoccinelleForRust, transformedcode: &Rnode) -> (String, String) {
     let mut rng = rand::thread_rng();
-    let randfilename = format!("tmp{}.rs", rng.gen::<u32>());
-    transformedcode.writetreetofile(&randfilename);
+    let randrustfile = format!("tmp{}.rs", rng.gen::<u32>());
+    transformedcode.writetreetofile(&randrustfile);
     Command::new("rustfmt")
         .arg("--config-path")
         .arg(cfr.rustfmt_config.as_str())
-        .arg(&randfilename)
+        .arg(&randrustfile)
         .output()
         .expect("rustfmt failed");
 
-    let data = fs::read_to_string(&randfilename).expect("Unable to read file");
-    println!("After Formatting:\n\n{}", data);
+    let diffout = Command::new("git")
+        .arg("diff")
+        .arg("--no-index")
+        .arg("--diff-algorithm=histogram")
+        .arg(cfr.targetpath.as_str())
+        .arg(&randrustfile)
+        .output()
+        .expect("diff failed");
 
-    fs::remove_file(&randfilename).expect("No file found.");
-    return data;
+    let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
+    let diffed = String::from_utf8(diffout.stdout).expect("Bad diff");
+
+    fs::remove_file(&randrustfile).expect("No file found.");
+
+    return (formatted, diffed);
+}
+
+fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
+    for targetpath in files {
+        let patchstring = fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
+        let rustcode = fs::read_to_string(targetpath.as_str()).expect("This shouldnt be empty");
+
+        let transformedcode = transformation::transformfile(patchstring, rustcode);
+
+        let transformedcode = match transformedcode {
+            Ok(node) => node,
+            Err(TARGETERROR(errors, file)) => {
+                eprintln!("Error in reading target file.\n{}", errors);
+                eprintln!("Unparsable file:\n{}", file);
+                panic!();
+            }
+            Err(RULEERROR(rulename, errors, file)) => {
+                eprintln!("Error in applying rule {}", rulename);
+                eprintln!("Error:\n{}", errors);
+                eprintln!("Unparsable file:\n{}", file);
+                panic!();
+            }
+        };
+        let (data, diff) = getformattedfile(&args, &transformedcode);
+        println!("After Formatting:\n\n{}", data);
+        println!("Diff:\n\n{}", diff);
+
+        if let Some(outputfile) = &args.output {
+            if let Err(written) = fs::write(outputfile, data) {
+                eprintln!("Error in writing file.\n{:?}", written);
+            }
+        }
+    }
+    
+
 }
 
 fn transformfile(args: &CoccinelleForRust) {
@@ -44,7 +91,7 @@ fn transformfile(args: &CoccinelleForRust) {
     let rustcode = fs::read_to_string(args.targetpath.as_str()).expect("This shouldnt be empty");
 
     let transformedcode = transformation::transformfile(patchstring, rustcode);
-    
+
     let transformedcode = match transformedcode {
         Ok(node) => node,
         Err(TARGETERROR(errors, file)) => {
@@ -59,7 +106,9 @@ fn transformfile(args: &CoccinelleForRust) {
             panic!();
         }
     };
-    let data = getformattedfile(&args, &transformedcode);
+    let (data, diff) = getformattedfile(&args, &transformedcode);
+    println!("After Formatting:\n\n{}", data);
+    println!("Diff:\n\n{}", diff);
 
     if let Some(outputfile) = &args.output {
         if let Err(written) = fs::write(outputfile, data) {
@@ -102,9 +151,36 @@ fn findfmtconfig(args: &mut CoccinelleForRust) {
     }
 }
 
+// one possible implementation of walking a directory only visiting files
+fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                visit_dirs(&path, cb)?;
+            } else {
+                cb(&entry);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let args = CoccinelleForRust::parse();
 
     makechecks(&args);
-    transformfile(&args);
+    let targetpath = Path::new(&args.targetpath);
+    if targetpath.is_file() {
+        transformfile(&args);
+    } else {
+        let mut files = vec![];
+        let _ = visit_dirs(targetpath, &mut |file: &DirEntry| {
+            if file.file_name().to_str().unwrap().ends_with(".rs") {
+                files.push(String::from(file.path().to_str().unwrap()));
+            }
+        });
+        transformfiles(&args, files);
+    }
 }

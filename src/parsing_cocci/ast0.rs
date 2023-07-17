@@ -73,6 +73,17 @@ impl<'a> Snode {
         self.print_tree_aux(&String::from("--"));
     }
 
+    pub fn istype(&self) -> bool {
+        use SyntaxKind::*;
+
+        match self.kind() {
+            ARRAY_TYPE | DYN_TRAIT_TYPE | FN_PTR_TYPE | FOR_TYPE | IMPL_TRAIT_TYPE | INFER_TYPE
+            | MACRO_TYPE | NEVER_TYPE | PAREN_TYPE | PATH_TYPE | PTR_TYPE | REF_TYPE
+            | SLICE_TYPE | TUPLE_TYPE => true,
+            _ => false,
+        }
+    }
+
     pub fn isexpr(&self) -> bool {
         use SyntaxKind::*;
 
@@ -139,13 +150,11 @@ impl<'a> Snode {
     }
 }
 
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MetavarName {
     pub rulename: String,
     pub varname: String,
 }
-
 
 #[derive(Clone, PartialEq)]
 pub struct Dummy {}
@@ -275,6 +284,7 @@ pub enum MetaVar {
     NoMeta,
     Exp(Minfo),
     Id(Minfo),
+    Type(Minfo),
 }
 
 impl MetaVar {
@@ -285,6 +295,7 @@ impl MetaVar {
             }
             MetaVar::Id(minfo) => minfo.0.varname.as_str(),
             MetaVar::Exp(minfo) => minfo.0.varname.as_str(),
+            MetaVar::Type(minfo) => minfo.0.varname.as_str(),
         }
     }
 
@@ -293,6 +304,7 @@ impl MetaVar {
             MetaVar::NoMeta => "None",
             MetaVar::Id(_minfo) => "identifier",
             MetaVar::Exp(_minfo) => "expression",
+            MetaVar::Type(_minfo) => "type",
         }
     }
 
@@ -307,6 +319,9 @@ impl MetaVar {
             Self::Id(minfo) => {
                 minfo.1 = binding;
             }
+            Self::Type(minfo) => {
+                minfo.1 = binding;
+            }
         }
     }
 
@@ -317,6 +332,7 @@ impl MetaVar {
             }
             Self::Exp(minfo) => &minfo,
             Self::Id(minfo) => &minfo,
+            MetaVar::Type(minfo) => &minfo,
         }
     }
 
@@ -327,6 +343,7 @@ impl MetaVar {
             }
             Self::Exp(minfo) => &minfo.0.rulename.as_str(),
             Self::Id(minfo) => &minfo.0.rulename.as_str(),
+            Self::Type(minfo) => &minfo.0.rulename.as_str(),
         }
     }
 
@@ -338,6 +355,7 @@ impl MetaVar {
         match ty {
             "expression" => MetaVar::Exp(minfo),
             "identifier" => MetaVar::Id(minfo),
+            "type" => MetaVar::Type(minfo),
             _ => MetaVar::NoMeta,
         }
     }

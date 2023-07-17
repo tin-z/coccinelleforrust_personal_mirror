@@ -228,7 +228,7 @@ impl Patch {
     pub fn getunusedmetavars(&self, mut bindings: Vec<MetaVar>) -> Vec<MetaVar> {
         let mut f = |x: &Snode| match &x.wrapper.metavar {
             MetaVar::NoMeta => {}
-            MetaVar::Exp(info) | MetaVar::Id(info) => {
+            MetaVar::Exp(info) | MetaVar::Id(info) | MetaVar::Type(info)=> {
                 if let Some(index) =
                     bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but

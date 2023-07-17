@@ -144,9 +144,9 @@ impl Rnode {
         //println!("modprogress2 - {}", data);
         //plusses after current node
         for plusaft in &self.wrapper.plussed.1 {
-        //    println!("plusaft - {:?}", self.astnode.to_string());
+            //    println!("plusaft - {:?}", self.astnode.to_string());
             data.push_str(&plusaft.gettokenstream());
-        //    println!("plusaft tokenstream - {:?}", data);
+            //    println!("plusaft tokenstream - {:?}", data);
         }
         data.push_str(&format!("{}", self.wrapper.wspaces.1));
         //println!("returning - {}", data);
@@ -156,6 +156,21 @@ impl Rnode {
     pub fn writetreetofile(&self, filename: &str) {
         let data = self.gettokenstream();
         fs::write(filename, data).expect("Unable to write file");
+    }
+
+    pub fn isid(&self) -> bool {
+        return self.kind()==IDENT || self.ispat()
+    }
+
+    pub fn istype(&self) -> bool {
+        use SyntaxKind::*;
+
+        match self.kind() {
+            ARRAY_TYPE | DYN_TRAIT_TYPE | FN_PTR_TYPE | FOR_TYPE | IMPL_TRAIT_TYPE | INFER_TYPE
+            | MACRO_TYPE | NEVER_TYPE | PAREN_TYPE | PATH_TYPE | PTR_TYPE | REF_TYPE
+            | SLICE_TYPE | TUPLE_TYPE => true,
+            _ => false,
+        }
     }
 
     pub fn isexpr(&self) -> bool {

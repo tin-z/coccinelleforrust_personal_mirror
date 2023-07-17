@@ -1,12 +1,11 @@
 use std::vec;
 
 use itertools::Itertools;
-use parser::SyntaxKind;
 
 use crate::{
     fail,
     parsing_cocci::ast0::Snode,
-    parsing_cocci::ast0::{MetaVar, MODKIND, MetavarName},
+    parsing_cocci::ast0::{MetaVar, MetavarName, MODKIND},
     parsing_rs::ast_rs::Rnode,
 };
 
@@ -29,8 +28,8 @@ impl<'a> MetavarBinding<'a> {
 
 #[derive(Clone, Debug)]
 pub struct Modifiers {
-    pub minuses: Vec<(usize, usize)>,//start, end
-    pub pluses: Vec<(usize, bool, Vec<Snode>)>,//pos, isbefore?, actual plusses
+    pub minuses: Vec<(usize, usize)>,           //start, end
+    pub pluses: Vec<(usize, bool, Vec<Snode>)>, //pos, isbefore?, actual plusses
 }
 
 #[derive(Clone, Debug)]
@@ -241,7 +240,8 @@ impl<'a, 'b> Looper<'a, 'b> {
             metavar => {
                 //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
-                let inheritedbindings = self.inheritedbindings.iter().map(|x| x.tomvarbinding()).collect_vec();
+                let inheritedbindings =
+                    self.inheritedbindings.iter().map(|x| x.tomvarbinding()).collect_vec();
                 if let Some(binding) = bindings
                     .iter()
                     .chain(inheritedbindings.iter())
@@ -261,12 +261,18 @@ impl<'a, 'b> Looper<'a, 'b> {
                             return MetavarMatch::Fail;
                         }
                         MetaVar::Id(_info) => {
-                            if node2.kind() == SyntaxKind::IDENT || node2.ispat() {
+                            if node2.isid() {
                                 return MetavarMatch::Match;
-                            } else {
-                                return MetavarMatch::Maybe(node1, node2);
                             }
+                            return MetavarMatch::Maybe(node1, node2);
                         }
+                        MetaVar::Type(_info) => {
+                            if node2.istype() {
+                                return MetavarMatch::Match;
+                            }
+                            return MetavarMatch::Maybe(node1, node2);
+                        }
+
                         MetaVar::NoMeta => {
                             panic!("Should never occur");
                             //since no meta has been taken care of in the previous match
@@ -281,8 +287,7 @@ impl<'a, 'b> Looper<'a, 'b> {
         &self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-    ) -> (Vec<Environment<'a>>, bool)
-    {
+    ) -> (Vec<Environment<'a>>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
