@@ -115,29 +115,33 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
         let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
 
-        let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![];
+        let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
+        let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for bindings in savedbindings.iter() {
             if !(rule
                 .freevars
                 .iter()
                 .all(|x| bindings.iter().find(|y| y.metavarinfo == x.getminfo().0).is_some()))
+                && !usedbindings.contains(bindings)
             {
                 //if all inherited dependencies of this rule is not satisfied by the bindings then move on
                 //to the next bindings
                 continue;
             }
+            usedbindings.insert(bindings);
             let looper = Looper::new(tokenf);
 
-            let envs = visitrnode(&a.0, &transformedcode, &|k, l| looper.handledisjunctions(k, l, bindings));
+            let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
+                looper.handledisjunctions(k, l, bindings)
+            });
             for env in envs.clone() {
                 transform(&mut transformedcode, &env);
                 tmpbindings.push(env.bindings.clone());
             }
         }
-        trimpatchbindings(&mut tmpbindings, rule.usedafter);
         //patchbindings.extend(tmpbindings);
-
         savedbindings.extend(tmpbindings);
+        trimpatchbindings(&mut savedbindings, rule.usedafter);
 
         let transformedstring = transformedcode.gettokenstream();
         transformedcode = match processrs(&transformedstring) {

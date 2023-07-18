@@ -24,6 +24,7 @@ use parser::SyntaxKind;
 type Tag = SyntaxKind;
 type Name = String;
 
+#[derive(Debug)]
 pub enum Dep {
     NoDep,
     FailDep,
@@ -115,17 +116,15 @@ impl Patch {
             match node.wrapper.modkind {
                 Some(modkind) => {
                     if start == end {
-
                         //debugstart
-                        if node.children.len()==0 {
+                        if node.children.len() == 0 {
                             debugcocci!(
                                 "Setting {}:{:?} to modifier:- {:?}",
                                 node.astnode.to_string(),
                                 node.kind(),
                                 modkind
                             );
-                        }//debugend
-
+                        } //debugend
 
                         node.wrapper.modkind = Some(modkind);
                     } else {
@@ -138,14 +137,14 @@ impl Patch {
                         return (0, None);
                     } else if start == lino && start == end {
                         //debugstart
-                        if node.children.len()==0 && modkind.is_some(){
+                        if node.children.len() == 0 && modkind.is_some() {
                             debugcocci!(
                                 "Setting {}:{:?} to modifier:- {:?}",
                                 node.astnode.to_string(),
                                 node.kind(),
                                 modkind.unwrap()
                             );
-                        }//debugend
+                        } //debugend
 
                         node.wrapper.modkind = modkind;
                         return (lino, modkind);
@@ -266,7 +265,7 @@ impl Patch {
                 };
             }
         };
-    
+
         collecttree(&self.minus, &mut f);
         collecttree(&self.plus, &mut f);
         debugcocci!("Unused Metavars:- {:?}", bindings);
@@ -434,6 +433,7 @@ fn buildrule(
     let mut freevars: Vec<MetaVar> = vec![];
     for metavar in &metavars {
         if metavar.getrulename() != currrulename {
+            debugcocci!("Ferevar found- {:?}",metavar);
             freevars.push(metavar.clone());
         }
     }
@@ -567,6 +567,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
 
     let mut lastruleline = 0;
     for i in 0..nrules {
+        debugcocci!("Processing rule {}", i);
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
         let block2: Vec<&str> = blocks[i * 4 + 1].lines().collect(); //metavars
         let block3: Vec<&str> = blocks[i * 4 + 2].lines().collect(); //empty
@@ -574,7 +575,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
 
         //getting rule info
         let (currrulename, currdepends) = handlerules(&rules, block1, lino);
-
+        debugcocci!("Rulename: {} Depends on: {:?}", currrulename, currdepends);
         lino += 1;
         let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
         //println!("lino1 - {}", lino);
