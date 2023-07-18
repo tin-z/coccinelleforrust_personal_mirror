@@ -1,6 +1,7 @@
 @ rule1 @
-expression x, y;
+expression x,y;
 @@
 
--Lrc<ty::CrateVariancesMap<'tcx>>
-+&'tcx ty::CrateVariancesMap<'tcx>
+TokenTree::token
+-(x, y)
++(y, x)

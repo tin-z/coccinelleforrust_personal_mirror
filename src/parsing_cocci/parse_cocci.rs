@@ -12,13 +12,12 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, vec};
 
-use log::debug;
-use super::ast0::{wrap_root, MetaVar, Snode, MODKIND, MetavarName};
+use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, MODKIND};
 use crate::{
     commons::util::{
         self, attachback, attachfront, collecttree, removestmtbracesaddpluses, worksnode,
     },
-    syntaxerror, debugcocci,
+    debugcocci, syntaxerror,
 };
 use parser::SyntaxKind;
 
@@ -53,7 +52,10 @@ fn makemetavar(
 ) -> MetaVar {
     let split = varname.split(".").collect::<Vec<&str>>();
     match (split.get(0), split.get(1), split.get(2)) {
-        (Some(var), None, None) => MetaVar::new(rulename, var, metatype),
+        (Some(var), None, None) => {
+            debugcocci!("Added Metavar {}.{}", rulename, var);
+            MetaVar::new(rulename, var, metatype)
+        }
         (Some(rulen), Some(var), None) => {
             let var = *var;
             let rule = getrule(rules, &rulen, lino);
@@ -69,6 +71,7 @@ fn makemetavar(
                         varname
                     );
                 }
+                debugcocci!("Added Metavar {}.{}", mvar.getrulename(), mvar.getname());
                 return mvar.clone();
             } else {
                 syntaxerror!(lino, format!("No such metavariable in rule {}", rule.name), varname)
@@ -112,6 +115,18 @@ impl Patch {
             match node.wrapper.modkind {
                 Some(modkind) => {
                     if start == end {
+
+                        //debugstart
+                        if node.children.len()==0 {
+                            debugcocci!(
+                                "Setting {}:{:?} to modifier:- {:?}",
+                                node.astnode.to_string(),
+                                node.kind(),
+                                modkind
+                            );
+                        }//debugend
+
+
                         node.wrapper.modkind = Some(modkind);
                     } else {
                         node.wrapper.modkind = None;
@@ -122,6 +137,16 @@ impl Patch {
                     if lino == 0 {
                         return (0, None);
                     } else if start == lino && start == end {
+                        //debugstart
+                        if node.children.len()==0 && modkind.is_some(){
+                            debugcocci!(
+                                "Setting {}:{:?} to modifier:- {:?}",
+                                node.astnode.to_string(),
+                                node.kind(),
+                                modkind.unwrap()
+                            );
+                        }//debugend
+
                         node.wrapper.modkind = modkind;
                         return (lino, modkind);
                         //everytime lino is not 0, modkind is
@@ -229,7 +254,7 @@ impl Patch {
     pub fn getunusedmetavars(&self, mut bindings: Vec<MetaVar>) -> Vec<MetaVar> {
         let mut f = |x: &Snode| match &x.wrapper.metavar {
             MetaVar::NoMeta => {}
-            MetaVar::Exp(info) | MetaVar::Id(info) | MetaVar::Type(info)=> {
+            MetaVar::Exp(info) | MetaVar::Id(info) | MetaVar::Type(info) => {
                 if let Some(index) =
                     bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but
@@ -241,10 +266,10 @@ impl Patch {
                 };
             }
         };
-
+    
         collecttree(&self.minus, &mut f);
         collecttree(&self.plus, &mut f);
-
+        debugcocci!("Unused Metavars:- {:?}", bindings);
         return bindings;
     }
 }

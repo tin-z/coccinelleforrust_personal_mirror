@@ -5,7 +5,6 @@ use crate::{
     engine::cocci_vs_rs::Environment, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
 
-
 #[macro_export]
 macro_rules! fail {
     () => {
@@ -30,7 +29,7 @@ macro_rules! syntaxerror {
 macro_rules! debugcocci {
     ($fmt:expr, $($arg:expr),*) => {
         if log::log_enabled!(log::Level::Debug) {
-            debug!("{}", format!($fmt, $($arg),*));
+            log::debug!("{}", format!($fmt, $($arg),*));
         }
     };
 }
@@ -234,7 +233,13 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
         //attach to a token or a metavar
         //a metavar does not always mean a token like an expr may be
         //a path_expr
-        
+        if plus.len() != 0 {
+            debugcocci!(
+                "Plus Statements:- {:#?} attached to front of {}",
+                plus.iter().map(|x| x.astnode.to_string()).collect_vec(),
+                node.astnode.to_string()
+            );
+        }
         node.wrapper.plusesbef.extend(plus);
     } else {
         attachfront(&mut node.children[0], plus);
@@ -244,6 +249,13 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
 pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
     let len = node.children.len();
     if len == 0 {
+        if plus.len() != 0 {
+            debugcocci!(
+                "Plus Statements:- {:#?} attached to back of {}",
+                plus.iter().map(|x| x.astnode.to_string()).collect_vec(),
+                node.astnode.to_string()
+            );
+        }
         node.wrapper.plusesaft.extend(plus);
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());

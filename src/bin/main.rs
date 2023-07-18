@@ -27,7 +27,10 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
 fn init_logger(args: &CoccinelleForRust) {
     let mut options = String::new();
     if args.debug_cocci {
-        options.push_str("coccinelleforrust::parsing_cocci,");
+        options.push_str("
+            coccinelleforrust::parsing_cocci,
+            coccinelleforrust::commons
+        ");
     }
     let env = Env::default().default_filter_or(&options);
 
