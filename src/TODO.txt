@@ -1,23 +1,2 @@
-For trees like:
-
-PATH_EXPR@35..44
-      PATH@35..44
-        PATH_SEGMENT@35..44
-          NAME_REF@35..44
-            IDENT@35..44 "rigthhand"
-
-an expression metavar will be matched two times,
-one for PATH_EXPR and one for NAME_REF, this is because
-the Rnode visitor(visitrnode) has no clue about what happened before it.
-It only has the environments before it. 
-
-So for expression exp; this is going to produce two different bindings:
-
-Env1
-exp => righthand//type PATH_EXPR
-
-Env2
-exp => righthand//type NAME_REF
-
-This will not cause a problem in matching or removing, but it is something
-worth noting.
+- Type inference
+- Rebuild McodeKind

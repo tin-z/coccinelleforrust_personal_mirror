@@ -14,7 +14,7 @@ use std::process::Command;
 use std::{fs, path::Path, process::exit};
 
 #[allow(dead_code)]
-fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
     // this is
     // Tout will have the generic types in itself
     // ie  ('a * 'b) tout //Ocaml syntax

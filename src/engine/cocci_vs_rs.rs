@@ -9,16 +9,14 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
-use super::transformation::ConcreteBinding;
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct MetavarBinding<'a> {
+pub struct MetavarBinding {
     pub metavarinfo: MetavarName,
-    pub rnode: &'a Rnode,
+    pub rnode: Rnode,
 }
 
-impl<'a> MetavarBinding<'a> {
-    fn new(rname: String, varname: String, rnode: &'a Rnode) -> MetavarBinding<'a> {
+impl<'a> MetavarBinding {
+    fn new(rname: String, varname: String, rnode: Rnode) -> MetavarBinding {
         return MetavarBinding {
             metavarinfo: MetavarName { rulename: rname, varname: varname },
             rnode: rnode,
@@ -33,13 +31,13 @@ pub struct Modifiers {
 }
 
 #[derive(Clone, Debug)]
-pub struct Environment<'a> {
+pub struct Environment {
     pub failed: bool,
-    pub bindings: Vec<MetavarBinding<'a>>,
+    pub bindings: Vec<MetavarBinding>,
     pub modifiers: Modifiers,
 }
 
-impl<'a> Environment<'a> {
+impl<'a> Environment {
     pub fn add(&mut self, env: Self) {
         for binding in env.bindings {
             if !self.bindings.iter().any(|x| x.metavarinfo.varname == binding.metavarinfo.varname) {
@@ -51,17 +49,17 @@ impl<'a> Environment<'a> {
         self.modifiers.pluses.extend(env.modifiers.pluses);
     }
 
-    pub fn addbinding(&mut self, binding: MetavarBinding<'a>) {
+    pub fn addbinding(&mut self, binding: MetavarBinding) {
         self.bindings.push(binding);
     }
 
-    pub fn addbindings(&mut self, bindings: &Vec<MetavarBinding<'a>>) {
+    pub fn addbindings(&mut self, bindings: &Vec<MetavarBinding>) {
         for binding in bindings {
             self.bindings.push(binding.clone());
         }
     }
 
-    pub fn new() -> Environment<'a> {
+    pub fn new() -> Environment {
         Environment {
             failed: false,
             bindings: vec![],
@@ -69,7 +67,7 @@ impl<'a> Environment<'a> {
         }
     }
 
-    pub fn failed() -> Environment<'a> {
+    pub fn failed() -> Environment {
         Environment {
             failed: true,
             bindings: vec![],
@@ -109,17 +107,15 @@ fn getmoddednodes<'a>(nodevec2: &Vec<&'a Rnode>) -> Vec<&'a Rnode> {
     return nodevec2;
 }
 
-pub struct Looper<'a, 'b> {
-    _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
-    inheritedbindings: &'b Vec<ConcreteBinding>,
+pub struct Looper<'a> {
+    _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding>,
 }
 
-impl<'a, 'b> Looper<'a, 'b> {
+impl<'a, 'b> Looper<'a> {
     pub fn new(
-        _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding<'a>>,
-        inheritedbindings: &'b Vec<ConcreteBinding>,
-    ) -> Looper<'a, 'b> {
-        Looper { _tokenf, inheritedbindings }
+        _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding>,
+    ) -> Looper<'a> {
+        Looper { _tokenf }
     }
 
     //actual matching function. Takes two nodes and recursively matches them
@@ -128,8 +124,8 @@ impl<'a, 'b> Looper<'a, 'b> {
         &self,
         nodevec1: &Vec<&Snode>,
         nodevec2: &Vec<&'a Rnode>,
-        mut env: Environment<'a>,
-    ) -> Environment<'a> {
+        mut env: Environment,
+    ) -> Environment {
         let mut nodevec1 = nodevec1.iter();
         let mut nodevec2 = nodevec2.iter();
         let mut a: &Snode;
@@ -185,7 +181,7 @@ impl<'a, 'b> Looper<'a, 'b> {
                     let binding = MetavarBinding::new(
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string(),
-                        b,
+                        b.clone(),
                     );
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) => {
@@ -240,11 +236,8 @@ impl<'a, 'b> Looper<'a, 'b> {
             metavar => {
                 //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
-                let inheritedbindings =
-                    self.inheritedbindings.iter().map(|x| x.tomvarbinding()).collect_vec();
                 if let Some(binding) = bindings
                     .iter()
-                    .chain(inheritedbindings.iter())
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
                     if binding.rnode.equals(node2) {
@@ -287,12 +280,13 @@ impl<'a, 'b> Looper<'a, 'b> {
         &self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-    ) -> (Vec<Environment<'a>>, bool) {
+        inheritedbindings: &Vec<MetavarBinding>
+    ) -> (Vec<Environment>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
-            let inheritedenv = Environment::new();
-            //inheritedenv.inheritedbindings = inhertiedbindings.clone();
+            let mut inheritedenv = Environment::new();
+            inheritedenv.addbindings(inheritedbindings);
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
             matched = matched || !env.failed;
             if !env.failed {

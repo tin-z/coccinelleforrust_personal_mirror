@@ -11,7 +11,7 @@ use crate::{
     parsing_cocci::{ast0::Snode, parse_cocci::processcocci},
     parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
 };
-fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding<'a>> {
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
     // this is
     // Tout will have the generic types in itself
     // ie ('a * 'b) tout //Ocaml syntax
@@ -54,11 +54,10 @@ fn testfile(cocci: &str, rs: &str, gbindings: Vec<Vec<(&str, &str)>>) {
     let mut rules = processcocci(&patchstring);
     let rnode = processrs(&rustcode).ok().unwrap();
 
-    let v = vec![];
-    let looper = Looper::new(tokenf, &v);
+    let looper = Looper::new(tokenf);
     let a: Disjunction =
         getdisjunctions(Disjunction(vec![getstmtlist(&mut rules[0].patch.minus).clone().children]));
-    let envs = visitrnode(&a.0, &rnode, &|a, b| looper.handledisjunctions(a, b));
+    let envs = visitrnode(&a.0, &rnode, &|a, b| looper.handledisjunctions(a, b, &vec![]));
     let gbindings1 = envs.into_iter().map(|x| x.bindings).collect_vec();
     let mut totalbindings: usize = 0;
     for binding1 in gbindings {
