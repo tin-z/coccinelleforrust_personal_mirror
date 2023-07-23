@@ -1,0 +1,597 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[all]{xy}
+\usetheme{metropolis}
+
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{beamerfoils}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{textpos}
+\usepackage{alltt}
+\usepackage{color}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest,
+   /pgfplots/ybar legend/.style={
+    /pgfplots/legend image code/.code={%
+       \draw[##1,/tikz/.cd,yshift=-0.25em]
+        (0cm,0cm) rectangle (2pt,0.8em);},
+   },
+}
+
+\definecolor{color1}{rgb}{0.549,0.815,0.960}
+\definecolor{color2}{rgb}{0.607,0.937,0.498}
+\definecolor{color3}{rgb}{0.839,0.929,0.427}
+\definecolor{color4}{rgb}{0.878,0.619,0.141}
+\definecolor{color5}{rgb}{0.396,0.165,0.055}
+\definecolor{color6}{rgb}{0.643,0.368,0.898}
+\definecolor{colortop}{rgb}{0.878,0.141,0.141}
+
+\usepackage{wasysym}
+
+\newcommand{\snest}{Nest}
+
+\newcommand{\extrabold}{}%{\bfseries}
+
+  \lstdefinelanguage{diff}{
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+	morecomment=[f][\color{purple}]{*},
+	morecomment=[f][\color{purple}]{?},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+  \lstdefinelanguage{tdiff}{
+	basicstyle=\ttfamily\extrabold\tiny,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+\lstloadlanguages{C}
+\lstset{language=C,
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	backgroundcolor=\color{white},
+        showspaces=false,
+        rulesepcolor=\color{gray},
+	showstringspaces=false,
+	keywordstyle=\bfseries\color{blue!40!black},
+	commentstyle=\itshape\color{purple!40!black},
+	identifierstyle=\color{black},
+	stringstyle=\color{red},
+        numbers=none,
+        numbersep=2pt,
+        morekeywords={elif},
+       }
+
+%\lstset{escapeinside={(*@}{@*)},style=customP}
+
+\newcommand{\ttlb}{\mbox{\tt \char'173}}
+\newcommand{\ttrb}{\mbox{\tt \char'175}}
+\newcommand{\ttbs}{\mbox{\tt \char'134}}
+\newcommand{\ttmid}{\mbox{\tt \char'174}}
+\newcommand{\tttld}{\mbox{\tt \char'176}}
+\newcommand{\ttcar}{\mbox{\tt \char'136}}
+\newcommand{\msf}[1]{\mbox{\sf{{#1}}}}
+\newcommand{\mita}[1]{\mbox{\it{{#1}}}}
+\newcommand{\mbo}[1]{\mbox{\bf{{#1}}}}
+\newcommand{\mth}[1]{\({#1}\)}
+\newcommand{\ssf}[1]{\mbox{\scriptsize\sf{{#1}}}}
+\newcommand{\sita}[1]{\mbox{\scriptsize\it{{#1}}}}
+\newcommand{\mrm}[1]{\mbox{\rm{{#1}}}}
+\newcommand{\mtt}[1]{\mbox{\tt{{#1}}}}
+
+\definecolor{gr}{rgb}{0.22,0.63,0.08}
+\definecolor{subtitlex}{rgb}{0.2,0.2,0.7}
+
+\setlength{\fboxrule}{1.75pt}
+\newcommand{\mybox}[2]{\fcolorbox{#1}{black!2}{\makebox[1.2\height]{\begin{tabular}{c}\textcolor{#1}{#2}\end{tabular}}}}
+\newcommand{\emptybox}[1]{\mybox{#1}{\textcolor{black!2}{t1}}}
+\newcommand{\blackbox}{\emptybox{black}}
+\newcommand{\grbox}[1]{\mybox{gr}{T{#1}}}
+\newcommand{\redbox}[1]{\mybox{subtitlex}{\textcolor{red}{T{#1}}}}
+\newcommand{\gredbox}[1]{\mybox{gr}{\textcolor{red}{T{#1}}}}
+\newcommand{\bluebox}[1]{\mybox{subtitlex}{T{#1}}}
+
+%\\[-2mm]
+%5\\[-2mm]{}
+
+\title{Part of cocci\_grep, as used in get\_constants}
+\author{Julia Lawall, Inria}
+\date{June 5, 2023\\ \mbox{}
+}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\frame[containsverbatim]{\frametitle{Get\_constants}
+
+\textcolor{subtitlex}{Goal:} Collect the tokens in a semantic patch that must be
+  present for the semantic patch to match.
+
+\begin{lstlisting}[language=tdiff]
+@@
+type t;
+expression x,e;
+@@
+(
+  x = kzalloc(sizeof(t), ...);
+|
+  x = kcalloc(sizeof(t), ...);
+)
+... when != x = e
+- memset(x, 0, sizeof(t));
+\end{lstlisting}
+
+{\tt Get\_constants} produces $({\tt kzalloc} \vee {\tt kcalloc}) \wedge {\tt memset}$.
+\begin{itemize}
+\item The result is in conjunctive normal form (CNF).
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Basic data types}
+
+\textcolor{subtitlex}{Observations:}
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item We only collect strings matched by the semantic patch (no negation).
+\item A list of lists of strings is sufficient:
+\begin{lstlisting}[language=C]
+[[kzalloc; kcalloc]; [memset]]
+\end{lstlisting}
+\item In Rust:
+\begin{lstlisting}[language=C]
+type Clause<'a> = BTreeSet<&'a str>;
+type CNF<'a> = BTreeSet<Clause<'a>>;
+\end{lstlisting}
+\end{itemize}
+
+\vfill
+
+\textcolor{subtitlex}{Goal:} Simplify the formulas, for
+better performance with indexing tools.
+}
+
+\frame[containsverbatim]{\frametitle{Problem 1: Count occurrences of each string
+    in a formula}
+
+\textcolor{subtitlex}{Signature:}
+\begin{lstlisting}[language=diff]
+fn count_atoms<'a>(l: &CNF<'a>) -> Vec<(&'a str,u32)> { }
+\end{lstlisting}
+
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Steps:}
+\begin{enumerate}
+\setlength{\itemsep}{3mm}
+\item Compute counts in a hash table.
+\item Convert the hash table to a vector with the final results.
+\item Sort the vector by increasing counts.
+\end{enumerate}
+}
+
+\frame[containsverbatim]{\frametitle{Compute counts in a hash table}
+
+\begin{lstlisting}[language=diff]
+fn count_atoms<'a>(l: &CNF<'a>) -> Vec<(&'a str,u32)> { }
+    let mut tbl = HashMap::new();
+    for x in l.iter().flatten() {
+        match tbl.get_mut(x) {
+            None => { tbl.insert(x,1); }
+            Some(old) => { *old = *old + 1; }
+        }
+    };
+    ...
+}
+\end{lstlisting}
+
+\vfill
+\begin{itemize}
+\item Should there be \verb+&+ be on any uses of {\tt x}?
+\item Is {\tt iter()} and then {\tt flatten()} the right choice?
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Convert the hash table to a vector
+    with the final results}
+
+\begin{lstlisting}[language=diff]
+fn count_atoms<'a>(l: &CNF<'a>) -> Vec<(&'a str,u32)> { }
+    let mut tbl = HashMap::new();
+    ... // see previous slide
+    let mut res : Vec<(&'a str,u32)> = tbl.into_iter().map(|(&s,ct)| (s,ct)).collect();
+    ...
+}
+\end{lstlisting}
+
+\vfill
+\begin{itemize}
+\item Why is {\tt into\_iter} needed ({\tt iter} gives a type error)?
+\item Is the {\tt map} necessary?
+\item Could this be done by folding over the hash table and adding each key
+  and value to the {\tt res} vector?
+\begin{itemize}
+\item[--] HashMaps have methods for accessing the keys and the values, but
+  not for iterating over both.
+\end{itemize}
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Sorting the results by the count
+    (complete implementation)}
+
+\begin{lstlisting}[language=diff]
+fn count_atoms<'a>(l: &CNF<'a>) -> Vec<(&'a str,u32)> {
+    let mut tbl = HashMap::new();
+    for x in l.iter().flatten() {
+        match tbl.get_mut(x) {
+            None => { tbl.insert(x,1); }
+            Some(old) => { *old = *old + 1; }
+        }
+    };
+    £\textcolor{red}{\tt{let mut res : Vec<(\&'a str,u32)> = tbl.into\_iter().map(|(\&s,ct)| (s,ct)).collect();}}£
+    £\textcolor{red}{\tt{res.sort\_by(|(\_,ct1), (\_,ct2)| ct1.cmp(ct2));}}£
+    £\textcolor{red}{\tt{res}}£
+}
+\end{lstlisting}
+
+\vfill
+\begin{itemize}
+\item Could the last three lines be more concise?
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Problem 2: Extend a set of clauses (CNF) in
+    some way with an element}
+
+\textcolor{subtitlex}{Signature:}
+\begin{lstlisting}[language=diff]
+fn extend<'a>(element : &'a str, res : &Clause<'a>, available : &mut CNF<'a>)
+    -> Clause<'a> { }
+\end{lstlisting}
+
+\textcolor{subtitlex}{Steps:}
+\begin{enumerate}
+\setlength{\itemsep}{3mm}
+\item Partition {\tt available} into the clauses that contain the element
+  and those that do not.
+\item Flatten the set of clauses that contain the element into a single
+  clause, {\tt added}.
+\item Remove the clauses of {\tt available} that are a subset of {\tt
+  added}.
+\item Union the {\tt added} clause with {\tt res}, as the result.
+\end{enumerate}}
+
+\frame[containsverbatim]{\frametitle{Partitioning and flattening, to produce {\tt added}}
+
+\textcolor{subtitlex}{OCaml:}
+\begin{lstlisting}[language=diff]
+let (added,available) = List.partition (List.mem element) available in
+let added = List.fold_left (fun res elem -> Common.union_set elem res) [] added in
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Rust:}
+\begin{lstlisting}[language=diff]
+fn extend<'a>(element : &'a str, res : &Clause<'a>, available : &mut CNF<'a>)
+    -> Clause<'a> {
+    let mut added : Clause<'a> = BTreeSet::new();
+    available
+        .retain(|l|
+                !(l.contains(element)) || { l.iter().for_each(|x| { added.insert(x); }); false });
+    ...
+}
+\end{lstlisting}
+
+\vfill
+\begin{itemize}
+\item Surely there is a better approach to partition {\tt l}?
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Remove clauses made redundant by {\tt
+      added}}
+
+\begin{lstlisting}[language=diff]
+fn extend<'a>(element : &'a str, res : &Clause<'a>, available : &mut CNF<'a>)
+    -> Clause<'a> {
+    let mut added : Clause<'a> = BTreeSet::new();
+    available
+        .retain(|l| !(l.contains(element)) || { l.iter().for_each(|x| { added.insert(x); }); false });
+    £\textcolor{red}{\tt{available.retain(|l| !(l.is\_subset(\&added)));}}£
+    ...
+}
+\end{lstlisting}
+}
+
+\frame[containsverbatim]{\frametitle{Combine {\tt added} and {\tt res}
+    (complete implementation)}
+
+\begin{lstlisting}[language=diff]
+fn extend<'a>(element : &'a str, res : &Clause<'a>, available : &mut CNF<'a>) -> Clause<'a> {
+    let mut added : Clause<'a> = BTreeSet::new();
+    available
+        .retain(|l| !(l.contains(element)) || { l.iter().for_each(|x| { added.insert(x); }); false });
+    available.retain(|l| !(l.is_subset(&added)));
+    £\textcolor{red}{\tt{added.union(\&res).cloned().collect()}}£
+}
+\end{lstlisting}
+
+\vfill
+
+\begin{itemize}
+\item Why {\tt cloned()}?
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Problem 3: Split the clauses according
+  the presence of the least occurring and most occurring strings}
+
+\textcolor{subtitlex}{Signature:}
+\begin{lstlisting}[language=diff]
+fn leftres_rightres<'a>(front : Vec<((&'a str,u32),usize)>,
+                        back : Vec<((&'a str,u32),usize)>,
+                        available : &mut CNF<'a>)
+    -> (Clause<'a>,Clause<'a>) { }
+\end{lstlisting}
+
+\textcolor{subtitlex}{Steps:}
+\begin{enumerate}
+\setlength{\itemsep}{3mm}
+\item Create two accumulators, {\tt leftres} and {\tt rightres}.
+\item Iterate over the list of strings and its reverse until reaching the
+  middle.
+\item Use {\tt extend} to build up {\tt leftres} and {\tt rightres} for
+  each string.
+\end{enumerate}}
+
+\frame[containsverbatim]{\frametitle{Create the accumulators}
+
+\begin{lstlisting}[language=diff]
+fn leftres_rightres<'a>(front : Vec<((&'a str,u32),usize)>,
+                        back : Vec<((&'a str,u32),usize)>,
+                        available : &mut CNF<'a>)
+    -> (Clause<'a>,Clause<'a>) {
+    £\textcolor{red}{\tt{let mut leftres~~: Clause<'a> = BTreeSet::new();}}£
+    £\textcolor{red}{\tt{let mut rightres : Clause<'a> = BTreeSet::new();}}£
+    ...
+    (leftres,rightres)
+}
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Set up the iteration}
+
+\begin{lstlisting}[language=diff]
+fn leftres_rightres<'a>(front : Vec<((&'a str,u32),usize)>,
+                        back : Vec<((&'a str,u32),usize)>,
+                        available : &mut CNF<'a>)
+    -> (Clause<'a>,Clause<'a>) {
+    let mut leftres  : Clause<'a> = BTreeSet::new();
+    let mut rightres : Clause<'a> = BTreeSet::new();
+    £\textcolor{red}{\tt{front.iter().enumerate().}}£
+        £\textcolor{red}{\tt{for\_each(|(pos,\&((f,\_),nf))| \ttlb}}£
+                 £\textcolor{red}{\tt{let ((b,\_),nb) = back[pos];}}£
+                 ... £\textcolor{red}{\tt{\ttrb );}}£
+    (leftres,rightres)
+}
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{If no more clauses are available, then
+  abort}
+
+\begin{lstlisting}[language=diff]
+fn leftres_rightres<'a>(front : Vec<((&'a str,u32),usize)>,
+                        back : Vec<((&'a str,u32),usize)>,
+                        available : &mut CNF<'a>)
+    -> (Clause<'a>,Clause<'a>) {
+    let mut leftres  : Clause<'a> = BTreeSet::new();
+    let mut rightres : Clause<'a> = BTreeSet::new();
+    front.iter().enumerate().
+        for_each(|(pos,&((f,_),nf))| {
+                 let ((b,_),nb) = back[pos];
+                 £\textcolor{red}{\tt{if available.is\_empty() \ttlb}}£
+                     £\textcolor{red}{\tt{return ();}}£
+                 £\textcolor{red}{\tt{\ttrb}}£
+                 £\textcolor{red}{\tt{else}}£ ... } );
+    (leftres,rightres)
+}
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Using {\tt extend} (complete implementation)}
+
+\begin{lstlisting}[language=tdiff]
+fn leftres_rightres<'a>(front : Vec<((&'a str,u32),usize)>,
+                        back : Vec<((&'a str,u32),usize)>,
+                        available : &mut CNF<'a>)
+    -> (Clause<'a>,Clause<'a>) {
+    let mut leftres  : Clause<'a> = BTreeSet::new();
+    let mut rightres : Clause<'a> = BTreeSet::new();
+    front.iter().enumerate().
+        for_each(|(pos,&((f,_),nf))| {
+                 let ((b,_),nb) = back[pos];
+                 if available.is_empty() {
+                     return (); // abort the for_each
+                 }
+                 else {
+                     £\textcolor{red}{\tt{if nf < nb \ttlb}}£
+                         £\textcolor{red}{\tt{leftres = extend(f, \&leftres, available);}}£
+                         £\textcolor{red}{\tt{rightres = extend(b, \&rightres, available);}}£
+                     £\textcolor{red}{\tt{\ttrb}}£
+                     £\textcolor{red}{\tt{else if nf == nb \ttlb}}£
+                         £\textcolor{red}{\tt{available.iter().flatten().for\_each(|\&x| { leftres.insert(x); });}}£
+                     £\textcolor{red}{\tt{\ttrb}}£
+                 } } );
+    (leftres,rightres)
+}
+\end{lstlisting}
+
+\vfill
+\begin{itemize}
+\item Mutability: overwriting a variable vs.~overwriting the contents of
+  the variable.
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Problem 4: Putting it all together}
+
+\begin{lstlisting}[language=diff]
+fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(l);
+    let mut pretbl : Vec<&'a str> = Vec::new();
+    tbl.retain(|&(s,ct)| ct > 1 || { pretbl.insert(0,&s); false });
+    let mut available = l.clone();
+    let mut preres : CNF<'a> = CNF::new();
+    for f in pretbl.iter() {
+        let res : Clause<'a> = extend(&f, &BTreeSet::new(), &mut available);
+        if !(res.is_empty()) {
+            preres.insert(res);
+        }
+    };
+    let ltbl : Vec<_> = tbl.iter().enumerate().map(|(pos,&e)| (e,pos)).collect();
+    let mut rtbl = ltbl.clone();
+    rtbl.reverse();
+    let _ = leftres_rightres(ltbl,rtbl,&mut available);
+    if !leftres.is_empty() { preres.insert(leftres); }
+    if !rightres.is_empty() { preres.insert(rightres); }
+    preres
+}
+\end{lstlisting}
+}
+
+\frame[containsverbatim]{\frametitle{Count strings, and extract
+    those that occur only once}
+
+\begin{lstlisting}[language=tdiff]
+fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
+    £\textcolor{red}{\tt{let mut tbl = count\_atoms(l);}}£
+    £\textcolor{red}{\tt{let mut pretbl : Vec<\&'a str> = Vec::new();}}£
+    £\textcolor{red}{\tt{tbl.retain(|\&(s,ct)| ct > 1 || \ttlb~pretbl.insert(0,\&s); false~\ttrb);}}£
+    let mut available = l.clone();
+    let mut preres : CNF<'a> = CNF::new();
+    for f in pretbl.iter() {
+        let res : Clause<'a> = extend(&f, &BTreeSet::new(), &mut available);
+        if !(res.is_empty()) {
+            preres.insert(res);
+        }
+    };
+    let ltbl : Vec<_> = tbl.iter().enumerate().map(|(pos,&e)| (e,pos)).collect();
+    let mut rtbl = ltbl.clone();
+    rtbl.reverse();
+    let _ = leftres_rightres(ltbl,rtbl,&mut available);
+    if !leftres.is_empty() { preres.insert(leftres); }
+    if !rightres.is_empty() { preres.insert(rightres); }
+    preres
+}
+\end{lstlisting}
+
+\begin{itemize}
+\item[] \textcolor{black!2}{Why is the {\tt \&} needed in the call to {\tt map} (without it, the
+  tuple is a reference)?}
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Process strings that occur only once
+    (consumes {\tt available})}
+
+\begin{lstlisting}[language=tdiff]
+fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(l);
+    let mut pretbl : Vec<&'a str> = Vec::new();
+    tbl.retain(|&(s,ct)| ct > 1 || { pretbl.insert(0,&s); false });
+    £\textcolor{red}{\tt{let mut available = l.clone();}}£
+    £\textcolor{red}{\tt{let mut preres : CNF<'a> = CNF::new();}}£
+    £\textcolor{red}{\tt{for f in pretbl.iter() \ttlb}}£
+        £\textcolor{red}{\tt{let res : BTreeSet<\&'a str> = extend(\&f, \&BTreeSet::new(), \&mut available);}}£
+        £\textcolor{red}{\tt{if !(res.is\_empty()) \ttlb}}£
+            £\textcolor{red}{\tt{preres.insert(res);}}£
+        £\textcolor{red}{\tt{\ttrb}}£
+    £\textcolor{red}{\tt{\ttrb;}}£
+    let ltbl : Vec<_> = tbl.iter().enumerate().map(|(pos,&e)| (e,pos)).collect();
+    let mut rtbl = ltbl.clone();
+    rtbl.reverse();
+    let _ = leftres_rightres(ltbl,rtbl,&mut available);
+    if !leftres.is_empty() { preres.insert(leftres); }
+    if !rightres.is_empty() { preres.insert(rightres); }
+    preres
+}
+\end{lstlisting}
+
+\begin{itemize}
+\item[] \textcolor{black!2}{Why is the {\tt \&} needed in the call to {\tt map} (without it, the
+  tuple is a reference)?}
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Make indices explicit in {\tt tbl},
+    call {\tt leftres\_rightres}}
+
+\begin{lstlisting}[language=tdiff]
+fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(l);
+    let mut pretbl : Vec<&'a str> = Vec::new();
+    tbl.retain(|&(s,ct)| ct > 1 || { pretbl.insert(0,&s); false });
+    let mut available = l.clone();
+    let mut preres : CNF<'a> = CNF::new();
+    for f in pretbl.iter() {
+        let res : BTreeSet<&'a str> = extend(&f, &BTreeSet::new(), &mut available);
+        if !(res.is_empty()) {
+            preres.insert(res);
+        }
+    };
+    £\textcolor{red}{\tt{let ltbl : Vec<\_> = tbl.iter().enumerate().map(|(pos,\&e)| (e,pos)).collect();}}£
+    £\textcolor{red}{\tt{let mut rtbl = ltbl.clone();}}£
+    £\textcolor{red}{\tt{rtbl.reverse();}}£
+    £\textcolor{red}{\tt{let \_ = leftres\_rightres(ltbl,rtbl,\&mut available);}}£
+    if !leftres.is_empty() { preres.insert(leftres); }
+    if !rightres.is_empty() { preres.insert(rightres); }
+    preres
+}
+\end{lstlisting}
+
+\begin{itemize}
+\item Why is the {\tt \&} needed in the call to {\tt map} (without it, the
+  tuple is a reference)?
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Combining the results}
+
+\begin{lstlisting}[language=tdiff]
+fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(l);
+    let mut pretbl : Vec<&'a str> = Vec::new();
+    tbl.retain(|&(s,ct)| ct > 1 || { pretbl.insert(0,&s); false });
+    let mut available = l.clone();
+    let mut preres : CNF<'a> = CNF::new();
+    for f in pretbl.iter() {
+        let res : BTreeSet<\&'a str> = extend(&f, &BTreeSet::new(), &mut available);
+        if !(res.is_empty()) {
+            preres.insert(res);
+        }
+    };
+    let ltbl : Vec<_> = tbl.iter().enumerate().map(|(pos,&e)| (e,pos)).collect();
+    let mut rtbl = ltbl.clone();
+    rtbl.reverse();
+    let _ = leftres_rightres(ltbl,rtbl,&mut available);
+    £\textcolor{red}{\tt{if !leftres.is\_empty() \ttlb preres.insert(leftres); \ttrb}}£
+    £\textcolor{red}{\tt{if !rightres.is\_empty() \ttlb preres.insert(rightres); \ttrb}}£
+    £\textcolor{red}{\tt{preres}}£
+}
+\end{lstlisting}
+
+\hfill
+
+\begin{itemize}
+\item Is {\tt preres} getting copied in returning the result?
+\end{itemize}
+}
+\end{document}

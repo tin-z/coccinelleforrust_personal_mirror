@@ -1,0 +1,458 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[all]{xy}
+\usetheme{metropolis}
+
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{beamerfoils}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{textpos}
+\usepackage{alltt}
+\usepackage{color}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest,
+   /pgfplots/ybar legend/.style={
+    /pgfplots/legend image code/.code={%
+       \draw[##1,/tikz/.cd,yshift=-0.25em]
+        (0cm,0cm) rectangle (2pt,0.8em);},
+   },
+}
+
+\definecolor{color1}{rgb}{0.549,0.815,0.960}
+\definecolor{color2}{rgb}{0.607,0.937,0.498}
+\definecolor{color3}{rgb}{0.839,0.929,0.427}
+\definecolor{color4}{rgb}{0.878,0.619,0.141}
+\definecolor{color5}{rgb}{0.396,0.165,0.055}
+\definecolor{color6}{rgb}{0.643,0.368,0.898}
+\definecolor{colortop}{rgb}{0.878,0.141,0.141}
+
+\usepackage{wasysym}
+
+\newcommand{\snest}{Nest}
+
+\newcommand{\extrabold}{}%{\bfseries}
+
+  \lstdefinelanguage{diff}{
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+	morecomment=[f][\color{purple}]{*},
+	morecomment=[f][\color{purple}]{?},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+  \lstdefinelanguage{tdiff}{
+	basicstyle=\ttfamily\extrabold\tiny,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+\lstloadlanguages{C}
+\lstset{language=C,
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	backgroundcolor=\color{white},
+        showspaces=false,
+        rulesepcolor=\color{gray},
+	showstringspaces=false,
+	keywordstyle=\bfseries\color{blue!40!black},
+	commentstyle=\itshape\color{purple!40!black},
+	identifierstyle=\color{black},
+	stringstyle=\color{red},
+        numbers=none,
+        numbersep=2pt,
+        morekeywords={elif},
+       }
+
+%\lstset{escapeinside={(*@}{@*)},style=customP}
+
+\newcommand{\ttlb}{\mbox{\tt \char'173}}
+\newcommand{\ttrb}{\mbox{\tt \char'175}}
+\newcommand{\ttbs}{\mbox{\tt \char'134}}
+\newcommand{\ttmid}{\mbox{\tt \char'174}}
+\newcommand{\tttld}{\mbox{\tt \char'176}}
+\newcommand{\ttcar}{\mbox{\tt \char'136}}
+\newcommand{\msf}[1]{\mbox{\sf{{#1}}}}
+\newcommand{\mita}[1]{\mbox{\it{{#1}}}}
+\newcommand{\mbo}[1]{\mbox{\bf{{#1}}}}
+\newcommand{\mth}[1]{\({#1}\)}
+\newcommand{\ssf}[1]{\mbox{\scriptsize\sf{{#1}}}}
+\newcommand{\sita}[1]{\mbox{\scriptsize\it{{#1}}}}
+\newcommand{\mrm}[1]{\mbox{\rm{{#1}}}}
+\newcommand{\mtt}[1]{\mbox{\tt{{#1}}}}
+
+\definecolor{gr}{rgb}{0.22,0.63,0.08}
+\definecolor{subtitlex}{rgb}{0.2,0.2,0.7}
+
+\setlength{\fboxrule}{1.75pt}
+\newcommand{\mybox}[2]{\fcolorbox{#1}{black!2}{\makebox[1.2\height]{\begin{tabular}{c}\textcolor{#1}{#2}\end{tabular}}}}
+\newcommand{\emptybox}[1]{\mybox{#1}{\textcolor{black!2}{t1}}}
+\newcommand{\blackbox}{\emptybox{black}}
+\newcommand{\grbox}[1]{\mybox{gr}{T{#1}}}
+\newcommand{\redbox}[1]{\mybox{subtitlex}{\textcolor{red}{T{#1}}}}
+\newcommand{\gredbox}[1]{\mybox{gr}{\textcolor{red}{T{#1}}}}
+\newcommand{\bluebox}[1]{\mybox{subtitlex}{T{#1}}}
+
+%\\[-2mm]
+%5\\[-2mm]{}
+
+\title{Coccinelle for Rust}
+\author{Julia Lawall, Tathagata Roy}
+\date{July 23, 2023\\ \mbox{}
+}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\frame{\frametitle{Goals}
+
+\begin{itemize}
+\item Perform repetitive transformations at a large scale.
+\begin{itemize}
+\item[--] Rust is 1.6 MLOC.
+\item[--] The Linux kernel is 23 MLOC. \pause
+\item[--] Collateral evolutions: a change in an API requires changes in all clients.
+\end{itemize}
+
+\pause
+
+\item Provide a transformation language that builds on the expertise of
+  software developers.
+
+\pause
+
+\item Changes + developer familiarity = (semantic) patches
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{An example of a change (Rust
+    repository)}
+
+\begin{lstlisting}[language=tdiff]
+commit d822b97a27e50f5a091d2918f6ff0ffd2d2827f5
+Author: Kyle Matsuda <kyle.yoshio.matsuda@gmail.com>
+Date:   Mon Feb 6 17:48:12 2023 -0700
+
+    change usages of type_of to bound_type_of
+
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 9e90ca3b92c..4246f6f2133 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -2592,7 +2592,7 @@ fn annotate_argument_and_return_for_borrow(
+             if is_closure {
+                 None
+             } else {
+-                let ty = self.infcx.tcx.type_of(self.mir_def_id());
++                let ty = self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity();
+                 match ty.kind() {
+                     ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
+                         self.mir_def_id(),
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+index c4e4e0517ec..d566117b38b 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mod.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+@@ -1185,7 +1185,7 @@ fn explain_captures(
+                     let parent_self_ty =
+                         matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
+                             .then_some(parent_did)
+-                            .and_then(|did| match tcx.type_of(did).kind() {
++                            .and_then(|did| match tcx.bound_type_of(did).subst_identity().kind() {
+                                 ty::Adt(def, ..) => Some(def.did()),
+                                 _ => None,
+                             });
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example of a change (Rust
+    repository)}
+
+\begin{lstlisting}[language=tdiff]
+commit d822b97a27e50f5a091d2918f6ff0ffd2d2827f5
+Author: Kyle Matsuda <kyle.yoshio.matsuda@gmail.com>
+Date:   Mon Feb 6 17:48:12 2023 -0700
+
+    change usages of type_of to bound_type_of
+
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 9e90ca3b92c..4246f6f2133 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -2592,7 +2592,7 @@ fn annotate_argument_and_return_for_borrow(
+             if is_closure {
+                 None
+             } else {
+-                £\textcolor{black}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{black}{;}£
++                £\textcolor{black}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{black}{;}£
+                 match ty.kind() {
+                     ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
+                         self.mir_def_id(),
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+index c4e4e0517ec..d566117b38b 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mod.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+@@ -1185,7 +1185,7 @@ fn explain_captures(
+                     let parent_self_ty =
+                         matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
+                             .then_some(parent_did)
+-                            £\textcolor{black}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{black}{.kind() \ttlb}£
++                            £\textcolor{black}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{black}{.kind() \ttlb}£
+                                 ty::Adt(def, ..) => Some(def.did()),
+                                 _ => None,
+                             });
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch}
+
+\textcolor{subtitlex}{Step 1}: remove irrelevant code.
+
+\begin{lstlisting}[language=tdiff]
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+-                £\textcolor{black!2}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{black!2}{;}£
++                £\textcolor{black!2}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{black!2}{;}£
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+££
+-                            £\textcolor{black!2}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{black!2}{.kind() \ttlb}£
++                            £\textcolor{black!2}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{black!2}{.kind() \ttlb}£
+££
+££
+££
+...
+\end{lstlisting}}
+
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch}
+
+\textcolor{subtitlex}{Step 2}: abstract over subterms using metavariables.
+
+\begin{lstlisting}[language=tdiff]
+@@
+
+@@
+
+- self.infcx.tcx.type_of(self.mir_def_id())
++ self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()
+££
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch}
+
+\textcolor{subtitlex}{Step 2}: abstract over subterms using metavariables.
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+- tcx.type_of(arg)
++ tcx.bound_type_of(arg).subst_identity()
+££
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch}
+
+\textcolor{subtitlex}{Alternate version:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Assessment}
+
+\begin{itemize}
+\setlength{\itemsep}{4mm}
+\item The semantic patch updates over 200 call sites.
+\item One case is different than the others:
+
+\begin{lstlisting}[language=tdiff]
+             let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
++            let def_ty = ecx.tcx.bound_type_of(def_id).subst_identity();
+             let extern_decl_layout =
+-                ecx.tcx.layout_of(ty::ParamEnv::empty().and(ecx.tcx.type_of(def_id))).unwrap();
++                ecx.tcx.layout_of(ty::ParamEnv::empty().and(def_ty)).unwrap();
+             if extern_decl_layout.size != shim_size || extern_decl_layout.align.abi != shim_align {
+                 throw_unsup_format!(
+                     "`extern` static `{name}` from crate `{krate}` has been declared \
+\end{lstlisting}
+\item Can perhaps extend the semantic patch for this case?
+\item Te semantic patch + this case can serve as documentation.
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{An example: change in context}
+
+\begin{lstlisting}[language=tdiff]
+commit 1ce80e210d152619caa99b1bc030f57a352b657a
+Author: Oliver Scherer <oli-obk@users.noreply.github.com>
+Date:   Thu Feb 16 09:25:11 2023 +0000
+
+    Allow `LocalDefId` as the argument to `def_path_str`
+
+diff --git a/compiler/rustc_borrowck/src/lib.rs b/compiler/rustc_borrowck/src/lib.rs
+index 6a5a7e08d38..7f46614423c 100644
+--- a/compiler/rustc_borrowck/src/lib.rs
++++ b/compiler/rustc_borrowck/src/lib.rs
+@@ -124,7 +124,7 @@ pub fn provide(providers: &mut Providers) {
+ 
+ fn mir_borrowck(tcx: TyCtxt<'_>, def: LocalDefId) -> &BorrowCheckResult<'_> {
+     let (input_body, promoted) = tcx.mir_promoted(def);
+-    debug!("run query mir_borrowck: {}", tcx.def_path_str(def.to_def_id()));
++    debug!("run query mir_borrowck: {}", tcx.def_path_str(def));
+ 
+     if input_body.borrow().should_skip() {
+         debug!("Skipping borrowck because of injected body");
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 51ec5dd7a28..ad2624a5d2d 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -494,7 +494,7 @@ fn check_item_type(tcx: TyCtxt<'_>, id: hir::ItemId) {
+     debug!(
+         "check_item_type(it.def_id={:?}, it.name={})",
+         id.owner_id,
+-        tcx.def_path_str(id.owner_id.to_def_id())
++        tcx.def_path_str(id.owner_id)
+     );
+     let _indenter = indenter();
+     match tcx.def_kind(id.owner_id) {
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{18 files changed, 68 insertions(+), 54 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example: change in context}
+
+\textcolor{subtitlex}{Want to drop {\tt .to\_def\_id()} but only in an
+  argument to {\tt tcx.def\_path\_str}:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+-        tcx.def_path_str(arg.to_def_id())
++        tcx.def_path_str(arg)
+\end{lstlisting}
+
+\vfill
+
+Updates 48 call sites in 18 files.}
+
+\frame[containsverbatim]{\frametitle{An example: multiple cases}
+\begin{lstlisting}[language=tdiff]
+commit 298ae8c721102c36243335653e57a7f94e08f94a
+Author: Michael Goulet <michael@errs.io>
+Date:   Wed Feb 22 22:23:10 2023 +0000
+
+    Rename ty_error_with_guaranteed to ty_error, ty_error to ty_error_misc
+
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types.rs
+index 8f4c98e07cd..c550e37c63e 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types.rs
+@@ -156,7 +156,7 @@ pub(crate) fn infer_opaque_types(
+                             infcx.tcx,
+                         )
+                     });
+-                    prev.ty = infcx.tcx.ty_error_with_guaranteed(guar);
++                    prev.ty = infcx.tcx.ty_error(guar);
+                 }
+                 // Pick a better span if there is one.
+                 // FIXME(oli-obk): collect multiple spans for better diagnostics down the road.
+@@ -248,7 +248,7 @@ fn infer_opaque_definition_from_instantiation(
+         origin: OpaqueTyOrigin,
+     ) -> Ty<'tcx> {
+         if let Some(e) = self.tainted_by_errors() {
+-            return self.tcx.ty_error_with_guaranteed(e);
++            return self.tcx.ty_error(e);
+         }
+ 
+         let definition_ty = instantiated_ty
+...
+diff --git a/compiler/rustc_hir_analysis/src/astconv/mod.rs b/compiler/rustc_hir_analysis/src/astconv/mod.rs
+index df6ee2b4bad..f3afbcd48a9 100644
+--- a/compiler/rustc_hir_analysis/src/astconv/mod.rs
++++ b/compiler/rustc_hir_analysis/src/astconv/mod.rs
+@@ -429,7 +429,7 @@ fn provided_kind(
+                     }
+                     if let (hir::TyKind::Infer, false) = (&ty.kind, self.astconv.allow_ty_infer()) {
+                         self.inferred_params.push(ty.span);
+-                        tcx.ty_error().into()
++                        tcx.ty_error_misc().into()
+                     } else {
+                         self.astconv.ast_ty_to_ty(ty).into()
+                     }
+\end{lstlisting}
+}
+
+\frame[containsverbatim]{\frametitle{An example: multiple cases}
+\textcolor{subtitlex}{Two changes:}
+\begin{itemize}
+\item From {\tt ty\_error\_with\_guaranteed} to {\tt ty\_error} (1 argument)
+\item From {\tt ty\_error} to {\tt ty\_error\_misc} (no arguments)
+\end{itemize}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+- tcx.ty_error_with_guaranteed(arg)
++ tcx.ty_error(arg)
+
+@@
+expression tcx, arg;
+@@
+- tcx.ty_error()
++ tcx.ty_error_misc()
+\end{lstlisting}
+}
+
+\frame[containsverbatim]{\frametitle{An example: inheritance}
+commit f3f9d6dfd92
+}
+\end{document}
