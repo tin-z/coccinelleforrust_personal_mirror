@@ -1,4 +1,5 @@
 use std::vec;
+use std::rc::Rc;
 
 use itertools::Itertools;
 
@@ -12,14 +13,14 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding {
     pub metavarinfo: MetavarName,
-    pub rnode: Rnode,
+    pub rnode: Rc<Rnode>,
 }
 
 impl<'a> MetavarBinding {
     fn new(rname: String, varname: String, rnode: Rnode) -> MetavarBinding {
         return MetavarBinding {
             metavarinfo: MetavarName { rulename: rname, varname: varname },
-            rnode: rnode,
+            rnode: Rc::new(rnode),
         };
     }
 }
@@ -53,8 +54,8 @@ impl<'a> Environment {
         self.bindings.push(binding);
     }
 
-    pub fn addbindings(&mut self, bindings: &Vec<MetavarBinding>) {
-        for binding in bindings {
+    pub fn addbindings(&mut self, bindings: &Vec<&MetavarBinding>) {
+        for &binding in bindings {
             self.bindings.push(binding.clone());
         }
     }
@@ -90,21 +91,6 @@ fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     if a.wrapper.plusesaft.len() != 0 {
         env.modifiers.pluses.push((b.wrapper.info.charend, false, a.wrapper.plusesaft.clone()));
     }
-}
-
-#[allow(dead_code)]
-fn getmoddednodes<'a>(nodevec2: &Vec<&'a Rnode>) -> Vec<&'a Rnode> {
-    let nodevec2tmp = nodevec2.iter().filter(|x| !x.wrapper.isremoved).map(|x| *x);
-    //removes minuses from previous rules
-    let mut nodevec2 = vec![];
-    for i in nodevec2tmp {
-        nodevec2.extend(i.wrapper.plussed.0.iter());
-        nodevec2.push(i);
-        nodevec2.extend(i.wrapper.plussed.1.iter());
-    }
-    //adds pluses from previous rules' modifications
-
-    return nodevec2;
 }
 
 pub struct Looper<'a> {
@@ -280,13 +266,13 @@ impl<'a, 'b> Looper<'a> {
         &self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-        inheritedbindings: &Vec<MetavarBinding>
+        inheritedbindings: Vec<&MetavarBinding>
     ) -> (Vec<Environment>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
         for disj in disjs {
             let mut inheritedenv = Environment::new();
-            inheritedenv.addbindings(inheritedbindings);
+            inheritedenv.addbindings(&inheritedbindings);
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
             matched = matched || !env.failed;
             if !env.failed {

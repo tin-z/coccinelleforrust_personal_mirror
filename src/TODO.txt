@@ -1,2 +1,3 @@
 - Type inference
 - Rebuild McodeKind
+- Add * modifier

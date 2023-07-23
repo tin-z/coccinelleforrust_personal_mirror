@@ -1,7 +1,14 @@
-@ rule1 @
-expression x,y;
+
+
+@rule2@
+expression e2;
 @@
 
-TokenTree::token
--(x, y)
-+(y, x)
+let b = e2;
+
+@rule3@
+expression rule2.e2;
+@@
+
+let c = 3;
++func( e2);

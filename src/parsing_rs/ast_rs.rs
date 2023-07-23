@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fs;
 use std::mem::replace;
+use std::rc::Rc;
 
 use itertools::{enumerate, izip};
 use parser::SyntaxKind;
@@ -91,20 +92,6 @@ impl Rnode {
         Rnode { wrapper: Wrap::dummy(), astnode: NodeOrToken::Node(dummyhead), children: nodes }
     }
 
-    pub fn finalizetransformation(&mut self) -> (Vec<Rnode>, Vec<Rnode>) {
-        let mut toplus = vec![];
-        for (index, child) in enumerate(&mut self.children) {
-            toplus.push((index, child.finalizetransformation()));
-        }
-
-        for (index, (plusbef, plusaft)) in toplus {
-            self.children.splice(index..index, plusbef);
-            self.children.splice(index + 1..index + 1, plusaft);
-        }
-
-        let plussed = replace(&mut self.wrapper.plussed, (vec![], vec![]));
-        return plussed;
-    }
     pub fn kind(&self) -> SyntaxKind {
         self.astnode.kind()
     }

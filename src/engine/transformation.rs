@@ -3,6 +3,8 @@ use std::{
     collections::HashSet,
 };
 
+use itertools::Itertools;
+
 use crate::{
     commons::{
         info::ParseError,
@@ -10,7 +12,7 @@ use crate::{
     },
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
-        ast0::{MetavarName, Snode},
+        ast0::{MetaVar, MetavarName, Snode},
         parse_cocci::processcocci,
     },
     parsing_rs::{
@@ -29,9 +31,9 @@ fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
         if let Some(mvar) =
             env.bindings.iter().find(|x| x.metavarinfo.varname == snode.astnode.to_string())
         {
-            return mvar.rnode.clone();
+            return (*mvar.rnode).clone();
         } else {
-            panic!("Metavariable should already be present in environment.");
+             panic!("Metavariable should already be present in environment.");
         }
     }
     let mut rnode = Rnode { wrapper: Wrap::dummy(), astnode: snode.astnode, children: vec![] };
@@ -94,6 +96,40 @@ fn trimpatchbindings(
     //this line removes duplicates ^
 }
 
+pub fn getexpandedbindings(mut bindings: Vec<Vec<MetavarBinding>>) -> Vec<Vec<MetavarBinding>> {
+    let mut exbindings = vec![vec![]]; //expanded bindings
+    if let Some(tmvars) = bindings.pop() {
+        let obindings = getexpandedbindings(bindings.clone());
+        for binding in tmvars {
+            for mut obinding in obindings.clone() {
+                obinding.push(binding.clone());
+                exbindings.push(obinding);
+            }
+        }
+
+        exbindings.remove(0);//removes the first vec![]
+    }
+    return exbindings;
+}
+
+pub fn getfiltered(
+    freevars: &Vec<MetaVar>,
+    bindings: &Vec<Vec<MetavarBinding>>,
+) -> Vec<Vec<MetavarBinding>> {
+    let mut toret: Vec<Vec<MetavarBinding>> = vec![];
+    for var in freevars {
+        let mut set = HashSet::new();
+        for binding in bindings {
+            if let Some(b) = binding.iter().find(|x| x.metavarinfo == var.getminfo().0) {
+                set.insert(b.clone());
+            }
+        } //from all the collected bindings it gets all unique bindings for a given metavar
+        toret.push(set.into_iter().collect_vec());
+    }
+
+    return toret;
+}
+
 pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, ParseError> {
     fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
         vec![]
@@ -114,29 +150,37 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
     for mut rule in rules {
         let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
-
+        let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
+        
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
-        let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
-        for bindings in savedbindings.iter() {
+                                                                //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
+        for gbindings in expandedbindings {
+            /*
+            let bindings = gbindings
+                .into_iter()
+                .filter(|x| rule.freevars.iter().any(|y| y.getminfo().0 == x.metavarinfo))
+                .collect_vec(); //This filters only those metavariables which are present in freevars
             if !(rule
                 .freevars
                 .iter()
-                .all(|x| bindings.iter().find(|y| y.metavarinfo == x.getminfo().0).is_some()))
-                && !usedbindings.contains(bindings)
+                .all(|x| bindings.iter().any(|y| y.metavarinfo == x.getminfo().0)))
+            //This checks if all necessary inherited metavars are present in this environment, if not, it is discarded
             {
                 //if all inherited dependencies of this rule is not satisfied by the bindings then move on
                 //to the next bindings
                 continue;
             }
-            usedbindings.insert(bindings);
-            let looper = Looper::new(tokenf);
+            */
 
+            let looper = Looper::new(tokenf);
             let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
-                looper.handledisjunctions(k, l, bindings)
+                looper.handledisjunctions(k, l, gbindings.iter().collect_vec())
             });
-            for env in envs.clone() {
+
+            for mut env in envs.clone() {
                 transform(&mut transformedcode, &env);
-                tmpbindings.push(env.bindings.clone());
+                env.bindings.retain(|x| x.metavarinfo.rulename == rule.name);
+                tmpbindings.push(env.bindings);
             }
         }
         //patchbindings.extend(tmpbindings);
