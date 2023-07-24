@@ -51,7 +51,7 @@ fn testfile(cocci: &str, rs: &str, gbindings: Vec<Vec<(&str, &str)>>) {
     //let mut rules = processcocci(contents.as_str());
     //set_logilines(&mut rules);
 
-    let mut rules = processcocci(&patchstring);
+    let (mut rules, _) = processcocci(&patchstring);
     let rnode = processrs(&rustcode).ok().unwrap();
 
     let looper = Looper::new(tokenf);

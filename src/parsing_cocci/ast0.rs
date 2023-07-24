@@ -163,6 +163,7 @@ pub struct Dummy {}
 pub enum MODKIND {
     PLUS,
     MINUS,
+    STAR
 }
 
 #[derive(Clone, PartialEq)]
@@ -450,6 +451,7 @@ impl Wrap {
         match modkind.as_str() {
             "+" => self.modkind = Some(MODKIND::PLUS),
             "-" => self.modkind = Some(MODKIND::MINUS),
+            "*" => self.modkind = Some(MODKIND::STAR),
             _ => self.modkind = None,
         }
     }

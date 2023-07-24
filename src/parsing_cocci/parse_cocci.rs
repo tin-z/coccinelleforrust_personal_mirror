@@ -207,6 +207,13 @@ impl Patch {
                             a = achildren.next();
                             b = bchildren.next();
                         }
+                        (Some(MODKIND::STAR), Some(MODKIND::STAR)) => {
+                            a = achildren.next();
+                            b = bchildren.next();
+                        }
+                        (Some(MODKIND::STAR), _) | (_, Some(MODKIND::STAR)) => {
+                            panic!("Minus and Plus buffers do not have matching stars");
+                        }
                         _ => {
                             panic!("There are plusses in the minus buffer, or minuses in the plus buffer.");
                         }
@@ -281,7 +288,7 @@ pub struct Rule {
     pub unusedmetavars: Vec<MetaVar>,
     pub patch: Patch,
     pub freevars: Vec<MetaVar>,
-    pub usedafter: HashSet<MetavarName>,
+    pub usedafter: HashSet<MetavarName>
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -402,7 +409,7 @@ fn buildrule(
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
-    lastruleline: usize,
+    lastruleline: usize
 ) -> Rule {
     //end of the previous rule
     let mut plusbuf = String::new();
@@ -445,29 +452,42 @@ fn buildrule(
         unusedmetavars: unusedmetavars,
         patch: currpatch,
         freevars: freevars,
-        usedafter: HashSet::new(),
+        usedafter: HashSet::new()
     };
     rule
 }
 
 /// Does nothing much as of now. Just appends lines inside the rules
 /// while preserving line numbers with new lines
-pub fn handlemods(block: &Vec<&str>) -> (String, String) {
+pub fn handlemods(block: &Vec<&str>) -> Result<(String, String, bool), (usize, String)> {
     let mut plusbuf = String::new();
     let mut minusbuf = String::new();
+    let mut lino: usize = 0;
+    let mut hasstar: bool = false;
+    let mut hastforms: bool = false;
 
     for line in block {
         match line.chars().next() {
             Some('+') => {
-                plusbuf.push_str("/*+*/");
-                plusbuf.push_str(&line[1..]);
-                plusbuf.push('\n');
+                if hasstar {
+                    return Err((
+                        lino,
+                        String::from("Transformations cannot be applied because of star prior"),
+                    ));
+                }
+                hastforms = true;
+                plusbuf.push_str(&format!("{}{}{}", "/*+*/", &line[1..], '\n'));
                 minusbuf.push('\n');
             }
             Some('-') => {
-                minusbuf.push_str("/*-*/");
-                minusbuf.push_str(&line[1..]);
-                minusbuf.push('\n');
+                if hasstar {
+                    return Err((
+                        lino,
+                        String::from("Transformations cannot be applied because of star prior"),
+                    ));
+                }
+                hastforms = true;
+                minusbuf.push_str(&format!("{}{}{}", "/*-*/", &line[1..], '\n'));
                 plusbuf.push('\n');
             }
             Some('(') => {
@@ -484,6 +504,17 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
                 plusbuf.push_str("}\n");
                 minusbuf.push_str("}\n");
             }
+            Some('*') => {
+                if hastforms {
+                    return Err((
+                        lino,
+                        String::from("Star cannot be applied because of transformation prior"),
+                    ));
+                }
+                hasstar = true;
+                plusbuf.push_str(&format!("{}{}{}", "/***/", &line[1..], '\n'));
+                minusbuf.push_str(&format!("{}{}{}", "/***/", &line[1..], '\n'));
+            }
             _ => {
                 plusbuf.push_str(&line[..]);
                 plusbuf.push('\n');
@@ -492,8 +523,10 @@ pub fn handlemods(block: &Vec<&str>) -> (String, String) {
                 minusbuf.push('\n');
             }
         }
+
+        lino += 1;
     }
-    (plusbuf, minusbuf)
+    return Ok((plusbuf, minusbuf, hasstar));
 }
 
 /// Parses the metavar declarations
@@ -549,7 +582,7 @@ fn setusedafter(rules: &mut Vec<Rule>) {
     }
 }
 
-pub fn processcocci(contents: &str) -> Vec<Rule> {
+pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
     debugcocci!("{}", "Started Parsing");
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
@@ -558,7 +591,7 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
     let mut rules: Vec<Rule> = vec![];
     //check for empty
     if blocks.len() == 0 {
-        return vec![];
+        return (vec![], false);
     }
     //handleprepatch(blocks.swap_remove(0)); //throwing away the first part before the first @
     handleprepatch(blocks.remove(0));
@@ -566,6 +599,8 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
                                    //if it fails we will find out in the next for loop
 
     let mut lastruleline = 0;
+    let mut hasstars = false;//this does not ensure that all rules have only * or none
+    //TODO enforce that
     for i in 0..nrules {
         debugcocci!("Processing rule {}", i);
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
@@ -578,19 +613,23 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
         debugcocci!("Rulename: {} Depends on: {:?}", currrulename, currdepends);
         lino += 1;
         let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
-        //println!("lino1 - {}", lino);
         //metavars
         lino += block2.len();
-        //println!("lino2 - {}", lino);
-        //just checks that nothing exists between the two @@
-        //println!("lineo3 - {:?}", block3);
+        
         if block3.len() != 0 {
             syntaxerror!(lino, "Syntax Error");
         }
 
         //modifiers
         lino += block4.len() - 1;
-        let (pbufmod, mbufmod) = handlemods(&block4);
+        let (pbufmod, mbufmod, hasstar) = handlemods(&block4).unwrap_or_else(|(lino, msg)| {
+            syntaxerror!(lino, 0, msg);
+        });
+        if hasstar {
+            hasstars = true;
+            //This part needs to be worked on
+            //as it does not enforce all rules having *
+        }
 
         let rule = buildrule(
             &currrulename,
@@ -599,13 +638,13 @@ pub fn processcocci(contents: &str) -> Vec<Rule> {
             blanks,
             &pbufmod,
             &mbufmod,
-            lastruleline,
+            lastruleline
         );
         rules.push(rule);
 
         lastruleline = lino;
     }
     setusedafter(&mut rules);
-    rules
+    (rules, hasstars)
     //flag_logilines(0, &mut root);
 }

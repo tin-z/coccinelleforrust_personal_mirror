@@ -130,12 +130,12 @@ pub fn getfiltered(
     return toret;
 }
 
-pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, ParseError> {
+pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bool), ParseError> {
     fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
         vec![]
     }
 
-    let rules = processcocci(&patchstring);
+    let (rules, hasstars) = processcocci(&patchstring);
 
     let parsedrnode = processrs(&rustcode);
     let mut transformedcode = match parsedrnode {
@@ -203,5 +203,5 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<Rnode, Par
         //removes unneeded and duplicate bindings
     }
 
-    return Ok(transformedcode);
+    return Ok((transformedcode, hasstars));
 }

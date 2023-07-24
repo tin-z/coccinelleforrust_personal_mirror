@@ -150,7 +150,7 @@ impl<'a, 'b> Looper<'a> {
                     );
                     if !renv.failed {
                         match a.wrapper.modkind {
-                            Some(MODKIND::MINUS) => {
+                            Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
                                 env.modifiers.minuses.push(b.getpos());
                             }
                             _ => {}
@@ -170,7 +170,7 @@ impl<'a, 'b> Looper<'a> {
                         b.clone(),
                     );
                     match a.wrapper.modkind {
-                        Some(MODKIND::MINUS) => {
+                        Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
                             env.modifiers.minuses.push(b.getpos());
                         }
                         Some(MODKIND::PLUS) => {}
@@ -182,7 +182,7 @@ impl<'a, 'b> Looper<'a> {
                 MetavarMatch::Exists => {
                     addplustoenv(a, b, &mut env);
                     match a.wrapper.modkind {
-                        Some(MODKIND::MINUS) => {
+                        Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
                             env.modifiers.minuses.push(b.getpos());
                         }
                         Some(MODKIND::PLUS) => {}
