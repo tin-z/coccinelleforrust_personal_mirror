@@ -90,15 +90,14 @@ pub struct Patch {
 
 impl Patch {
     fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
-        let mut work = |node: &mut Snode| match node.kind() {
-            Tag::PATH_EXPR | Tag::IDENT_PAT | Tag::NAME_REF => {
+        let mut work = |node: &mut Snode| {
+            if node.isexpr() || node.istype() || node.isid() {
                 let stmp = node.astnode.to_string();
                 if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                     //println!("MetaVar found - {:?}", mvar);
                     node.wrapper.metavar = mvar.clone();
                 }
             }
-            _ => {}
         };
         util::worktree(node, &mut work);
     }
@@ -288,7 +287,7 @@ pub struct Rule {
     pub unusedmetavars: Vec<MetaVar>,
     pub patch: Patch,
     pub freevars: Vec<MetaVar>,
-    pub usedafter: HashSet<MetavarName>
+    pub usedafter: HashSet<MetavarName>,
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -409,7 +408,7 @@ fn buildrule(
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
-    lastruleline: usize
+    lastruleline: usize,
 ) -> Rule {
     //end of the previous rule
     let mut plusbuf = String::new();
@@ -452,7 +451,7 @@ fn buildrule(
         unusedmetavars: unusedmetavars,
         patch: currpatch,
         freevars: freevars,
-        usedafter: HashSet::new()
+        usedafter: HashSet::new(),
     };
     rule
 }
@@ -599,8 +598,8 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
                                    //if it fails we will find out in the next for loop
 
     let mut lastruleline = 0;
-    let mut hasstars = false;//this does not ensure that all rules have only * or none
-    //TODO enforce that
+    let mut hasstars = false; //this does not ensure that all rules have only * or none
+                              //TODO enforce that
     for i in 0..nrules {
         debugcocci!("Processing rule {}", i);
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
@@ -615,7 +614,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
         let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
         //metavars
         lino += block2.len();
-        
+
         if block3.len() != 0 {
             syntaxerror!(lino, "Syntax Error");
         }
@@ -638,7 +637,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
             blanks,
             &pbufmod,
             &mbufmod,
-            lastruleline
+            lastruleline,
         );
         rules.push(rule);
 

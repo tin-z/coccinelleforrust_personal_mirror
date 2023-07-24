@@ -1,12 +1,8 @@
 @rule2@
 expression e2;
+type t1;
 @@
 
-let b = e2;
-
-@rule3@
-expression rule2.e2;
-@@
-
-let c = 3;
-+let a = 2;
+fn tcx<'a> (&'a self) -> t1 {
+    self.tcx
+}

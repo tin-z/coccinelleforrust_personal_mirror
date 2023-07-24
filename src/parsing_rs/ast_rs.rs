@@ -147,6 +147,16 @@ impl Rnode {
         return self.kind() == IDENT || self.ispat();
     }
 
+    pub fn ispat(&self) -> bool {
+        match self.kind() {
+            IDENT_PAT | BOX_PAT | REST_PAT | LITERAL_PAT | MACRO_PAT | OR_PAT | PAREN_PAT
+            | PATH_PAT | WILDCARD_PAT | RANGE_PAT | RECORD_PAT | REF_PAT | SLICE_PAT
+            | TUPLE_PAT | TUPLE_STRUCT_PAT | CONST_BLOCK_PAT => true,
+            _ => false,
+        }
+    }
+
+
     pub fn istype(&self) -> bool {
         use SyntaxKind::*;
 
@@ -195,15 +205,6 @@ impl Rnode {
             | EXPR_STMT
             | LITERAL
             | NAME_REF => true,
-            _ => false,
-        }
-    }
-
-    pub fn ispat(&self) -> bool {
-        match self.kind() {
-            IDENT_PAT | BOX_PAT | REST_PAT | LITERAL_PAT | MACRO_PAT | OR_PAT | PAREN_PAT
-            | PATH_PAT | WILDCARD_PAT | RANGE_PAT | RECORD_PAT | REF_PAT | SLICE_PAT
-            | TUPLE_PAT | TUPLE_STRUCT_PAT | CONST_BLOCK_PAT => true,
             _ => false,
         }
     }

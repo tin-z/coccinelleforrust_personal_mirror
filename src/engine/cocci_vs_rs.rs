@@ -1,5 +1,5 @@
-use std::vec;
 use std::rc::Rc;
+use std::vec;
 
 use itertools::Itertools;
 
@@ -98,9 +98,7 @@ pub struct Looper<'a> {
 }
 
 impl<'a, 'b> Looper<'a> {
-    pub fn new(
-        _tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding>,
-    ) -> Looper<'a> {
+    pub fn new(_tokenf: fn(&'a Snode, &'a Rnode) -> Vec<MetavarBinding>) -> Looper<'a> {
         Looper { _tokenf }
     }
 
@@ -266,7 +264,7 @@ impl<'a, 'b> Looper<'a> {
         &self,
         disjs: &Vec<Vec<Snode>>,
         node2: &Vec<&'a Rnode>,
-        inheritedbindings: Vec<&MetavarBinding>
+        inheritedbindings: Vec<&MetavarBinding>,
     ) -> (Vec<Environment>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;

@@ -30,7 +30,8 @@ fn init_logger(args: &CoccinelleForRust) {
         options.push_str(
             "
             coccinelleforrust::parsing_cocci,
-            coccinelleforrust::commons
+            coccinelleforrust::commons,
+            coccinelleforrust::engine
         ",
         );
     }
