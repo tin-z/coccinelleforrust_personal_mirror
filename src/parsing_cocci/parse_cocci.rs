@@ -56,6 +56,7 @@ fn makemetavar(
         (Some(var), None, None) => {
             debugcocci!("Added Metavar {}.{}", rulename, var);
             MetaVar::new(rulename, var, metatype)
+                .unwrap_or_else(|| syntaxerror!(lino, "Unexpected Metavariable type"))
         }
         (Some(rulen), Some(var), None) => {
             let var = *var;
@@ -285,9 +286,8 @@ pub struct Rule {
 
 // Given the depends clause it converts it into a Dep object
 fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
-    let node = &dep.astnode;
     dep.print_tree();
-    match node.kind() {
+    match dep.kind() {
         Tag::PREFIX_EXPR => {
             //for NOT depends
             let [cond, expr] = util::tuple_of_2(&mut dep.children);
@@ -433,7 +433,7 @@ fn buildrule(
     let mut freevars: Vec<MetaVar> = vec![];
     for metavar in &metavars {
         if metavar.getrulename() != currrulename {
-            debugcocci!("Ferevar found- {:?}",metavar);
+            debugcocci!("Ferevar found- {:?}", metavar);
             freevars.push(metavar.clone());
         }
     }

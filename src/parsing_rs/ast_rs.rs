@@ -1,9 +1,7 @@
 use std::fmt::Debug;
 use std::fs;
-use std::mem::replace;
-use std::rc::Rc;
 
-use itertools::{enumerate, izip};
+use itertools::izip;
 use parser::SyntaxKind;
 use syntax::{NodeOrToken, SourceFile, SyntaxElement};
 use SyntaxKind::*;
@@ -120,12 +118,14 @@ impl Rnode {
         //pluses before current node
         for plusbef in &self.wrapper.plussed.0 {
             data.push_str(&plusbef.gettokenstream());
+            data.push(' ');
         }
         if self.children.len() == 0 && !self.wrapper.isremoved {
             data.push_str(&format!("{}", self.astnode.to_string()));
         } else {
             for i in &self.children {
                 data.push_str(&i.gettokenstream());
+                data.push(' ');
             }
         }
         //println!("modprogress2 - {}", data);
@@ -133,6 +133,7 @@ impl Rnode {
         for plusaft in &self.wrapper.plussed.1 {
             //    println!("plusaft - {:?}", self.astnode.to_string());
             data.push_str(&plusaft.gettokenstream());
+            data.push(' ');
             //    println!("plusaft tokenstream - {:?}", data);
         }
         data.push_str(&format!("{}", self.wrapper.wspaces.1));
@@ -146,7 +147,7 @@ impl Rnode {
     }
 
     pub fn isid(&self) -> bool {
-        return self.kind()==IDENT || self.ispat()
+        return self.kind() == IDENT || self.ispat();
     }
 
     pub fn istype(&self) -> bool {

@@ -1,5 +1,3 @@
-
-
 @rule2@
 expression e2;
 @@
@@ -11,4 +9,4 @@ expression rule2.e2;
 @@
 
 let c = 3;
-+func( e2);
++let a = e2;

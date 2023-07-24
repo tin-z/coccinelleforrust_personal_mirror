@@ -347,16 +347,16 @@ impl MetaVar {
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &str) -> MetaVar {
+    pub fn new(rulename: &str, name: &str, ty: &str) -> Option<MetaVar> {
         let minfo = (
             MetavarName { rulename: rulename.to_string(), varname: name.to_string() },
             KeepBinding::UNITARY,
         );
         match ty {
-            "expression" => MetaVar::Exp(minfo),
-            "identifier" => MetaVar::Id(minfo),
-            "type" => MetaVar::Type(minfo),
-            _ => MetaVar::NoMeta,
+            "expression" => Some(MetaVar::Exp(minfo)),
+            "identifier" => Some(MetaVar::Id(minfo)),
+            "type" => Some(MetaVar::Type(minfo)),
+            _ => None,
         }
     }
 
