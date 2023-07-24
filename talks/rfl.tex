@@ -113,7 +113,6 @@
 \begin{document}
 
 \frame{\titlepage}
-
 \frame{\frametitle{Goals}
 
 \begin{itemize}
@@ -386,7 +385,232 @@ expression tcx, arg;
 \end{lstlisting}
 }
 
-\frame[containsverbatim]{\frametitle{An example: inheritance}
-commit f3f9d6dfd92
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\begin{lstlisting}[language=tdiff]
+commit f3f9d6dfd92dfaeb14df891ad27b2531809dd734
+Author: Eduard-Mihai Burtescu <edy.burt@gmail.com>
+Date:   Fri Jun 14 00:48:52 2019 +0300
+
+    Unify all uses of 'gcx and 'tcx.
+
+diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/error_reporting/mod.rs
+@@ -460,6 +460,6 @@ impl<'gcx, 'tcx> Printer<'gcx, 'tcx> for AbsolutePathPrinter<'gcx, 'tcx> {
+             type DynExistential = !;
+             type Const = !;
+ 
+-            fn tcx<'a>(&'a self) -> TyCtxt<'gcx, 'tcx> {
++            fn tcx<'a>(&'a self) -> TyCtxt<'tcx> {
+                 self.tcx
+             }
+@@ -1977,4 +1976,4 @@ pub fn enter_global<'gcx, F, R>(gcx: &'gcx GlobalCtxt<'gcx>, f: F) -> R
+     pub unsafe fn with_global<F, R>(f: F) -> R
+     where
+-        F: for<'gcx, 'tcx> FnOnce(TyCtxt<'gcx, 'tcx>) -> R,
++        F: for<'tcx> FnOnce(TyCtxt<'tcx>) -> R,
+     {
+\end{lstlisting}
+
+\textcolor{subtitlex}{341 files changed, 3109 insertions(+), 3327 deletions(-)}
 }
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A first attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+@@
+- TyCtxt<'gcx, 'tcx>
++ TyCtxt<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{This does part of the work, but some change sites are overlooked:}
+\begin{itemize}
+\item[] \textcolor{black!2}{{\tt DepNodeParams<'gcx, 'tcx>}}
+\item[] \textcolor{black!2}{{\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}}
+\item[] \textcolor{black!2}{And others?}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A first attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+@@
+- TyCtxt<'gcx, 'tcx>
++ TyCtxt<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
+\begin{itemize}
+\item {\tt DepNodeParams<'gcx, 'tcx>}
+\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
+\item[] \textcolor{black!2}{And others?}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A first attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+@@
+- TyCtxt<'gcx, 'tcx>
++ TyCtxt<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
+\begin{itemize}
+\item {\tt DepNodeParams<'gcx, 'tcx>}
+\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
+\item And others?
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{How to find other change sites, like {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}:}
+\begin{itemize}
+\item[] \textcolor{black!2}{Want to change all uses of types that are somewhere used with {\tt 'gcx}.}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{How to find other change sites, like {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}:}
+\begin{itemize}
+\item Want to change all uses of types that are somewhere used with {\tt 'gcx}.
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@r@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+
+@@
+identifier r.Ty;
+@@
+(
+- Ty<'tcx, 'tcx>
++ Ty<'tcx>
+|
+- Ty<'_, '_>
++ Ty<'_>
+)
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Takes care of ???\% of the required changes}}
+
+\frame{\frametitle{Summary: Features seen so far}
+
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Semantic patches: \\Patch-like transformation specification, abstracted using metavariables.
+\item Multiple rules/rule ordering.
+\item Inheritance.
+\item Disjuctions.
+\end{itemize}
+
+\vfill
+
+\centerline{\textcolor{subtitlex}{All of these features are implemented!}}}
+
+\frame{\frametitle{Some more Coccinelle features}
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item {\tt ...}
+\begin{itemize}
+\item[--] {\tt A ... B}: {\tt A} can reach {\tt B} through the function control-flow.
+\item[--] {\tt <... A ...>}, {\tt <+... A ...+>}: {\tt A} occurs 0+ or 1+ times.
+\end{itemize} \pause
+\item Position variables.
+\item Script code. \pause
+\item Constraints on metavariables (types, etc.).
+\item Fresh identifiers.
+\item {\tt *} for matching without transformation.
+\end{itemize}
+\vfill
+
+\vspace{0.5\baselineskip}
+
+\centerline{\textcolor{subtitlex}{These features are coming soon...}}}
+
+\frame{\frametitle{Some Coccinelle internals}
+
+\textcolor{subtitlex}{Input:} Parsing provided by Rust Analyzer.
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item Used both for Rust code and for semantic patch code.
+\item Will provide type inference, when needed.
+\end{itemize} \pause
+
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Output:} Pretty printing provided by {\tt rustfmt}.
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item Preserves comments.
+\end{itemize}}
+
+\frame{\frametitle{Some Coccinelle internals}
+\textcolor{subtitlex}{In the middle:}
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Wrap Rust code and semantic patch code, eg to indicate metavariables.
+\item Match semantic patch code against Rust code, to collect change sites and metavariable bindings.
+\item On a successful match, apply the changes, instantiated according to the metavariable bindings, reparse, and repeat with the next rule.
+\end{itemize}}
+
+\frame{\frametitle{Conclusion}
+
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Transformation on atomic terms completed (expressions, types, etc).
+\item Transformation on terms connected by a control-flow path ({\tt \ldots}) in progress.
+\item Small-scale testing has been done:
+\begin{itemize}
+\item[--] Replicating real changes on real Rust code.
+\end{itemize}
+\item Patchparse extended to Rust, to find test cases at a larger scale.
+\item Open source?
+\end{itemize}
+}
+
 \end{document}
