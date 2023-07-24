@@ -90,12 +90,24 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
             }
         };
         let (data, diff) = getformattedfile(&args, &transformedcode);
-        println!("After Formatting:\n\n{}", data);
-        println!("Diff:\n\n{}", diff);
-
-        if let Some(outputfile) = &args.output {
-            if let Err(written) = fs::write(outputfile, data) {
-                eprintln!("Error in writing file.\n{:?}", written);
+        if !hasstars {
+            println!("{}", diff);
+        
+            if let Some(outputfile) = &args.output {
+                if let Err(written) = fs::write(outputfile, data) {
+                    eprintln!("Error in writing file.\n{:?}", written);
+                }
+            }
+        }
+        else {
+            println!("Code highlighted with *");
+            for line in diff.split("\n").collect_vec() {
+                if line.len()!=0 && line.chars().next().unwrap() == '-' {
+                    print!("*{}\n", &line[1..]);
+                }
+                else {
+                    print!("{}\n", line)
+                }
             }
         }
     }
@@ -123,8 +135,7 @@ fn transformfile(args: &CoccinelleForRust) {
     };
     let (data, diff) = getformattedfile(&args, &transformedcode);
     if !hasstars {
-        println!("After Formatting:\n\n{}", data);
-        println!("Diff:\n\n{}", diff);
+        println!("{}", diff);
     
         if let Some(outputfile) = &args.output {
             if let Err(written) = fs::write(outputfile, data) {

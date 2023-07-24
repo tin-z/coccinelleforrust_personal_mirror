@@ -9,4 +9,4 @@ expression rule2.e2;
 @@
 
 let c = 3;
-+let a = e2;
++let a = 2;

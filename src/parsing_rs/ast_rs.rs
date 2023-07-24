@@ -63,7 +63,7 @@ impl Wrap {
             index: 0,
             cocci_tag: None,
             danger: Danger::NoDanger,
-            wspaces: (String::new(), String::new()),
+            wspaces: (String::from(" "), String::from(" ")),
             isremoved: false,
             plussed: (vec![], vec![]),
         }
@@ -125,7 +125,6 @@ impl Rnode {
         } else {
             for i in &self.children {
                 data.push_str(&i.gettokenstream());
-                data.push(' ');
             }
         }
         //println!("modprogress2 - {}", data);
@@ -133,8 +132,6 @@ impl Rnode {
         for plusaft in &self.wrapper.plussed.1 {
             //    println!("plusaft - {:?}", self.astnode.to_string());
             data.push_str(&plusaft.gettokenstream());
-            data.push(' ');
-            //    println!("plusaft tokenstream - {:?}", data);
         }
         data.push_str(&format!("{}", self.wrapper.wspaces.1));
         //println!("returning - {}", data);
