@@ -20,5 +20,8 @@ pub struct CoccinelleForRust {
     pub rustfmt_config: String,
 
     #[arg(short, long)]
-    pub debug_cocci: bool
+    pub debug_cocci: bool,
+
+    #[arg(long)]
+    pub apply: bool
 }

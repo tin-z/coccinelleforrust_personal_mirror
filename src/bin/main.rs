@@ -27,10 +27,12 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
 fn init_logger(args: &CoccinelleForRust) {
     let mut options = String::new();
     if args.debug_cocci {
-        options.push_str("
+        options.push_str(
+            "
             coccinelleforrust::parsing_cocci,
             coccinelleforrust::commons
-        ");
+        ",
+        );
     }
     let env = Env::default().default_filter_or(&options);
 
@@ -39,29 +41,47 @@ fn init_logger(args: &CoccinelleForRust) {
         .init();
 }
 
-fn getformattedfile(cfr: &CoccinelleForRust, transformedcode: &Rnode) -> (String, String) {
+fn getformattedfile(
+    cfr: &CoccinelleForRust,
+    transformedcode: &Rnode,
+    targetpath: &str,
+) -> (String, String) {
     let mut rng = rand::thread_rng();
     let randrustfile = format!("tmp{}.rs", rng.gen::<u32>());
-    transformedcode.writetreetofile(&randrustfile);
-    Command::new("rustfmt")
+
+    let original = fs::read_to_string(&targetpath).expect("Unable to read file");
+
+    transformedcode.writetreetofile(&targetpath);
+    let mut fcommand = Command::new("rustfmt")
         .arg("--config-path")
         .arg(cfr.rustfmt_config.as_str())
-        .arg(&randrustfile)
-        .output()
+        .arg(&targetpath)
+        //.stdout(std::process::Stdio::null())
+        //.stderr(std::process::Stdio::null())
+        .spawn()
         .expect("rustfmt failed");
+
+    if let Ok(a) = fcommand.wait() {
+        println!("Formatting success :- {}", a.success());
+    } else {
+        println!("Formatting failed.");
+    }
+
+    fs::write(&randrustfile, original.clone()).expect("Could not write file.");
 
     let diffout = Command::new("git")
         .arg("diff")
         .arg("--no-index")
         .arg("--diff-algorithm=histogram")
-        .arg(cfr.targetpath.as_str())
         .arg(&randrustfile)
+        .arg(targetpath)
         .output()
         .expect("diff failed");
 
-    let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
-    let diffed = String::from_utf8(diffout.stdout).expect("Bad diff");
+    let formatted = fs::read_to_string(&targetpath).expect("Unable to read file");
+    let diffed: String = String::from_utf8(diffout.stdout).expect("Bad diff");
 
+    fs::write(targetpath, original).expect("Could not write file.");
     fs::remove_file(&randrustfile).expect("No file found.");
 
     return (formatted, diffed);
@@ -89,23 +109,25 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
                 panic!();
             }
         };
-        let (data, diff) = getformattedfile(&args, &transformedcode);
+        let (data, diff) = getformattedfile(&args, &transformedcode, &targetpath);
         if !hasstars {
             println!("{}", diff);
-        
-            if let Some(outputfile) = &args.output {
-                if let Err(written) = fs::write(outputfile, data) {
-                    eprintln!("Error in writing file.\n{:?}", written);
+
+            if args.apply {
+                fs::write(targetpath, data).expect("Unable to write")
+            } else {
+                if let Some(outputfile) = &args.output {
+                    if let Err(written) = fs::write(outputfile, data) {
+                        eprintln!("Error in writing file.\n{:?}", written);
+                    }
                 }
             }
-        }
-        else {
+        } else {
             println!("Code highlighted with *");
             for line in diff.split("\n").collect_vec() {
-                if line.len()!=0 && line.chars().next().unwrap() == '-' {
+                if line.len() != 0 && line.chars().next().unwrap() == '-' {
                     print!("*{}\n", &line[1..]);
-                }
-                else {
+                } else {
                     print!("{}\n", line)
                 }
             }
@@ -133,28 +155,28 @@ fn transformfile(args: &CoccinelleForRust) {
             panic!();
         }
     };
-    let (data, diff) = getformattedfile(&args, &transformedcode);
+    let (data, diff) = getformattedfile(&args, &transformedcode, &args.targetpath);
     if !hasstars {
         println!("{}", diff);
-    
-        if let Some(outputfile) = &args.output {
-            if let Err(written) = fs::write(outputfile, data) {
-                eprintln!("Error in writing file.\n{:?}", written);
+        if args.apply {
+            fs::write(&args.targetpath, data).expect("Unable to write")
+        } else {
+            if let Some(outputfile) = &args.output {
+                if let Err(written) = fs::write(outputfile, data) {
+                    eprintln!("Error in writing file.\n{:?}", written);
+                }
             }
         }
-    }
-    else {
+    } else {
         println!("Code highlighted with *");
         for line in diff.split("\n").collect_vec() {
-            if line.len()!=0 && line.chars().next().unwrap() == '-' {
+            if line.len() != 0 && line.chars().next().unwrap() == '-' {
                 print!("*{}\n", &line[1..]);
-            }
-            else {
+            } else {
                 print!("{}\n", line)
             }
         }
     }
-    
 }
 
 fn makechecks(args: &CoccinelleForRust) {
