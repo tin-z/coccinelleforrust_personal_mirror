@@ -1,0 +1,616 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[all]{xy}
+\usetheme{metropolis}
+
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{beamerfoils}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{textpos}
+\usepackage{alltt}
+\usepackage{color}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest,
+   /pgfplots/ybar legend/.style={
+    /pgfplots/legend image code/.code={%
+       \draw[##1,/tikz/.cd,yshift=-0.25em]
+        (0cm,0cm) rectangle (2pt,0.8em);},
+   },
+}
+
+\definecolor{color1}{rgb}{0.549,0.815,0.960}
+\definecolor{color2}{rgb}{0.607,0.937,0.498}
+\definecolor{color3}{rgb}{0.839,0.929,0.427}
+\definecolor{color4}{rgb}{0.878,0.619,0.141}
+\definecolor{color5}{rgb}{0.396,0.165,0.055}
+\definecolor{color6}{rgb}{0.643,0.368,0.898}
+\definecolor{colortop}{rgb}{0.878,0.141,0.141}
+
+\usepackage{wasysym}
+
+\newcommand{\snest}{Nest}
+
+\newcommand{\extrabold}{}%{\bfseries}
+
+  \lstdefinelanguage{diff}{
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+	morecomment=[f][\color{purple}]{*},
+	morecomment=[f][\color{purple}]{?},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+  \lstdefinelanguage{tdiff}{
+	basicstyle=\ttfamily\extrabold\tiny,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+\lstloadlanguages{C}
+\lstset{language=C,
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	backgroundcolor=\color{white},
+        showspaces=false,
+        rulesepcolor=\color{gray},
+	showstringspaces=false,
+	keywordstyle=\bfseries\color{blue!40!black},
+	commentstyle=\itshape\color{purple!40!black},
+	identifierstyle=\color{black},
+	stringstyle=\color{red},
+        numbers=none,
+        numbersep=2pt,
+        morekeywords={elif},
+       }
+
+%\lstset{escapeinside={(*@}{@*)},style=customP}
+
+\newcommand{\ttlb}{\mbox{\tt \char'173}}
+\newcommand{\ttrb}{\mbox{\tt \char'175}}
+\newcommand{\ttbs}{\mbox{\tt \char'134}}
+\newcommand{\ttmid}{\mbox{\tt \char'174}}
+\newcommand{\tttld}{\mbox{\tt \char'176}}
+\newcommand{\ttcar}{\mbox{\tt \char'136}}
+\newcommand{\msf}[1]{\mbox{\sf{{#1}}}}
+\newcommand{\mita}[1]{\mbox{\it{{#1}}}}
+\newcommand{\mbo}[1]{\mbox{\bf{{#1}}}}
+\newcommand{\mth}[1]{\({#1}\)}
+\newcommand{\ssf}[1]{\mbox{\scriptsize\sf{{#1}}}}
+\newcommand{\sita}[1]{\mbox{\scriptsize\it{{#1}}}}
+\newcommand{\mrm}[1]{\mbox{\rm{{#1}}}}
+\newcommand{\mtt}[1]{\mbox{\tt{{#1}}}}
+
+\definecolor{gr}{rgb}{0.22,0.63,0.08}
+\definecolor{subtitlex}{rgb}{0.2,0.2,0.7}
+
+\setlength{\fboxrule}{1.75pt}
+\newcommand{\mybox}[2]{\fcolorbox{#1}{black!2}{\makebox[1.2\height]{\begin{tabular}{c}\textcolor{#1}{#2}\end{tabular}}}}
+\newcommand{\emptybox}[1]{\mybox{#1}{\textcolor{black!2}{t1}}}
+\newcommand{\blackbox}{\emptybox{black}}
+\newcommand{\grbox}[1]{\mybox{gr}{T{#1}}}
+\newcommand{\redbox}[1]{\mybox{subtitlex}{\textcolor{red}{T{#1}}}}
+\newcommand{\gredbox}[1]{\mybox{gr}{\textcolor{red}{T{#1}}}}
+\newcommand{\bluebox}[1]{\mybox{subtitlex}{T{#1}}}
+
+%\\[-2mm]
+%5\\[-2mm]{}
+
+\title{Coccinelle for Rust}
+\author{Julia Lawall, Tathagata Roy}
+\date{July 23, 2023\\ \mbox{}
+}
+
+\begin{document}
+
+\frame{\titlepage}
+\frame{\frametitle{Goals}
+
+\begin{itemize}
+\setlength{\itemsep}{4mm}
+\item Perform repetitive transformations at a large scale. \pause
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item[--] Rust is 1.6 MLOC.
+\item[--] The Linux kernel is 23 MLOC. \pause
+\item[--] Collateral evolutions: a change in an API requires changes in all clients.
+\end{itemize}
+
+\pause
+
+\item Provide a transformation language that builds on developer expertise.
+
+\pause
+
+\item Changes + developer familiarity = (semantic) patches
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{An example change (Rust
+    repository)}
+
+\begin{lstlisting}[language=tdiff]
+commit d822b97a27e50f5a091d2918f6ff0ffd2d2827f5
+Author: Kyle Matsuda <kyle.yoshio.matsuda@gmail.com>
+Date:   Mon Feb 6 17:48:12 2023 -0700
+
+    change usages of type_of to bound_type_of
+
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/.../conflict_errors.rs
+@@ -2592,4 +2592,4 @@ fn annotate_argument_and_return_for_borrow(
+             } else {
+-                let ty = self.infcx.tcx.type_of(self.mir_def_id());
++                let ty = self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity();
+                 match ty.kind() {
+                     ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.rs
+@@ -1185,4 +1185,4 @@ fn explain_captures(
+                         matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
+                             .then_some(parent_did)
+-                            .and_then(|did| match tcx.type_of(did).kind() {
++                            .and_then(|did| match tcx.bound_type_of(did).subst_identity().kind() {
+                                 ty::Adt(def, ..) => Some(def.did()),
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example change (Rust
+    repository)}
+
+\begin{lstlisting}[language=tdiff]
+commit d822b97a27e50f5a091d2918f6ff0ffd2d2827f5
+Author: Kyle Matsuda <kyle.yoshio.matsuda@gmail.com>
+Date:   Mon Feb 6 17:48:12 2023 -0700
+
+    change usages of type_of to bound_type_of
+
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/.../conflict_errors.rs
+@@ -2592,4 +2592,4 @@ fn annotate_argument_and_return_for_borrow(
+             } else {
+-                £\textcolor{black}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{black}{;}£
++                £\textcolor{black}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{black}{;}£
+                 match ty.kind() {
+                     ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.rs
+@@ -1185,4 +1185,4 @@ fn explain_captures(
+                         matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
+                             .then_some(parent_did)
+-                            £\textcolor{black}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{black}{.kind() \ttlb}£
++                            £\textcolor{black}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{black}{.kind() \ttlb}£
+                                 ty::Adt(def, ..) => Some(def.did()),
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 1: remove irrelevant code}
+
+\begin{lstlisting}[language=tdiff]
+££
+££
+££
+££
+££
+££
+££
+££
+££
+-                £\textcolor{black!2}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{black!2}{;}£
++                £\textcolor{black!2}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{black!2}{;}£
+££
+££
+££
+££
+££
+££
+-                            £\textcolor{black!2}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{black!2}{.kind() \ttlb}£
++                            £\textcolor{black!2}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{black!2}{.kind() \ttlb}£
+££
+££
+\end{lstlisting}
+
+\textcolor{black!2}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
+
+\begin{lstlisting}[language=tdiff]
+@@
+
+@@
+
+- self.infcx.tcx.type_of(self.mir_def_id())
++ self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()
+££
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+- tcx.type_of(arg)
++ tcx.bound_type_of(arg).subst_identity()
+££
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch}
+
+\textcolor{subtitlex}{Alternate version:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}}
+
+\frame[containsverbatim]{\frametitle{Assessment}
+
+\begin{itemize}
+\setlength{\itemsep}{4mm}
+\item The semantic patch updates over 200 call sites.
+\item One case is different:
+
+\begin{lstlisting}[language=tdiff]
+             let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
++            let def_ty = ecx.tcx.bound_type_of(def_id).subst_identity();
+             let extern_decl_layout =
+-                ecx.tcx.layout_of(ty::ParamEnv::empty().and(ecx.tcx.type_of(def_id))).unwrap();
++                ecx.tcx.layout_of(ty::ParamEnv::empty().and(def_ty)).unwrap();
+             if extern_decl_layout.size != shim_size || extern_decl_layout.align.abi != shim_align {
+                 throw_unsup_format!(
+                     "`extern` static `{name}` from crate `{krate}` has been declared \
+\end{lstlisting}
+\item Can perhaps extend the semantic patch for this case?
+\item The semantic patch + this case can serve as documentation.
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{An example: change in context}
+
+\begin{lstlisting}[language=tdiff]
+commit 1ce80e210d152619caa99b1bc030f57a352b657a
+Author: Oliver Scherer <oli-obk@users.noreply.github.com>
+Date:   Thu Feb 16 09:25:11 2023 +0000
+
+    Allow `LocalDefId` as the argument to `def_path_str`
+
+diff --git a/compiler/rustc_borrowck/src/lib.rs b/compiler/rustc_borrowck/src/lib.rs
+@@ -124,3 +124,3 @@ pub fn provide(providers: &mut Providers) {
+ fn mir_borrowck(tcx: TyCtxt<'_>, def: LocalDefId) -> &BorrowCheckResult<'_> {
+     let (input_body, promoted) = tcx.mir_promoted(def);
+-    debug!("run query mir_borrowck: {}", tcx.def_path_str(def.to_def_id()));
++    debug!("run query mir_borrowck: {}", tcx.def_path_str(def));
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -494,5 +494,5 @@ fn check_item_type(tcx: TyCtxt<'_>, id: hir::ItemId) {
+     debug!(
+         "check_item_type(it.def_id={:?}, it.name={})",
+         id.owner_id,
+-        tcx.def_path_str(id.owner_id.to_def_id())
++        tcx.def_path_str(id.owner_id)
+     );
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{18 files changed, 68 insertions(+), 54 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example: change in context}
+
+\textcolor{subtitlex}{Want to drop {\tt .to\_def\_id()} but only in an
+  argument to {\tt tcx.def\_path\_str}:}
+
+\vspace{0.5\baselineskip}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+-        tcx.def_path_str(arg.to_def_id())
++        tcx.def_path_str(arg)
+\end{lstlisting}
+
+\vfill
+
+Updates 48 call sites in 18 files.}
+
+\frame[containsverbatim]{\frametitle{An example: multiple cases}
+\begin{lstlisting}[language=tdiff]
+commit 298ae8c721102c36243335653e57a7f94e08f94a
+Author: Michael Goulet <michael@errs.io>
+Date:   Wed Feb 22 22:23:10 2023 +0000
+
+    Rename ty_error_with_guaranteed to ty_error, ty_error to ty_error_misc
+
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types.rs b/compiler/.../opaque_types.rs
+@@ -156,3 +156,3 @@ pub(crate) fn infer_opaque_types(
+                     });
+-                    prev.ty = infcx.tcx.ty_error_with_guaranteed(guar);
++                    prev.ty = infcx.tcx.ty_error(guar);
+                 }
+@@ -248,3 +248,3 @@ fn infer_opaque_definition_from_instantiation(
+         if let Some(e) = self.tainted_by_errors() {
+-            return self.tcx.ty_error_with_guaranteed(e);
++            return self.tcx.ty_error(e);
+         }
+...
+diff --git a/compiler/rustc_hir_analysis/src/astconv/mod.rs b/compiler/rustc_hir_analysis/src/astconv/mod.rs
+@@ -429,2 +429,2 @@ fn provided_kind(
+                         self.inferred_params.push(ty.span);
+-                        tcx.ty_error().into()
++                        tcx.ty_error_misc().into()
+\end{lstlisting}
+
+\textcolor{subtitlex}{32 files changed, 121 insertions(+), 140 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example: multiple cases}
+\textcolor{subtitlex}{Two changes:}
+\begin{itemize}
+\item From {\tt ty\_error\_with\_guaranteed} to {\tt ty\_error} (1 argument)
+\item From {\tt ty\_error} to {\tt ty\_error\_misc} (no arguments)
+\end{itemize}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+- tcx.ty_error_with_guaranteed(arg)
++ tcx.ty_error(arg)
+
+@@
+expression tcx, arg;
+@@
+- tcx.ty_error()
++ tcx.ty_error_misc()
+\end{lstlisting}
+}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\begin{lstlisting}[language=tdiff]
+commit f3f9d6dfd92dfaeb14df891ad27b2531809dd734
+Author: Eduard-Mihai Burtescu <edy.burt@gmail.com>
+Date:   Fri Jun 14 00:48:52 2019 +0300
+
+    Unify all uses of 'gcx and 'tcx.
+
+diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/error_reporting/mod.rs
+@@ -460,6 +460,6 @@ impl<'gcx, 'tcx> Printer<'gcx, 'tcx> for AbsolutePathPrinter<'gcx, 'tcx> {
+             type DynExistential = !;
+             type Const = !;
+ 
+-            fn tcx<'a>(&'a self) -> TyCtxt<'gcx, 'tcx> {
++            fn tcx<'a>(&'a self) -> TyCtxt<'tcx> {
+                 self.tcx
+             }
+@@ -1977,4 +1976,4 @@ pub fn enter_global<'gcx, F, R>(gcx: &'gcx GlobalCtxt<'gcx>, f: F) -> R
+     pub unsafe fn with_global<F, R>(f: F) -> R
+     where
+-        F: for<'gcx, 'tcx> FnOnce(TyCtxt<'gcx, 'tcx>) -> R,
++        F: for<'tcx> FnOnce(TyCtxt<'tcx>) -> R,
+     {
+\end{lstlisting}
+
+\textcolor{subtitlex}{341 files changed, 3109 insertions(+), 3327 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A first attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+@@
+- TyCtxt<'gcx, 'tcx>
++ TyCtxt<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{This does part of the work, but some change sites are overlooked:}
+\begin{itemize}
+\item[] \textcolor{black!2}{{\tt DepNodeParams<'gcx, 'tcx>}}
+\item[] \textcolor{black!2}{{\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}}
+\item[] \textcolor{black!2}{And others?}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A first attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+@@
+- TyCtxt<'gcx, 'tcx>
++ TyCtxt<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
+\begin{itemize}
+\item {\tt DepNodeParams<'gcx, 'tcx>}
+\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
+\item[] \textcolor{black!2}{And others?}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A first attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+@@
+- TyCtxt<'gcx, 'tcx>
++ TyCtxt<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
+\begin{itemize}
+\item {\tt DepNodeParams<'gcx, 'tcx>}
+\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
+\item And others?
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{How to find other change sites, like {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}:}
+\begin{itemize}
+\item[] \textcolor{black!2}{Want to change all uses of types that are somewhere used with {\tt 'gcx}.}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{How to find other change sites, like {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}:}
+\begin{itemize}
+\item Want to change all uses of types that are somewhere used with {\tt 'gcx}.
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{An example: searching for variants}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@r@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+
+@@
+identifier r.Ty;
+@@
+(
+- Ty<'tcx, 'tcx>
++ Ty<'tcx>
+|
+- Ty<'_, '_>
++ Ty<'_>
+)
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Takes care of ???\% of the required changes}}
+
+\frame{\frametitle{Summary: Features seen so far}
+
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Semantic patches: \\Patch-like transformation specification, abstracted using metavariables.
+\item Multiple rules/rule ordering.
+\item Inheritance.
+\item Disjuctions.
+\end{itemize}
+
+\vfill
+
+\centerline{\textcolor{subtitlex}{All of these features are implemented!}}}
+
+\frame{\frametitle{Some more Coccinelle features}
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item {\tt ...}
+\begin{itemize}
+\item[--] {\tt A ... B}: {\tt A} can reach {\tt B} through the function control-flow.
+\item[--] {\tt <... A ...>}, {\tt <+... A ...+>}: {\tt A} occurs 0+ or 1+ times.
+\end{itemize} \pause
+\item Position variables.
+\item Script code. \pause
+\item Constraints on metavariables (types, etc.).
+\item Fresh identifiers.
+\item {\tt *} for matching without transformation.
+\end{itemize}
+\vfill
+
+\vspace{0.5\baselineskip}
+
+\centerline{\textcolor{subtitlex}{These features are coming soon...}}}
+
+\frame{\frametitle{Some Coccinelle internals}
+
+\textcolor{subtitlex}{Input:} Parsing provided by Rust Analyzer.
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item Used both for Rust code and for semantic patch code.
+\item Will provide type inference, when needed.
+\end{itemize} \pause
+
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Output:} Pretty printing provided by {\tt rustfmt}.
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item Preserves comments.
+\end{itemize}}
+
+\frame{\frametitle{Some Coccinelle internals}
+\textcolor{subtitlex}{In the middle:}
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Wrap Rust code and semantic patch code, eg to indicate metavariables.
+\item Match semantic patch code against Rust code, to collect change sites and metavariable bindings.
+\item On a successful match, apply the changes, instantiated according to the metavariable bindings, reparse, and repeat with the next rule.
+\end{itemize}}
+
+\frame{\frametitle{Conclusion}
+
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Transformation on atomic terms completed (expressions, types, etc).
+\item Transformation on terms connected by a control-flow path ({\tt \ldots}) in progress.
+\item Small-scale testing has been done:
+\begin{itemize}
+\item[--] Replicating real changes on real Rust code.
+\end{itemize}
+\item Patchparse extended to Rust, to find test cases at a larger scale.
+\item Open source?
+\end{itemize}
+}
+
+\end{document}
