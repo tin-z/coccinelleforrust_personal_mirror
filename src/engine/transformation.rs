@@ -151,7 +151,6 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
         let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
-        
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for gbindings in expandedbindings {
@@ -196,12 +195,12 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
                 //some weird syntactically wrong transformation
             }
         };
+        
         //TODO this part can be improved. instead of reparsing the whole string
         //we modify rnode.finalizetransformation() such that in addition to doing
         //transformations it also deals with the character positions properly,
         //updating them in the new code for the minuses to work
         //removes unneeded and duplicate bindings
     }
-
     return Ok((transformedcode, hasstars));
 }

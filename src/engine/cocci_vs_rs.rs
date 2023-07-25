@@ -75,6 +75,14 @@ impl<'a> Environment {
             modifiers: Modifiers { minuses: vec![], pluses: vec![] },
         }
     }
+
+    pub fn clonebindings(&self) -> Environment {
+        Environment {
+            failed: false,
+            bindings: self.bindings.clone(),
+            modifiers: Modifiers { minuses: vec![], pluses: vec![] },
+        }
+    }
 }
 
 enum MetavarMatch<'a, 'b> {
@@ -144,12 +152,13 @@ impl<'a, 'b> Looper<'a> {
                     let renv = self.matchnodes(
                         &a.children.iter().collect_vec(),
                         &b.children.iter().collect_vec(),
-                        env.clone(),
+                        env.clonebindings(),
                     );
+
                     if !renv.failed {
                         match a.wrapper.modkind {
                             Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
-                                env.modifiers.minuses.push(b.getpos());
+                                //env.modifiers.minuses.push(b.getpos());
                             }
                             _ => {}
                         }
@@ -181,6 +190,7 @@ impl<'a, 'b> Looper<'a> {
                     addplustoenv(a, b, &mut env);
                     match a.wrapper.modkind {
                         Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
+                            //println!("exists -> {}", b.astnode.to_string());
                             env.modifiers.minuses.push(b.getpos());
                         }
                         Some(MODKIND::PLUS) => {}
@@ -235,7 +245,7 @@ impl<'a, 'b> Looper<'a> {
                             if node2.isexpr() {
                                 return MetavarMatch::Match;
                             }
-                            return MetavarMatch::Fail;
+                            return MetavarMatch::Maybe(node1, node2);
                         }
                         MetaVar::Id(_info) => {
                             if node2.isid() {

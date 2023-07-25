@@ -75,7 +75,7 @@ impl<'a> Snode {
 
     pub fn istype(&self) -> bool {
         use SyntaxKind::*;
-
+        
         match self.kind() {
             ARRAY_TYPE | DYN_TRAIT_TYPE | FN_PTR_TYPE | FOR_TYPE | IMPL_TRAIT_TYPE | INFER_TYPE
             | MACRO_TYPE | NEVER_TYPE | PAREN_TYPE | PATH_TYPE | PTR_TYPE | REF_TYPE
