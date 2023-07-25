@@ -402,10 +402,10 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep, b
     let (depends, hastype) = match (sword, tword, fword, fiword) {
         (Some("depends"), Some("on"), Some(rule), hastype) => {
             let booleanexp: Name = rule.to_string();
-            let hastype: bool = hastype.is_some_and(|x| x == "hastype");
+            let hastype: bool = hastype.is_some_and(|x| x == "type");
             (getdependson(rules, Name::from(booleanexp).as_str(), lino), hastype)
         }
-        (hastype, None, None, None) => (Dep::NoDep, hastype.is_some_and(|x| x == "hastype")),
+        (hastype, None, None, None) => (Dep::NoDep, hastype.is_some_and(|x| x == "type")),
         _ => syntaxerror!(lino, "Bad Syntax"),
     };
 

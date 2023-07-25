@@ -8,7 +8,7 @@ fn tcx<'a> (&'a self) -> i1<'tcx> {
     self.tcx
 }
 
-@rules3 hastype@
+@rules3 type@
 identifier i1;
 @@
 
