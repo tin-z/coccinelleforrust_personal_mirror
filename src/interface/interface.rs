@@ -19,9 +19,16 @@ pub struct CoccinelleForRust {
     #[arg(short, long, default_value_t = String::from("rustfmt.toml"))]
     pub rustfmt_config: String,
 
+    //ignores files and folders with the string present
+    #[arg(short, long, default_value_t = String::new())]
+    pub ignore: String,
+
     #[arg(short, long)]
     pub debug_cocci: bool,
 
     #[arg(long)]
-    pub apply: bool
+    pub apply: bool,
+
+    #[arg(long)]
+    pub suppress_output: bool,
 }

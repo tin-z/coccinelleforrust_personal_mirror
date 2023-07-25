@@ -1,16 +1,6 @@
 @rule2@
-expression e2;
-identifier i1;
-type t1;
+expression e1, e2;
 @@
 
-fn tcx<'a> (&'a self) -> i1<'tcx> {
-    self.tcx
-}
-
-@rules3 type@
-identifier i1;
-@@
-
--i1<'tcx>
-+usize
+-e1.type_of(e2)
++e1.bound_type_of(e2).subst_identity()

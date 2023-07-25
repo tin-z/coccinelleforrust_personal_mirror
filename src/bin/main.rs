@@ -56,13 +56,12 @@ fn getformattedfile(
         .arg("--config-path")
         .arg(cfr.rustfmt_config.as_str())
         .arg(&targetpath)
-        //.stdout(std::process::Stdio::null())
-        //.stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .spawn()
         .expect("rustfmt failed");
 
-    if let Ok(a) = fcommand.wait() {
-        println!("Formatting success :- {}", a.success());
+    if let Ok(_) = fcommand.wait() {
     } else {
         println!("Formatting failed.");
     }
@@ -88,6 +87,8 @@ fn getformattedfile(
 }
 
 fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
+    let mut failedfiles = vec![];
+
     for targetpath in files {
         let patchstring =
             fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
@@ -97,21 +98,16 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
 
         let (transformedcode, hasstars) = match transformedcode {
             Ok(node) => node,
-            Err(TARGETERROR(errors, file)) => {
-                eprintln!("Error in reading target file.\n{}", errors);
-                eprintln!("Unparsable file:\n{}", file);
-                panic!();
-            }
-            Err(RULEERROR(rulename, errors, file)) => {
-                eprintln!("Error in applying rule {}", rulename);
-                eprintln!("Error:\n{}", errors);
-                eprintln!("Unparsable file:\n{}", file);
-                panic!();
+            Err(error) => {
+                failedfiles.push((error, targetpath));
+                continue;
             }
         };
         let (data, diff) = getformattedfile(&args, &transformedcode, &targetpath);
         if !hasstars {
-            println!("{}", diff);
+            if !args.suppress_output {
+                println!("{}", diff);
+            }
 
             if args.apply {
                 fs::write(targetpath, data).expect("Unable to write")
@@ -132,6 +128,27 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
                 }
             }
         }
+    }
+
+    if !failedfiles.len()==0 {
+        return;
+    }
+
+    println!("Failed transformations :- ");
+    for (error, targetpath) in failedfiles {
+        match error {
+            TARGETERROR(errors, _) => {
+                println!("Error in reading target file.\n{}", errors);
+                println!("Unparsable file:\n{}", targetpath);
+            }
+            RULEERROR(rulename, errors, _) => {
+                println!("Error in applying rule {}", rulename);
+                println!("Error:\n{}", errors);
+                println!("Unparsable file:\n{}", targetpath);
+            }
+        }
+
+        println!();
     }
 }
 
@@ -157,7 +174,10 @@ fn transformfile(args: &CoccinelleForRust) {
     };
     let (data, diff) = getformattedfile(&args, &transformedcode, &args.targetpath);
     if !hasstars {
-        println!("{}", diff);
+        if !args.suppress_output {
+            println!("{}", diff);
+        }
+
         if args.apply {
             fs::write(&args.targetpath, data).expect("Unable to write")
         } else {
@@ -214,13 +234,13 @@ fn findfmtconfig(args: &mut CoccinelleForRust) {
 }
 
 // one possible implementation of walking a directory only visiting files
-fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
-    if dir.is_dir() {
+fn visit_dirs(dir: &Path, ignore: &str, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
+    if dir.is_dir() && (ignore == "" || dir.to_str().is_some_and(|x| !x.contains(ignore))) {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_dir() {
-                visit_dirs(&path, cb)?;
+                visit_dirs(&path, ignore, cb)?;
             } else {
                 cb(&entry);
             }
@@ -239,7 +259,7 @@ fn main() {
         transformfile(&args);
     } else {
         let mut files = vec![];
-        let _ = visit_dirs(targetpath, &mut |file: &DirEntry| {
+        let _ = visit_dirs(targetpath, &args.ignore, &mut |file: &DirEntry| {
             if file.file_name().to_str().unwrap().ends_with(".rs") {
                 files.push(String::from(file.path().to_str().unwrap()));
             }

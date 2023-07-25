@@ -37,7 +37,9 @@ pub fn work_node<'a>(
             //if estrings is not empty then there have been comments
             //and comments cannot exists in a level by themselves
             //so unwrap is justified
-            children.last_mut().unwrap().wrapper.wspaces.1 = estrings;
+            if children.len()!=0 {
+                children.last_mut().unwrap().wrapper.wspaces.1 = estrings;
+            }
         }
         children
     })
