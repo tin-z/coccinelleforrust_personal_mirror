@@ -4,13 +4,13 @@ identifier i1;
 type t1;
 @@
 
-fn tcx<'a> (&'a self) -> i1<'gcx, 'tcx> {
+fn tcx<'a> (&'a self) -> i1<'tcx> {
     self.tcx
 }
 
-@rules3@
-type rule2.i1;
+@rules3 hastype@
+identifier i1;
 @@
 
--il<'gcx, 'tcx>
-+il<'tcx>
+-i1<'tcx>
++usize

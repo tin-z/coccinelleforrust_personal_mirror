@@ -147,7 +147,8 @@ impl<'a, 'b> Looper<'a> {
 
             let akind = a.kind();
             let bkind = b.kind();
-            //println!("{:?} ===== {:?}", akind, bkind);
+            //println!("{:?} ===== {:?}", akind, bkind);//please dont remove this line
+            //helps in debugging, and I always forget where to put it
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
                 //println!("fail");
                 fail!()

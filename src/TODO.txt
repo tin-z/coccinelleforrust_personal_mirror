@@ -1,3 +1,6 @@
 - Type inference
 - Rebuild McodeKind
 - Add * modifier
+- Add the block wildcard instead of ...
+- put proper error reporting for failure of hastype
+- ALLminus

@@ -60,7 +60,7 @@ impl<'a> Snode {
     }
 
     fn print_tree_aux(&self, pref: &String) {
-        println!("{}{:?}, {:?}", pref, self.kind(), self.wrapper.modkind);
+        println!("{}{:?}, {:?}: {:?}", pref, self.kind(), self.wrapper.modkind, self.wrapper.metavar);
         let mut newbuf = String::from(pref);
         newbuf.push_str(&String::from("--"));
         for child in &self.children {
@@ -86,7 +86,7 @@ impl<'a> Snode {
 
     pub fn isid(&self) -> bool {
         use SyntaxKind::*;
-        return self.kind() == IDENT || self.ispat();
+        return self.kind() == NAME || self.kind() == NAME_REF || self.ispat();
     }
 
     pub fn ispat(&self) -> bool {

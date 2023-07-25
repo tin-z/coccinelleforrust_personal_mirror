@@ -208,7 +208,7 @@ pub fn isexpr(node1: &Snode) -> bool {
     }
 }
 
-pub fn removestmtbracesaddpluses<'a>(node: &'a mut Snode) {
+pub fn removestmtbraces<'a>(node: &'a mut Snode) {
     //since the patch is wrapped in a function to be parsed
     //this function extracts the stmtlist inside it and removes the curly
     //braces from the start and end of the block
@@ -219,12 +219,16 @@ pub fn removestmtbracesaddpluses<'a>(node: &'a mut Snode) {
         .children[3] //blockexpr
         .children[0]; //stmtlist
     stmtlist.children.remove(0);
-    let tmp = stmtlist.children.remove(stmtlist.children.len() - 1); //right brace
-    let len = stmtlist.children.len();
-    if len != 0 {
-        //for empty patches
-        attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
-    }
+    let _tmp = stmtlist.children.remove(stmtlist.children.len() - 1); //right brace
+    
+    //I am not sure about the next part of the code
+    //will keep it just in case
+    //let len = stmtlist.children.len();
+    //if len != 0
+    //for skipping empty patches
+    //{
+        //attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
+    //}
 }
 
 pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {

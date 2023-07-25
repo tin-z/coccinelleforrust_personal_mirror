@@ -144,7 +144,7 @@ impl Rnode {
     }
 
     pub fn isid(&self) -> bool {
-        return self.kind() == IDENT || self.ispat();
+        return self.kind() == NAME || self.kind() == NAME_REF || self.ispat();
     }
 
     pub fn ispat(&self) -> bool {

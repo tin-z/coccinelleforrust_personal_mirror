@@ -14,9 +14,7 @@ use std::{collections::HashSet, vec};
 
 use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, MODKIND};
 use crate::{
-    commons::util::{
-        self, attachback, attachfront, collecttree, removestmtbracesaddpluses, worksnode,
-    },
+    commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
     debugcocci, syntaxerror,
 };
 use parser::SyntaxKind;
@@ -89,22 +87,22 @@ pub struct Patch {
 }
 
 impl Patch {
-    fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
-        let mut work = |node: &mut Snode| {
-            if node.isexpr() || node.istype() || node.isid() {
-                let stmp = node.astnode.to_string();
-                if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
-                    //println!("MetaVar found - {:?}", mvar);
-                    node.wrapper.metavar = mvar.clone();
-                }
-            }
-        };
-        util::worktree(node, &mut work);
-    }
-
     fn setmetavars(&mut self, metavars: &Vec<MetaVar>) {
-        Patch::setmetavars_aux(&mut self.plus, metavars);
-        Patch::setmetavars_aux(&mut self.minus, metavars);
+        fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
+            let mut work = |node: &mut Snode| {
+                if node.isexpr() || node.istype() || node.isid() {
+                    let stmp = node.astnode.to_string();
+                    if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
+                        //println!("MetaVar found - {:?}", mvar);
+                        node.wrapper.metavar = mvar.clone();
+                    }
+                }
+            };
+            util::worktree(node, &mut work);
+        }
+
+        setmetavars_aux(&mut self.plus, metavars);
+        setmetavars_aux(&mut self.minus, metavars);
     }
 
     fn setmods(&mut self) {
@@ -163,98 +161,122 @@ impl Patch {
         worksnode(&mut self.minus, (0, None), &mut tagmods);
     }
 
-    fn tagplus_aux(node1: &mut Snode, node2: &Snode) {
-        //There is no need to propagate pluses
-        //because a plus cannot exist without code around it
-        //when a '+' mod is written an ast is pushed at that
-        //very level in the tree. That is I cannot write a plus
-        //statement after a minus or context code and not have it
-        //in a level same as the statement above it even around braces
-        let mut pvec: Vec<Snode> = vec![];
-        let mut achildren = node1.children.iter_mut();
-        let mut bchildren = node2.children.iter();
-        let mut a = achildren.next();
-        let mut b = bchildren.next();
-        loop {
-            match (&mut a, &b) {
-                (Some(ak), Some(bk)) => {
-                    match (ak.wrapper.modkind, bk.wrapper.modkind) {
-                        (_, Some(MODKIND::PLUS)) => {
-                            pvec.push((*bk).clone());
-                            b = bchildren.next();
-                        }
-                        (Some(MODKIND::MINUS), _) => {
-                            //minus code
-                            //with any thing other than a plus
-                            attachfront(ak, pvec);
-                            pvec = vec![];
-                            a = achildren.next();
-                        }
-                        (None, None) => {
-                            //context code
-                            //with context code
-                            if ak.wrapper.isdisj {
-                                //DISJUNCTIONS ARE THE ONLY PART
-                                //WHERE PLUSES ARE ADDED TO A NODE
-                                //AND NOT A TOKEN
-                                ak.wrapper.plusesbef.extend(pvec);
-                            } else {
-                                attachfront(ak, pvec);
-                            }
-                            pvec = vec![];
-                            Patch::tagplus_aux(ak, bk);
-                            a = achildren.next();
-                            b = bchildren.next();
-                        }
-                        (Some(MODKIND::STAR), Some(MODKIND::STAR)) => {
-                            a = achildren.next();
-                            b = bchildren.next();
-                        }
-                        (Some(MODKIND::STAR), _) | (_, Some(MODKIND::STAR)) => {
-                            panic!("Minus and Plus buffers do not have matching stars");
-                        }
-                        _ => {
-                            panic!("There are plusses in the minus buffer, or minuses in the plus buffer.");
-                        }
-                    }
-                }
-                (None, Some(bk)) => match bk.wrapper.modkind {
-                    Some(MODKIND::PLUS) => {
-                        pvec.push((*bk).clone());
-                        b = bchildren.next();
-                    }
-                    _ => {
-                        break;
-                    }
-                },
-                (Some(_), None) => {
-                    break;
-                } //means only minuses are left
-                (None, None) => {
-                    break;
-                }
-            }
+    pub fn striplet(&mut self, hastype: bool) {
+        if !hastype {
+            return;
         }
-        if pvec.len() != 0 {
-            //Plus statements exist after
-            //the context and need to be attached to the
-            //closes context above
-            let a = node1.children.last_mut();
-            if a.is_none() {
-                panic!("Plus without context.");
+
+        fn striplet_aux(node: &mut Snode) {
+            //at this point node is a SourceFile
+            //with a function with a stmtlist without braces
+            let stmtlist = &mut node.children[0] //function
+                .children[3] //blockexpr
+                .children[0]; //stmtlist
+            if stmtlist.children.len() == 0 {
+                //handles empty type patches
+                //Either no type or only minus
+                return;
             }
-            let a = a.unwrap();
-            if a.wrapper.isdisj {
-                a.wrapper.plusesaft.extend(pvec);
-            } else {
-                //println!("attaching {} to {:?}", a.gettokenstream(), pvec);
-                attachback(a, pvec);
-            }
+            stmtlist.children = vec![stmtlist.children[0] //letstmt
+                .children[3]
+                .clone()] //Type;
         }
+        striplet_aux(&mut self.plus);
+        striplet_aux(&mut self.minus);
     }
 
     pub fn tagplus(&mut self) {
-        Patch::tagplus_aux(&mut self.minus, &mut self.plus);
+        fn tagplus_aux(node1: &mut Snode, node2: &Snode) {
+            //There is no need to propagate pluses
+            //because a plus cannot exist without code around it
+            //when a '+' mod is written an ast is pushed at that
+            //very level in the tree. That is I cannot write a plus
+            //statement after a minus or context code and not have it
+            //in a level same as the statement above it even around braces
+            let mut pvec: Vec<Snode> = vec![];
+            let mut achildren = node1.children.iter_mut();
+            let mut bchildren = node2.children.iter();
+            let mut a = achildren.next();
+            let mut b = bchildren.next();
+            loop {
+                match (&mut a, &b) {
+                    (Some(ak), Some(bk)) => {
+                        match (ak.wrapper.modkind, bk.wrapper.modkind) {
+                            (_, Some(MODKIND::PLUS)) => {
+                                pvec.push((*bk).clone());
+                                b = bchildren.next();
+                            }
+                            (Some(MODKIND::MINUS), _) => {
+                                //minus code
+                                //with any thing other than a plus
+                                attachfront(ak, pvec);
+                                pvec = vec![];
+                                a = achildren.next();
+                            }
+                            (None, None) => {
+                                //context code
+                                //with context code
+                                if ak.wrapper.isdisj {
+                                    //DISJUNCTIONS ARE THE ONLY PART
+                                    //WHERE PLUSES ARE ADDED TO A NODE
+                                    //AND NOT A TOKEN
+                                    ak.wrapper.plusesbef.extend(pvec);
+                                } else {
+                                    attachfront(ak, pvec);
+                                }
+                                pvec = vec![];
+                                tagplus_aux(ak, bk);
+                                a = achildren.next();
+                                b = bchildren.next();
+                            }
+                            (Some(MODKIND::STAR), Some(MODKIND::STAR)) => {
+                                a = achildren.next();
+                                b = bchildren.next();
+                            }
+                            (Some(MODKIND::STAR), _) | (_, Some(MODKIND::STAR)) => {
+                                panic!("Minus and Plus buffers do not have matching stars");
+                            }
+                            _ => {
+                                panic!("There are plusses in the minus buffer, or minuses in the plus buffer.");
+                            }
+                        }
+                    }
+                    (None, Some(bk)) => match bk.wrapper.modkind {
+                        Some(MODKIND::PLUS) => {
+                            pvec.push((*bk).clone());
+                            b = bchildren.next();
+                        }
+                        _ => {
+                            break;
+                        }
+                    },
+                    (Some(_), None) => {
+                        break;
+                    } //means only minuses are left
+                    (None, None) => {
+                        break;
+                    }
+                }
+            }
+            if pvec.len() != 0 {
+                //Plus statements exist after
+                //the context and need to be attached to the
+                //closes context above
+                let a = node1.children.last_mut();
+                if a.is_none() {
+                    panic!("Plus without context.");
+                }
+                let a = a.unwrap();
+                if a.wrapper.isdisj {
+                    a.wrapper.plusesaft.extend(pvec);
+                } else {
+                    //println!("attaching {} to {:?}", a.gettokenstream(), pvec);
+                    attachback(a, pvec);
+                }
+            }
+        }
+
+        tagplus_aux(&mut self.minus, &mut self.plus);
     }
 
     pub fn getunusedmetavars(&self, mut bindings: Vec<MetaVar>) -> Vec<MetaVar> {
@@ -288,6 +310,7 @@ pub struct Rule {
     pub patch: Patch,
     pub freevars: Vec<MetaVar>,
     pub usedafter: HashSet<MetavarName>,
+    pub hastype: bool,
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -359,7 +382,7 @@ fn getdependson(rules: &Vec<Rule>, rule: &str, lino: usize) -> Dep {
 }
 
 /// Deals with the first line of a rule definition
-fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
+fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep, bool) {
     let decl = decl.join("\n");
     let mut tokens = decl.trim().split([' ', '\n']);
     let currrulename = {
@@ -373,28 +396,38 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep) {
 
     let sword = tokens.next();
     let tword = tokens.next();
+    let fword = tokens.next();
+    let fiword = tokens.next();
 
-    let depends = match (sword, tword) {
-        (Some("depends"), Some("on")) => {
-            let booleanexp: Name = tokens.collect();
-            getdependson(rules, Name::from(booleanexp).as_str(), lino)
+    let (depends, hastype) = match (sword, tword, fword, fiword) {
+        (Some("depends"), Some("on"), Some(rule), hastype) => {
+            let booleanexp: Name = rule.to_string();
+            let hastype: bool = hastype.is_some_and(|x| x == "hastype");
+            (getdependson(rules, Name::from(booleanexp).as_str(), lino), hastype)
         }
-        (None, None) => Dep::NoDep,
-        _ => syntaxerror!(lino, ""),
+        (hastype, None, None, None) => (Dep::NoDep, hastype.is_some_and(|x| x == "hastype")),
+        _ => syntaxerror!(lino, "Bad Syntax"),
     };
 
-    (currrulename, depends)
+    (currrulename, depends, hastype)
 }
 
 /// Turns values from handlemods into a patch object
-fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>) -> Patch {
+fn getpatch(
+    plusbuf: &str,
+    minusbuf: &str,
+    llino: usize,
+    metavars: &Vec<MetaVar>,
+    hastype: bool,
+) -> Patch {
     let plusbuf = format!("{}{}", "\n".repeat(llino), plusbuf);
     let minusbuf = format!("{}{}", "\n".repeat(llino), minusbuf);
     let mut p = Patch { plus: wrap_root(plusbuf.as_str()), minus: wrap_root(minusbuf.as_str()) };
     p.setmetavars(metavars);
     p.setmods();
-    removestmtbracesaddpluses(&mut p.minus);
-    removestmtbracesaddpluses(&mut p.plus);
+    removestmtbraces(&mut p.minus);
+    removestmtbraces(&mut p.plus);
+    p.striplet(hastype);
     p.tagplus();
     p
 }
@@ -404,11 +437,12 @@ fn getpatch(plusbuf: &str, minusbuf: &str, llino: usize, metavars: &Vec<MetaVar>
 fn buildrule(
     currrulename: &Name,
     currdepends: Dep,
-    mut metavars: Vec<MetaVar>,
+    mut metavars: Vec<MetaVar>, //mutable because unused metavars are removed
     blanks: usize,
     pbufmod: &String,
     mbufmod: &String,
     lastruleline: usize,
+    hastype: bool,
 ) -> Rule {
     //end of the previous rule
     let mut plusbuf = String::new();
@@ -419,13 +453,30 @@ fn buildrule(
     plusbuf.push_str(&"\n".repeat(blanks));
     minusbuf.push_str(&"\n".repeat(blanks));
 
-    plusbuf.push_str(pbufmod);
-    minusbuf.push_str(mbufmod);
+    if hastype {
+        let pbufmod = if pbufmod.trim() != "" {
+            format!("let COCCIVAR: \n{}\n;", pbufmod)
+        } else {
+            String::new()
+        };
+
+        let mbufmod = if mbufmod.trim() != "" {
+            format!("let COCCIVAR: \n{}\n;", mbufmod)
+        } else {
+            String::new()
+        };
+
+        plusbuf.push_str(&pbufmod);
+        minusbuf.push_str(&mbufmod);
+    } else {
+        plusbuf.push_str(pbufmod);
+        minusbuf.push_str(mbufmod);
+    }
 
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars);
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars, hastype);
     let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 
     for metavar in &unusedmetavars {
@@ -452,6 +503,7 @@ fn buildrule(
         patch: currpatch,
         freevars: freevars,
         usedafter: HashSet::new(),
+        hastype: hastype,
     };
     rule
 }
@@ -608,7 +660,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
         let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //mods
 
         //getting rule info
-        let (currrulename, currdepends) = handlerules(&rules, block1, lino);
+        let (currrulename, currdepends, hastype) = handlerules(&rules, block1, lino);
         debugcocci!("Rulename: {} Depends on: {:?}", currrulename, currdepends);
         lino += 1;
         let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
@@ -626,7 +678,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
         });
         if hasstar {
             hasstars = true;
-            //This part needs to be worked on
+            //This part needs to be completed
             //as it does not enforce all rules having *
         }
 
@@ -638,6 +690,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
             &pbufmod,
             &mbufmod,
             lastruleline,
+            hastype,
         );
         rules.push(rule);
 
