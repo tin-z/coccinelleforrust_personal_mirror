@@ -233,8 +233,12 @@ diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.r
 
 - self.infcx.tcx.type_of(self.mir_def_id())
 + self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()
-££
-\end{lstlisting}}
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{Updates over 200 call sites.}
+}
 
 \frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
 
@@ -245,29 +249,30 @@ expression tcx, arg;
 
 - tcx.type_of(arg)
 + tcx.bound_type_of(arg).subst_identity()
-££
-\end{lstlisting}}
+\end{lstlisting}
 
-\frame[containsverbatim]{\frametitle{Creating a semantic patch}
+\vfill
 
-\textcolor{subtitlex}{Alternate version:}
+\textcolor{black!2}{Updates over 200 call sites.}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
 
 \begin{lstlisting}[language=tdiff]
 @@
 expression tcx, arg;
 @@
 
-  tcx.
--    type_of(arg)
-+    bound_type_of(arg).subst_identity()
-\end{lstlisting}}
+- tcx.type_of(arg)
++ tcx.bound_type_of(arg).subst_identity()
+\end{lstlisting}
 
-\frame[containsverbatim]{\frametitle{Assessment}
+\vfill
 
-\begin{itemize}
-\setlength{\itemsep}{4mm}
-\item The semantic patch updates over 200 call sites.
-\item One case is different:
+\textcolor{subtitlex}{Updates over 200 call sites.}
+}
+
+\frame[containsverbatim]{\frametitle{An outlier}
 
 \begin{lstlisting}[language=tdiff]
              let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
@@ -279,9 +284,53 @@ expression tcx, arg;
                  throw_unsup_format!(
                      "`extern` static `{name}` from crate `{krate}` has been declared \
 \end{lstlisting}
-\item Can perhaps extend the semantic patch for this case?
-\item The semantic patch + this case can serve as documentation.
+
+\textcolor{black!2}{The developer has created a new name to avoid a long
+  line.}
+\begin{itemize}
+\item[] \textcolor{black!2}{Could address it manually.}
+\item[] \textcolor{black!2}{Could create a rule for the special case of nested function call
+  contexts \newline (probably not worth it for one case).}
 \end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{An outlier}
+
+\begin{lstlisting}[language=tdiff]
+             let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
++            let def_ty = ecx.tcx.bound_type_of(def_id).subst_identity();
+             let extern_decl_layout =
+-                ecx.tcx.layout_of(ty::ParamEnv::empty().and(ecx.tcx.type_of(def_id))).unwrap();
++                ecx.tcx.layout_of(ty::ParamEnv::empty().and(def_ty)).unwrap();
+             if extern_decl_layout.size != shim_size || extern_decl_layout.align.abi != shim_align {
+                 throw_unsup_format!(
+                     "`extern` static `{name}` from crate `{krate}` has been declared \
+\end{lstlisting}
+
+\textcolor{subtitlex}{The developer has created a new name to avoid a long
+  line.}
+\begin{itemize}
+\item Could address it manually.
+\item Could create a rule for the special case of nested function call
+  contexts \newline (probably not worth it for one case).
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Alternate semantic patch}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+\textcolor{subtitlex}{Putting tcx in the context ensures any comments will
+  be preserved.}
 }
 
 \frame[containsverbatim]{\frametitle{An example: change in context}
@@ -428,8 +477,8 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 
 \textcolor{black!2}{This does part of the work, but some change sites are overlooked:}
 \begin{itemize}
-\item[] \textcolor{black!2}{{\tt DepNodeParams<'gcx, 'tcx>}}
 \item[] \textcolor{black!2}{{\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}}
+\item[] \textcolor{black!2}{{\tt DepNodeParams<'gcx, 'tcx>}}
 \item[] \textcolor{black!2}{And others?}
 \end{itemize}}
 
@@ -448,8 +497,8 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 
 \textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
 \begin{itemize}
-\item {\tt DepNodeParams<'gcx, 'tcx>}
 \item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
+\item {\tt DepNodeParams<'gcx, 'tcx>}
 \item[] \textcolor{black!2}{And others?}
 \end{itemize}}
 
@@ -468,8 +517,8 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 
 \textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
 \begin{itemize}
-\item {\tt DepNodeParams<'gcx, 'tcx>}
 \item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
+\item {\tt DepNodeParams<'gcx, 'tcx>}
 \item And others?
 \end{itemize}}
 
