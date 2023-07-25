@@ -34,6 +34,15 @@ macro_rules! debugcocci {
     };
 }
 
+#[macro_export]
+macro_rules! debugengine {
+    ($fmt:expr, $($arg:expr),*) => {
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!("{}", format!($fmt, $($arg),*));
+        }
+    };
+}
+
 pub fn tuple_of_2<T>(v: &mut Vec<T>) -> [&mut T; 2] {
     match &mut v[..2] {
         [a, b] => [a, b],
@@ -235,9 +244,10 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
         //a path_expr
         if plus.len() != 0 {
             debugcocci!(
-                "Plus Statements:- {:#?} attached to front of {}",
+                "Plus Statements:- {:#?} attached to front of {}:{:?}",
                 plus.iter().map(|x| x.astnode.to_string()).collect_vec(),
-                node.astnode.to_string()
+                node.astnode.to_string(),
+                node.kind()
             );
         }
         node.wrapper.plusesbef.extend(plus);
@@ -251,9 +261,10 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
     if len == 0 {
         if plus.len() != 0 {
             debugcocci!(
-                "Plus Statements:- {:#?} attached to back of {}",
+                "Plus Statements:- {:#?} attached to back of {}:{:?}",
                 plus.iter().map(|x| x.astnode.to_string()).collect_vec(),
-                node.astnode.to_string()
+                node.astnode.to_string(),
+                node.kind()
             );
         }
         node.wrapper.plusesaft.extend(plus);

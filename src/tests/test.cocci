@@ -4,16 +4,13 @@ identifier i1;
 type t1;
 @@
 
-fn tcx<'a> (&'a self) -> e2<'tcx> {
+fn tcx<'a> (&'a self) -> i1<'gcx, 'tcx> {
     self.tcx
 }
 
-@rule3@
-identifier rule2.e2;
-identifier i;
+@rules3@
+type rule2.i1;
 @@
 
--fn i<'a>(&'a self) -> e2<'tcx> {
-+fn hello() -> i1 {
-    self.tcx
-}
+-il<'gcx, 'tcx>
++il<'tcx>

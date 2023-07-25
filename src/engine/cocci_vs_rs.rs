@@ -93,11 +93,19 @@ enum MetavarMatch<'a, 'b> {
 }
 
 fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
-    if a.wrapper.plusesbef.len() != 0 {
-        env.modifiers.pluses.push((b.wrapper.info.charstart, true, a.wrapper.plusesbef.clone()));
-    }
-    if a.wrapper.plusesaft.len() != 0 {
-        env.modifiers.pluses.push((b.wrapper.info.charend, false, a.wrapper.plusesaft.clone()));
+    if a.children.len() == 1 {
+        addplustoenv(&a.children[0], b, env)
+    } else {
+        if a.wrapper.plusesbef.len() != 0 {
+            env.modifiers.pluses.push((
+                b.wrapper.info.charstart,
+                true,
+                a.wrapper.plusesbef.clone(),
+            ));
+        }
+        if a.wrapper.plusesaft.len() != 0 {
+            env.modifiers.pluses.push((b.wrapper.info.charend, false, a.wrapper.plusesaft.clone()));
+        }
     }
 }
 

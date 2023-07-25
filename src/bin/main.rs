@@ -30,8 +30,7 @@ fn init_logger(args: &CoccinelleForRust) {
         options.push_str(
             "
             coccinelleforrust::parsing_cocci,
-            coccinelleforrust::commons,
-            coccinelleforrust::engine
+            coccinelleforrust::commons
         ",
         );
     }
@@ -144,15 +143,15 @@ fn transformfile(args: &CoccinelleForRust) {
 
     let (transformedcode, hasstars) = match transformedcode {
         Ok(node) => node,
-        Err(TARGETERROR(errors, file)) => {
+        Err(TARGETERROR(errors, _)) => {
             eprintln!("Error in reading target file.\n{}", errors);
-            eprintln!("Unparsable file:\n{}", file);
+            eprintln!("Unparsable file:\n{}", args.targetpath);
             panic!();
         }
-        Err(RULEERROR(rulename, errors, file)) => {
+        Err(RULEERROR(rulename, errors, _)) => {
             eprintln!("Error in applying rule {}", rulename);
             eprintln!("Error:\n{}", errors);
-            eprintln!("Unparsable file:\n{}", file);
+            eprintln!("Unparsable file:\n{}", args.targetpath);
             panic!();
         }
     };
