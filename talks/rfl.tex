@@ -105,7 +105,9 @@
 %\\[-2mm]
 %5\\[-2mm]{}
 
-\title{Coccinelle for Rust}
+\title{Coccinelle for Rust\\
+https://gitlab.inria.fr/coccinelle/coccinelleforrust.git
+}
 \author{Julia Lawall, Tathagata Roy}
 \date{July 23, 2023\\ \mbox{}
 }
@@ -585,7 +587,7 @@ identifier r.Ty;
 
 \vfill
 
-\textcolor{subtitlex}{Takes care of 1287 insertions(+), 1433 deletions(-) out of  3109 insertions(+), 3327 deletions(-) modifications}}
+\textcolor{subtitlex}{Takes care of 1287 insertions(+), 1433 deletions(-) \\out of  3109 insertions(+), 3327 deletions(-)}}
 
 \frame{\frametitle{Summary: Features seen so far}
 
@@ -647,6 +649,27 @@ identifier r.Ty;
 \item On a successful match, apply the changes, instantiated according to the metavariable bindings, reparse, and repeat with the next rule.
 \end{itemize}}
 
+\frame[containsverbatim]{\frametitle{Practical issues}
+
+\begin{lstlisting}[language=diff]
+Usage: main [OPTIONS] --coccifile <COCCIFILE> --targetpath <TARGETPATH>
+
+Options:
+  -c, --coccifile <COCCIFILE>            Path of Semantic Patch File path
+  -t, --targetpath <TARGETPATH>          Path of Rust Target file/folder path
+  -o, --output <OUTPUT>                  Path of transformed file path
+  -r, --rustfmt-config <RUSTFMT_CONFIG>  rustfmt config file path [default: rustfmt.toml]
+  -i, --ignore <IGNORE>                  [default: ]
+  -d, --debug-cocci                      
+      --apply                            
+      --suppress-diff                    
+      --suppress-formatting              
+      --no-parallel                      
+  -h, --help                             Print help
+  -V, --version                          Print version
+\end{lstlisting}
+}
+
 \frame{\frametitle{Conclusion}
 
 \begin{itemize}
@@ -658,7 +681,7 @@ identifier r.Ty;
 \item[--] Replicating real changes on real Rust code.
 \end{itemize}
 \item Patchparse extended to Rust, to find test cases at a larger scale.
-\item Open source?
+\item Availability: https://gitlab.inria.fr/coccinelle/coccinelleforrust.git
 \end{itemize}
 }
 
