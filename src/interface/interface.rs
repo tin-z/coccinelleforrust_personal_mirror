@@ -30,5 +30,11 @@ pub struct CoccinelleForRust {
     pub apply: bool,
 
     #[arg(long)]
-    pub suppress_output: bool,
+    pub suppress_diff: bool,
+
+    #[arg(long)]
+    pub suppress_formatting: bool,
+
+    #[arg(long)]
+    pub no_parallel: bool,
 }

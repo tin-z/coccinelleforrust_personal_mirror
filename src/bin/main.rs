@@ -1,5 +1,5 @@
 use clap::Parser;
-use coccinelleforrust::commons::info::ParseError::*;
+use coccinelleforrust::commons::info::ParseError::{self, *};
 use coccinelleforrust::{
     engine::cocci_vs_rs::MetavarBinding, engine::transformation,
     interface::interface::CoccinelleForRust, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
@@ -7,6 +7,7 @@ use coccinelleforrust::{
 use env_logger::{Builder, Env};
 use itertools::Itertools;
 use rand::Rng;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::DirEntry;
 use std::io;
 use std::io::Write;
@@ -47,49 +48,66 @@ fn getformattedfile(
     targetpath: &str,
 ) -> (String, String) {
     let mut rng = rand::thread_rng();
-    let randrustfile = format!("tmp{}.rs", rng.gen::<u32>());
+    let randrustfile = format!("/tmp/tmp{}.rs", rng.gen::<u32>());
 
-    let original = fs::read_to_string(&targetpath).expect("Unable to read file");
+    if !cfr.suppress_formatting {
+        //should never be disabled except for debug
+        //let original = fs::read_to_string(&targetpath).expect("Unable to read file");
 
-    transformedcode.writetreetofile(&targetpath);
-    let mut fcommand = Command::new("rustfmt")
-        .arg("--config-path")
-        .arg(cfr.rustfmt_config.as_str())
-        .arg(&targetpath)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("rustfmt failed");
+        transformedcode.writetreetofile(&randrustfile);
 
-    if let Ok(_) = fcommand.wait() {
-    } else {
-        println!("Formatting failed.");
+        let mut fcommand = Command::new("rustfmt")
+            .arg("--config-path")
+            .arg(cfr.rustfmt_config.as_str())
+            .arg(&randrustfile)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("rustfmt failed");
+
+        if let Ok(_) = fcommand.wait() {
+        } else {
+            println!("Formatting failed.");
+        }
+
+        //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
+
+        let diffed = if !cfr.suppress_diff {
+            let diffout = Command::new("git")
+                .arg("diff")
+                .arg("--no-index")
+                .arg("--diff-algorithm=histogram")
+                .arg(targetpath)
+                .arg(&randrustfile)
+                .output()
+                .expect("diff failed");
+
+            String::from_utf8(diffout.stdout).expect("Bad diff")
+        } else {
+            String::new()
+        };
+
+        let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
+
+        //fs::write(targetpath, original).expect("Could not write file.");
+        fs::remove_file(&randrustfile).expect("No file found.");
+
+        return (formatted, diffed);
     }
 
-    fs::write(&randrustfile, original.clone()).expect("Could not write file.");
+    transformedcode.writetreetofile(&randrustfile);
+    let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
+    fs::remove_file(randrustfile).expect("Could not reove file");
 
-    let diffout = Command::new("git")
-        .arg("diff")
-        .arg("--no-index")
-        .arg("--diff-algorithm=histogram")
-        .arg(&randrustfile)
-        .arg(targetpath)
-        .output()
-        .expect("diff failed");
-
-    let formatted = fs::read_to_string(&targetpath).expect("Unable to read file");
-    let diffed: String = String::from_utf8(diffout.stdout).expect("Bad diff");
-
-    fs::write(targetpath, original).expect("Could not write file.");
-    fs::remove_file(&randrustfile).expect("No file found.");
-
-    return (formatted, diffed);
+    return (transformed, String::new());
 }
 
 fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
-    let mut failedfiles = vec![];
+    let failedfiles: Vec<(ParseError, usize)> = vec![];
 
-    for targetpath in files {
+    let transform = &|targetpath: &String| {
+        println!("Processing: {}", targetpath);
+
         let patchstring =
             fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
         let rustcode = fs::read_to_string(targetpath.as_str()).expect("This shouldnt be empty");
@@ -99,13 +117,13 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
         let (transformedcode, hasstars) = match transformedcode {
             Ok(node) => node,
             Err(error) => {
-                failedfiles.push((error, targetpath));
-                continue;
+                //failedfiles.push((error, targetpath));
+                return;
             }
         };
         let (data, diff) = getformattedfile(&args, &transformedcode, &targetpath);
         if !hasstars {
-            if !args.suppress_output {
+            if !args.suppress_diff {
                 println!("{}", diff);
             }
 
@@ -128,9 +146,15 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
                 }
             }
         }
+    };
+
+    if args.no_parallel {
+        files.iter().for_each(transform);
+    } else {
+        files.par_iter().for_each(transform);
     }
 
-    if !failedfiles.len()==0 {
+    if failedfiles.len() == 0 {
         return;
     }
 
@@ -174,7 +198,7 @@ fn transformfile(args: &CoccinelleForRust) {
     };
     let (data, diff) = getformattedfile(&args, &transformedcode, &args.targetpath);
     if !hasstars {
-        if !args.suppress_output {
+        if !args.suppress_diff {
             println!("{}", diff);
         }
 

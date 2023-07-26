@@ -1,6 +1,13 @@
-@rule2@
-expression e1, e2;
+@rule1 type@
+identifier i;
 @@
 
--e1.type_of(e2)
-+e1.bound_type_of(e2).subst_identity()
+-i<'gcx, 'tcx>
++i<'tcx>
+
+
+@rule2 type@
+identifier i;
+@@
+-i<'tcx, 'tcx>
++i<'tcx>
