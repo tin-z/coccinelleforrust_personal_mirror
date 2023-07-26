@@ -116,8 +116,9 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
 
         let (transformedcode, hasstars) = match transformedcode {
             Ok(node) => node,
-            Err(error) => {
+            Err(_error) => {
                 //failedfiles.push((error, targetpath));
+                println!("Failed to transform {}", targetpath);
                 return;
             }
         };

@@ -57,13 +57,18 @@ impl Wrap {
         }
     }
 
-    pub fn dummy() -> Wrap {
+    pub fn dummy(nc: usize) -> Wrap {
+        let wp = if nc == 0 {
+            (String::from(" "), String::from(""))
+        } else {
+            (String::new(), String::new())
+        };
         Wrap {
             info: info::ParseInfo::new(String::new(), 0, 0, 0, 0, String::new()),
             index: 0,
             cocci_tag: None,
             danger: Danger::NoDanger,
-            wspaces: (String::from(" "), String::from(" ")),
+            wspaces: wp,
             isremoved: false,
             plussed: (vec![], vec![]),
         }
@@ -87,7 +92,7 @@ impl PartialEq for Rnode {
 impl Rnode {
     pub fn headlesschildren(nodes: Vec<Rnode>) -> Rnode {
         let dummyhead = SourceFile::parse("").syntax_node();
-        Rnode { wrapper: Wrap::dummy(), astnode: NodeOrToken::Node(dummyhead), children: nodes }
+        Rnode { wrapper: Wrap::dummy(0), astnode: NodeOrToken::Node(dummyhead), children: nodes }
     }
 
     pub fn kind(&self) -> SyntaxKind {
@@ -155,7 +160,6 @@ impl Rnode {
             _ => false,
         }
     }
-
 
     pub fn istype(&self) -> bool {
         use SyntaxKind::*;
