@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use std::fmt::Debug;
 use std::process::exit;
 

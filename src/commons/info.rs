@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 #[derive(Clone, PartialEq,)]
 pub struct PositionInfo {
     pub line_start: usize,

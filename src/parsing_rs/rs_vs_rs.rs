@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use crate::parsing_cocci::ast0::Snode;
 use itertools::izip;
 

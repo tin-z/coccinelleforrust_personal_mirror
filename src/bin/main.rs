@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use clap::Parser;
 use coccinelleforrust::commons::info::ParseError::{self, *};
 use coccinelleforrust::{
@@ -42,6 +44,18 @@ fn init_logger(args: &CoccinelleForRust) {
         .init();
 }
 
+fn adjustformat(targetpath: &str, node: &Rnode) {
+    fn aux(node1: &mut Rnode, node2: &Snode) {
+        if node1.wrapper.plussed.0.len() != 0 {
+
+        }
+        if node1.wrapper.isremoved  { return; }
+        
+    }
+
+
+}
+
 fn getformattedfile(
     cfr: &CoccinelleForRust,
     transformedcode: &Rnode,
@@ -70,6 +84,8 @@ fn getformattedfile(
             println!("Formatting failed.");
         }
 
+
+
         //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
 
         let diffed = if !cfr.suppress_diff {
@@ -95,11 +111,11 @@ fn getformattedfile(
         return (formatted, diffed);
     }
 
-    transformedcode.writetreetofile(&randrustfile);
-    let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
-    fs::remove_file(randrustfile).expect("Could not reove file");
+    //transformedcode.writetreetofile(&randrustfile);
+    //let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
+    //fs::remove_file(randrustfile).expect("Could not reove file");
 
-    return (transformed, String::new());
+    return (transformedcode.gettokenstream(), String::new());
 }
 
 fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {

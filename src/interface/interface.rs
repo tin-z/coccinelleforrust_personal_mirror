@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -7,7 +9,7 @@ pub struct CoccinelleForRust {
     #[arg(short, long)]
     pub coccifile: String,
 
-    /// Path of Rust Target file path
+    /// Path of Rust Target file/folder path
     #[arg(short, long)]
     pub targetpath: String,
 

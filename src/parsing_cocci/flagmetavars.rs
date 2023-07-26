@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
+
+
 //want to do some tests before removing these
 fn ismetavar(rule: &mut Rule, node: &mut Rnode) -> metatype {
     let varname = node.astnode.to_string();

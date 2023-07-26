@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use core::panic;
 /// Parse a Single .cocci file
 /// Structure supported as of now

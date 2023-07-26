@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use super::ast0::{Snode, Wrap};
 use crate::commons::util::{tuple_of_2, tuple_of_3, worktree};
 use parser::SyntaxKind;

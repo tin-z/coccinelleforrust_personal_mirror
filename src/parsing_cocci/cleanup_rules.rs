@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 // Remove rules that cannot match due to false Dependencies
 // This should happen before free_vars
 // For full Coccinelle, this will be more complex, due to disjunctions

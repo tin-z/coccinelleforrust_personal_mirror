@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 // For each rule return the list of variables that are used after it.
 // Also augment various parts of each rule with unitary, inherited, and freshness
 // information

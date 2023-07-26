@@ -1,4 +1,6 @@
-use itertools::Itertools;
+// SPDX-License-Identifier: GPL-2.0
+
+ use itertools::Itertools;
 use parser::SyntaxKind;
 
 use crate::{

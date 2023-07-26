@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+
 use super::{ast0::Snode, parse_cocci::Rule};
 
 pub fn set_logilines_aux(mut prevline: usize, node: &mut Snode, mut bnos: usize) -> usize {
