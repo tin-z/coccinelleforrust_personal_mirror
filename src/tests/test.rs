@@ -1,3 +1,8 @@
 fn main() -> usize<H> {
-    let a: usize;
+    tempting().    forte().hello();
+
+
+    buhaha(
+        test
+    );
 }

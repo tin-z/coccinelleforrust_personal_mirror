@@ -10,11 +10,13 @@ use super::ast_rs::{Rnode, Wrap};
 
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let sindex: LineCol = lindex.line_col(node.text_range().start());
-
+    let eindex: LineCol = lindex.line_col(node.text_range().end());
+    
     let parse_info = ParseInfo::new(
         String::new(),
         usize::from(node.text_range().start()),
         usize::from(node.text_range().end()),
+        eindex.line as usize,
         sindex.line as usize,
         sindex.col as usize,
         String::new(),

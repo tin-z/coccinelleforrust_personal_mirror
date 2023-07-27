@@ -28,6 +28,17 @@ macro_rules! syntaxerror {
 }
 
 #[macro_export]
+macro_rules! getnext {
+    ($var: expr, $children:expr) => {
+        if let Some(child) = $children.next() {
+            $var = child;
+        } else {
+            break;
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! debugcocci {
     ($fmt:expr, $($arg:expr),*) => {
         if log::log_enabled!(log::Level::Debug) {

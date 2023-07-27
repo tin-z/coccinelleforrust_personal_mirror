@@ -2,12 +2,13 @@
 
 use clap::Parser;
 use coccinelleforrust::commons::info::ParseError::{self, *};
+use coccinelleforrust::parsing_rs::parse_rs::processrs;
 use coccinelleforrust::{
     engine::cocci_vs_rs::MetavarBinding, engine::transformation,
     interface::interface::CoccinelleForRust, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
 use env_logger::{Builder, Env};
-use itertools::Itertools;
+use itertools::{Itertools, izip};
 use rand::Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::DirEntry;
@@ -44,21 +45,35 @@ fn init_logger(args: &CoccinelleForRust) {
         .init();
 }
 
-fn adjustformat(targetpath: &str, node: &Rnode) {
-    fn aux(node1: &mut Rnode, node2: &Snode) {
-        if node1.wrapper.plussed.0.len() != 0 {
 
-        }
-        if node1.wrapper.isremoved  { return; }
-        
+pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -> Option<usize> {
+    
+    if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
+        node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
+
+        line = Some(node1.wrapper.info.sline);
     }
 
+    for (childa, childb) in izip!(&mut node1.children, &node2.children) {
+        line.map(|sline|{
+            if childa.wrapper.info.eline==sline {
+                childa.wrapper.wspaces = childb.wrapper.wspaces.clone();
+            }
+            else {
+                line = None;
+            }
+        });
+
+        line = adjustformat(childa, &childb, line);
+    }
+
+    return line;
 
 }
 
 fn getformattedfile(
     cfr: &CoccinelleForRust,
-    transformedcode: &Rnode,
+    transformedcode: &mut Rnode,
     targetpath: &str,
 ) -> (String, String) {
     let mut rng = rand::thread_rng();
@@ -83,9 +98,11 @@ fn getformattedfile(
         } else {
             println!("Formatting failed.");
         }
-
-
-
+        
+        let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Counld not read")).unwrap();
+        adjustformat(transformedcode, &formattednode, None);
+        
+        transformedcode.writetreetofile(&randrustfile);
         //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
 
         let diffed = if !cfr.suppress_diff {
@@ -130,7 +147,7 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
 
         let transformedcode = transformation::transformfile(patchstring, rustcode);
 
-        let (transformedcode, hasstars) = match transformedcode {
+        let (mut transformedcode, hasstars) = match transformedcode {
             Ok(node) => node,
             Err(_error) => {
                 //failedfiles.push((error, targetpath));
@@ -138,7 +155,7 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
                 return;
             }
         };
-        let (data, diff) = getformattedfile(&args, &transformedcode, &targetpath);
+        let (data, diff) = getformattedfile(&args, &mut transformedcode, &targetpath);
         if !hasstars {
             if !args.suppress_diff {
                 println!("{}", diff);
@@ -199,7 +216,7 @@ fn transformfile(args: &CoccinelleForRust) {
 
     let transformedcode = transformation::transformfile(patchstring, rustcode);
 
-    let (transformedcode, hasstars) = match transformedcode {
+    let (mut transformedcode, hasstars) = match transformedcode {
         Ok(node) => node,
         Err(TARGETERROR(errors, _)) => {
             eprintln!("Error in reading target file.\n{}", errors);
@@ -213,7 +230,7 @@ fn transformfile(args: &CoccinelleForRust) {
             panic!();
         }
     };
-    let (data, diff) = getformattedfile(&args, &transformedcode, &args.targetpath);
+    let (data, diff) = getformattedfile(&args, &mut transformedcode, &args.targetpath);
     if !hasstars {
         if !args.suppress_diff {
             println!("{}", diff);

@@ -35,10 +35,14 @@ fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
         {
             return (*mvar.rnode).clone();
         } else {
-             panic!("Metavariable should already be present in environment.");
+            panic!("Metavariable should already be present in environment.");
         }
     }
-    let mut rnode = Rnode { wrapper: Wrap::dummy(snode.children.len()), astnode: snode.astnode, children: vec![] };
+    let mut rnode = Rnode {
+        wrapper: Wrap::dummy(snode.children.len()),
+        astnode: snode.astnode,
+        children: vec![],
+    };
     for child in snode.children {
         rnode.children.push(copytornodewithenv(child, env));
     }
@@ -109,7 +113,7 @@ pub fn getexpandedbindings(mut bindings: Vec<Vec<MetavarBinding>>) -> Vec<Vec<Me
             }
         }
 
-        exbindings.remove(0);//removes the first vec![]
+        exbindings.remove(0); //removes the first vec![]
     }
     return exbindings;
 }
@@ -188,7 +192,8 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         savedbindings.extend(tmpbindings);
         trimpatchbindings(&mut savedbindings, rule.usedafter);
 
-        let transformedstring = transformedcode.gettokenstream();
+        let transformedstring = transformedcode.getunformatted();
+
         transformedcode = match processrs(&transformedstring) {
             Ok(node) => node,
             Err(errors) => {
@@ -197,7 +202,7 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
                 //some weird syntactically wrong transformation
             }
         };
-        
+
         //TODO this part can be improved. instead of reparsing the whole string
         //we modify rnode.finalizetransformation() such that in addition to doing
         //transformations it also deals with the character positions properly,

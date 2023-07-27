@@ -66,7 +66,7 @@ impl Wrap {
             (String::new(), String::new())
         };
         Wrap {
-            info: info::ParseInfo::new(String::new(), 0, 0, 0, 0, String::new()),
+            info: info::ParseInfo::new(String::new(), 0, 0, 0, 0, 0, String::new()),
             index: 0,
             cocci_tag: None,
             danger: Danger::NoDanger,
@@ -121,7 +121,14 @@ impl Rnode {
 
     pub fn gettokenstream(&self) -> String {
         let mut data = String::new();
-        data.push_str(&format!("{}", self.wrapper.wspaces.0));
+
+        if self.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
+            data.push_str(" ");
+        }
+        else {
+            data.push_str(&format!("{}", self.wrapper.wspaces.0));
+        }
+        
         //pluses before current node
         for plusbef in &self.wrapper.plussed.0 {
             data.push_str(&plusbef.gettokenstream());
@@ -139,6 +146,39 @@ impl Rnode {
         for plusaft in &self.wrapper.plussed.1 {
             //    println!("plusaft - {:?}", self.astnode.to_string());
             data.push_str(&plusaft.gettokenstream());
+        }
+        data.push_str(&format!("{}", self.wrapper.wspaces.1));
+        //println!("returning - {}", data);
+        return data;
+    }
+
+    pub fn getunformatted(&self) -> String {
+        let mut data = String::new();
+        data.push_str(&format!("{}", self.wrapper.wspaces.0));
+        //pluses before current node
+        if self.wrapper.plussed.0.len() != 0 {
+            data.push_str("/*COCCIVAR*/");
+
+            for plusbef in &self.wrapper.plussed.0 {
+                data.push_str(&plusbef.getunformatted());
+                data.push(' ');
+            }
+        }
+        if self.children.len() == 0 && !self.wrapper.isremoved {
+            data.push_str(&format!("{}", self.astnode.to_string()));
+        } else {
+            for i in &self.children {
+                data.push_str(&i.getunformatted());
+            }
+        }
+        //println!("modprogress2 - {}", data);
+        //plusses after current node
+        if self.wrapper.plussed.1.len() != 0 {
+            data.push_str("/*COCCIVAR*/");
+            for plusaft in &self.wrapper.plussed.1 {
+                //    println!("plusaft - {:?}", self.astnode.to_string());
+                data.push_str(&plusaft.getunformatted());
+            }
         }
         data.push_str(&format!("{}", self.wrapper.wspaces.1));
         //println!("returning - {}", data);

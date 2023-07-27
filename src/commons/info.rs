@@ -36,25 +36,27 @@ pub struct ParseInfo {
     pub charstart: usize,
     pub charend: usize,
 
-    line: usize,
+    pub sline: usize,
+    pub eline: usize,
     column: usize,
     file: String
   }
 
 impl ParseInfo {
-    pub fn new(str: String, charstart: usize, charend: usize, line: usize, col: usize, file: String) -> ParseInfo {
+    pub fn new(str: String, charstart: usize, charend: usize, sline: usize, eline: usize, col: usize, file: String) -> ParseInfo {
         ParseInfo {
             str: str,
             charstart: charstart,
             charend: charend,
-            line: line,
+            sline: sline,
+            eline: eline,
             column: col,
             file: file
         }
     }
 
     pub fn getempty() -> ParseInfo{
-        ParseInfo { str: String::new(), charstart: 0, charend: 0, line: 0, column: 0, file: String::new() }
+        ParseInfo { str: String::new(), charstart: 0, charend: 0, sline: 0, eline: 0, column: 0, file: String::new() }
     }
 }
 
