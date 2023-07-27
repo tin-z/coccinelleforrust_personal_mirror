@@ -386,11 +386,18 @@ fn getdependson(rules: &Vec<Rule>, rule: &str, lino: usize) -> Dep {
 /// Deals with the first line of a rule definition
 fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep, bool) {
     let decl = decl.join("\n");
+    let mut hastype: bool = false;
     let mut tokens = decl.trim().split([' ', '\n']);
     let currrulename = {
         if let Some(currrulename) = tokens.next() {
-            Name::from(currrulename) //converted &str to Name,
-                                     //because rule should own its name
+            if currrulename == "type" {
+                hastype = true;
+                Name::from("")
+            }
+            else {
+                Name::from(currrulename) //converted &str to Name,
+                //because rule should own its name
+            }
         } else {
             format!("rule{lino}")
         } //if currrulename does not exist
@@ -401,7 +408,7 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep, b
     let fword = tokens.next();
     let fiword = tokens.next();
 
-    let (depends, hastype) = match (sword, tword, fword, fiword) {
+    let (depends, istype) = match (sword, tword, fword, fiword) {
         (Some("depends"), Some("on"), Some(rule), hastype) => {
             let booleanexp: Name = rule.to_string();
             let hastype: bool = hastype.is_some_and(|x| x == "type");
@@ -411,7 +418,7 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep, b
         _ => syntaxerror!(lino, "Bad Syntax"),
     };
 
-    (currrulename, depends, hastype)
+    (currrulename, depends, hastype || istype)
 }
 
 /// Turns values from handlemods into a patch object

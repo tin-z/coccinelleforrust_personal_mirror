@@ -6,7 +6,7 @@ identifier i;
 +i<'tcx>
 
 
-@rule2 type@
+@type@
 identifier i;
 @@
 -i<'tcx, 'tcx>
