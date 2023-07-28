@@ -36,7 +36,7 @@ use crate::parsing_cocci::ast0::Snode;
 use crate::parsing_cocci::ast0::MetaVar;
 use crate::commons::util::worktree_pure;
 use crate::{syntaxerror,commons};
-use parser::SyntaxKind;
+use ra_parser::SyntaxKind;
 
 type Tag = SyntaxKind;
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 
-use ide_db::line_index::{LineCol, LineIndex};
-use parser::SyntaxKind;
-use syntax::{SourceFile, SyntaxElement};
+use ra_ide_db::line_index::{LineCol, LineIndex};
+use ra_parser::SyntaxKind;
+use ra_syntax::{SourceFile, SyntaxElement};
 
 use crate::{commons::info::ParseInfo, parsing_rs::visitor_ast::work_node};
 

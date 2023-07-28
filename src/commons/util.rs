@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
  use itertools::Itertools;
-use parser::SyntaxKind;
+use ra_parser::SyntaxKind;
 
 use crate::{
     engine::cocci_vs_rs::Environment, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,

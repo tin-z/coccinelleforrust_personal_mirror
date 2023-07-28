@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use std::vec;
-use parser::SyntaxKind;
-use syntax;
-use syntax::SyntaxElement;
+use ra_parser::SyntaxKind;
+use ra_syntax::SyntaxElement;
 
 use super::ast_rs::Rnode;
 

@@ -2,8 +2,8 @@
 
 use super::ast0::{Snode, Wrap};
 use crate::commons::util::{tuple_of_2, tuple_of_3, worktree};
-use parser::SyntaxKind;
-use syntax::SyntaxElement;
+use ra_parser::SyntaxKind;
+use ra_syntax::SyntaxElement;
 
 type Tag = SyntaxKind;
 

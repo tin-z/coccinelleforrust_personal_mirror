@@ -19,7 +19,7 @@ use crate::{
     commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
     debugcocci, syntaxerror,
 };
-use parser::SyntaxKind;
+use ra_parser::SyntaxKind;
 
 type Tag = SyntaxKind;
 type Name = String;

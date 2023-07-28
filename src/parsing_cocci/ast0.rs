@@ -4,10 +4,10 @@ use std::fmt::Debug;
 use std::process::exit;
 
 use super::visitor_ast0::work_node;
-use ide_db::line_index::{LineCol, LineIndex};
-use parser::SyntaxKind;
-use syntax::ast::Type;
-use syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
+use ra_ide_db::line_index::{LineCol, LineIndex};
+use ra_parser::SyntaxKind;
+use ra_syntax::ast::Type;
+use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
 
 #[derive(PartialEq, Clone)]
 /// Semantic Path Node

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 
-use ide_db::line_index::LineIndex;
-use parser::SyntaxKind;
+use ra_ide_db::line_index::LineIndex;
+use ra_parser::SyntaxKind;
 use std::vec;
-use syntax;
-use syntax::SyntaxElement;
+use ra_syntax::SyntaxElement;
 
 use super::ast0::Snode;
 

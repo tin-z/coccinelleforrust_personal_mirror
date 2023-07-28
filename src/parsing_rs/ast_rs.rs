@@ -4,8 +4,8 @@ use std::fmt::Debug;
 use std::fs;
 
 use itertools::izip;
-use parser::SyntaxKind;
-use syntax::{NodeOrToken, SourceFile, SyntaxElement};
+use ra_parser::SyntaxKind;
+use ra_syntax::{NodeOrToken, SourceFile, SyntaxElement};
 use SyntaxKind::*;
 
 use crate::commons::info;

@@ -4,7 +4,7 @@
 // Also augment various parts of each rule with unitary, inherited, and freshness
 // information
 #![allow(dead_code)]
-use parser::SyntaxKind;
+use ra_parser::SyntaxKind;
 use std::collections::HashSet;
 use std::vec;
 
