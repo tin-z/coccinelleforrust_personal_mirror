@@ -2,8 +2,10 @@
 
 use std::fmt::Debug;
 use std::fs;
+use std::hash::{Hash, Hasher};
 
 use itertools::izip;
+use ra_hir::Type;
 use ra_parser::SyntaxKind;
 use ra_syntax::SyntaxElement;
 use SyntaxKind::*;
@@ -30,7 +32,7 @@ pub enum Danger {
     NoDanger,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Eq, PartialEq, Clone)]
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
@@ -39,6 +41,18 @@ pub struct Wrap {
     pub wspaces: (String, String),
     pub isremoved: bool,
     pub plussed: (Vec<Rnode>, Vec<Rnode>),
+    pub ty: Option<Type>,
+}
+
+impl Hash for Wrap {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.info.hash(state);
+        self.index.hash(state);
+        self.cocci_tag.hash(state);
+        self.danger.hash(state);
+        self.wspaces.hash(state);
+        self.plussed.hash(state)
+    }
 }
 
 impl Wrap {
@@ -56,6 +70,7 @@ impl Wrap {
             wspaces: (String::new(), String::new()),
             isremoved: false,
             plussed: (vec![], vec![]),
+            ty: None,
         }
     }
 
@@ -73,6 +88,7 @@ impl Wrap {
             wspaces: wp,
             isremoved: false,
             plussed: (vec![], vec![]),
+            ty: None,
         }
     }
 }

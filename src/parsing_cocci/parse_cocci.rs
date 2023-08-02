@@ -17,14 +17,16 @@ use std::{collections::HashSet, vec};
 use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, MODKIND};
 use crate::{
     commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
-    debugcocci, syntaxerror,
+    debugcocci,
+    parsing_cocci::ast0::MetavarType,
+    syntaxerror,
 };
 use ra_parser::SyntaxKind;
 
 type Tag = SyntaxKind;
 type Name = String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Dep {
     NoDep,
     FailDep,
@@ -48,7 +50,7 @@ fn makemetavar(
     rules: &Vec<Rule>,
     rulename: &Name,
     varname: &Name,
-    metatype: &str,
+    metatype: &MetavarType,
     lino: usize,
 ) -> MetaVar {
     let split = varname.split(".").collect::<Vec<&str>>();
@@ -83,6 +85,7 @@ fn makemetavar(
     }
 }
 
+#[derive(Clone)]
 pub struct Patch {
     pub minus: Snode,
     pub plus: Snode,
@@ -284,7 +287,11 @@ impl Patch {
     pub fn getunusedmetavars(&self, mut bindings: Vec<MetaVar>) -> Vec<MetaVar> {
         let mut f = |x: &Snode| match &x.wrapper.metavar {
             MetaVar::NoMeta => {}
-            MetaVar::Exp(info) | MetaVar::Id(info) | MetaVar::Type(info) => {
+            MetaVar::Exp(info)
+            | MetaVar::Id(info)
+            | MetaVar::Type(info)
+            | MetaVar::Struct(_, info)
+            | MetaVar::Enum(_, info) => {
                 if let Some(index) =
                     bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but
@@ -304,6 +311,7 @@ impl Patch {
     }
 }
 
+#[derive(Clone)]
 pub struct Rule {
     pub name: Name,
     pub dependson: Dep,
@@ -312,7 +320,7 @@ pub struct Rule {
     pub patch: Patch,
     pub freevars: Vec<MetaVar>,
     pub usedafter: HashSet<MetavarName>,
-    pub hastype: bool,
+    pub hastype: bool
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -450,7 +458,7 @@ fn buildrule(
     pbufmod: &String,
     mbufmod: &String,
     lastruleline: usize,
-    hastype: bool,
+    istype: bool,
 ) -> Rule {
     //end of the previous rule
     let mut plusbuf = String::new();
@@ -461,7 +469,7 @@ fn buildrule(
     plusbuf.push_str(&"\n".repeat(blanks));
     minusbuf.push_str(&"\n".repeat(blanks));
 
-    if hastype {
+    if istype {
         let pbufmod = if pbufmod.trim() != "" {
             format!("let COCCIVAR: \n{}\n;", pbufmod)
         } else {
@@ -484,7 +492,7 @@ fn buildrule(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars, hastype);
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars, istype);
     let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 
     for metavar in &unusedmetavars {
@@ -511,7 +519,7 @@ fn buildrule(
         patch: currpatch,
         freevars: freevars,
         usedafter: HashSet::new(),
-        hastype: hastype,
+        hastype: istype,
     };
     rule
 }
@@ -594,10 +602,11 @@ pub fn handle_metavar_decl(
     block: &Vec<&str>,
     rulename: &Name,
     lino: usize,
-) -> (Vec<MetaVar>, usize) {
+) -> (Vec<MetaVar>, usize, bool) {
     let mut offset: usize = 0;
     let mut blanks: usize = 0;
     let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encounteres as of now
+    let mut hastypes = false;
 
     for line in block {
         offset += 1;
@@ -607,19 +616,30 @@ pub fn handle_metavar_decl(
         }
         let mut tokens = line.split(&[',', ' ', ';'][..]);
         let ty = tokens.next().unwrap().trim();
+        let ty: MetavarType = match ty {
+            "struct" | "enum" => {
+                let tyname = tokens
+                    .next()
+                    .unwrap_or_else(|| syntaxerror!(offset + lino, "Incomplete Typename"));
+                hastypes = true;
+                MetavarType::build(ty, Some(tyname))
+            }
+            _ => MetavarType::build(ty, None),
+        };
+
         for var in tokens {
             let var = var.trim().to_string();
             if var != "" {
                 if !metavars.iter().any(|x| x.getname() == var) {
-                    metavars.push(makemetavar(rules, rulename, &var, ty, lino));
+                    metavars.push(makemetavar(rules, rulename, &var, &ty, lino));
                 } else {
-                    syntaxerror!(offset + lino, format!("Redefining {} metavariable {}", ty, var));
+                    syntaxerror!(offset + lino, format!("Redefining {:?} metavariable {}", ty, var));
                 }
             }
         }
         blanks += 1;
     }
-    (metavars, blanks)
+    (metavars, blanks, hastypes)
 }
 
 fn handleprepatch(contents: &str) {
@@ -641,7 +661,7 @@ fn setusedafter(rules: &mut Vec<Rule>) {
     }
 }
 
-pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
+pub fn processcocci(contents: &str) -> (Vec<Rule>, bool, bool) {
     debugcocci!("{}", "Started Parsing");
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
@@ -650,7 +670,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
     let mut rules: Vec<Rule> = vec![];
     //check for empty
     if blocks.len() == 0 {
-        return (vec![], false);
+        return (vec![], false, false);
     }
     //handleprepatch(blocks.swap_remove(0)); //throwing away the first part before the first @
     handleprepatch(blocks.remove(0));
@@ -660,6 +680,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
     let mut lastruleline = 0;
     let mut hasstars = false; //this does not ensure that all rules have only * or none
                               //TODO enforce that
+    let mut hastypes = false;
     for i in 0..nrules {
         debugcocci!("Processing rule {}", i);
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
@@ -668,10 +689,11 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
         let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //mods
 
         //getting rule info
-        let (currrulename, currdepends, hastype) = handlerules(&rules, block1, lino);
+        let (currrulename, currdepends, istype) = handlerules(&rules, block1, lino);
         debugcocci!("Rulename: {} Depends on: {:?}", currrulename, currdepends);
         lino += 1;
-        let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
+        let (metavars, blanks, hastype) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
+        hastypes = hastypes || hastype;
         //metavars
         lino += block2.len();
 
@@ -698,13 +720,13 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
             &pbufmod,
             &mbufmod,
             lastruleline,
-            hastype,
+            istype,
         );
         rules.push(rule);
 
         lastruleline = lino;
     }
     setusedafter(&mut rules);
-    (rules, hasstars)
+    (rules, hastypes, hasstars)//FIXME
     //flag_logilines(0, &mut root);
 }

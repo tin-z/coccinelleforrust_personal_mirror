@@ -15,7 +15,7 @@ use crate::{
     engine::cocci_vs_rs::MetavarBinding,
     parsing_cocci::{
         ast0::{MetaVar, MetavarName, Snode},
-        parse_cocci::processcocci,
+        parse_cocci::Rule,
     },
     parsing_rs::{
         ast_rs::{Rnode, Wrap},
@@ -27,6 +27,10 @@ use super::{
     cocci_vs_rs::{Environment, Looper},
     disjunctions::{getdisjunctions, Disjunction},
 };
+
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
+    vec![]
+}
 
 fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
@@ -91,7 +95,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
 
 fn trimpatchbindings(
     patchbindings: &mut Vec<Vec<MetavarBinding>>,
-    usedafter: HashSet<MetavarName>,
+    usedafter: &HashSet<MetavarName>,
 ) {
     for bindings in patchbindings.iter_mut() {
         //this only retains elements which are used later, but this may form duplicares
@@ -137,26 +141,14 @@ pub fn getfiltered(
     return toret;
 }
 
-pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bool), ParseError> {
-    fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
-        vec![]
-    }
+pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseError>{
 
-    let (rules, hasstars) = processcocci(&patchstring);
-
-    let parsedrnode = processrs(&rustcode);
-    let mut transformedcode = match parsedrnode {
-        Ok(node) => node,
-        Err(errors) => {
-            return Err(ParseError::TARGETERROR(errors, rustcode));
-        }
-    };
-    //If this passes then The rnode has been parsed successfully
+    let mut transformedcode = rnode;
 
     let mut savedbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
-    for mut rule in rules {
+    for rule in rules {
         let a: Disjunction =
-            getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
+            getdisjunctions(Disjunction(vec![getstmtlist(&rule.patch.minus).clone().children]));
         let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
@@ -191,7 +183,7 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         }
         //patchbindings.extend(tmpbindings);
         savedbindings.extend(tmpbindings);
-        trimpatchbindings(&mut savedbindings, rule.usedafter);
+        trimpatchbindings(&mut savedbindings, &rule.usedafter);
 
         let transformedstring = transformedcode.getunformatted();
 
@@ -210,5 +202,19 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         //updating them in the new code for the minuses to work
         //removes unneeded and duplicate bindings
     }
-    return Ok((transformedcode, hasstars));
+    return Ok(transformedcode);
+}
+
+pub fn transformfile(rules: &Vec<Rule>, rustcode: String) -> Result<Rnode, ParseError> {
+
+    let parsedrnode = processrs(&rustcode);
+    let transformedcode: Rnode = match parsedrnode {
+        Ok(node) => node,
+        Err(errors) => {
+            return Err(ParseError::TARGETERROR(errors, rustcode));
+        }
+    };
+    //If this passes then The rnode has been parsed successfully
+
+    return transformrnode(rules, transformedcode);
 }

@@ -16,8 +16,8 @@ impl<'a> TransformTest<'a> {
         let rustcode = fs::read_to_string(format!("{}{}", &self.prefix, rsfile))
             .expect("This shouldnt be empty.");
 
-        let (rules, _) = processcocci(&patchstring);
-        let transformedcode = transformation::transformfile(&rules, rustcode, &None).ok().unwrap();
+        let (rules, _, _) = processcocci(&patchstring);
+        let transformedcode = transformation::transformfile(&rules, rustcode).ok().unwrap();
         let rnode = processrs(&transformedcode.gettokenstream()).unwrap();
         return rnode;
     }

@@ -320,26 +320,32 @@ pub enum MetaVar {
     Exp(Minfo),
     Id(Minfo),
     Type(Minfo),
+    Struct(String, Minfo), //typename, minfo
+    Enum(String, Minfo),   //typename, minfo
 }
 
 impl MetaVar {
     pub fn getname(&self) -> &str {
         match self {
-            MetaVar::NoMeta => {
+            Self::NoMeta => {
                 panic!("Should never happen");
             }
-            MetaVar::Id(minfo) => minfo.0.varname.as_str(),
-            MetaVar::Exp(minfo) => minfo.0.varname.as_str(),
-            MetaVar::Type(minfo) => minfo.0.varname.as_str(),
+            Self::Id(minfo) => minfo.0.varname.as_str(),
+            Self::Exp(minfo) => minfo.0.varname.as_str(),
+            Self::Type(minfo) => minfo.0.varname.as_str(),
+            Self::Struct(_, minfo) => minfo.0.varname.as_str(),
+            Self::Enum(_, minfo) => minfo.0.varname.as_str(),
         }
     }
 
     pub fn gettype(&self) -> &str {
         match self {
-            MetaVar::NoMeta => "None",
-            MetaVar::Id(_minfo) => "identifier",
-            MetaVar::Exp(_minfo) => "expression",
-            MetaVar::Type(_minfo) => "type",
+            Self::NoMeta => "None",
+            Self::Id(_minfo) => "identifier",
+            Self::Exp(_minfo) => "expression",
+            Self::Type(_minfo) => "type",
+            Self::Struct(_, _minfo) => "struct",
+            Self::Enum(_, _minfo) => "enum",
         }
     }
 
@@ -357,6 +363,12 @@ impl MetaVar {
             Self::Type(minfo) => {
                 minfo.1 = binding;
             }
+            Self::Struct(_, minfo) => {
+                minfo.1 = binding;
+            }
+            Self::Enum(_, minfo) => {
+                minfo.1 = binding;
+            }
         }
     }
 
@@ -367,7 +379,9 @@ impl MetaVar {
             }
             Self::Exp(minfo) => &minfo,
             Self::Id(minfo) => &minfo,
-            MetaVar::Type(minfo) => &minfo,
+            Self::Type(minfo) => &minfo,
+            Self::Struct(_, minfo) => &minfo,
+            Self::Enum(_, minfo) => &minfo,
         }
     }
 
@@ -379,19 +393,23 @@ impl MetaVar {
             Self::Exp(minfo) => &minfo.0.rulename.as_str(),
             Self::Id(minfo) => &minfo.0.rulename.as_str(),
             Self::Type(minfo) => &minfo.0.rulename.as_str(),
+            Self::Struct(_, minfo) => &minfo.0.rulename.as_str(),
+            Self::Enum(_, minfo) => &minfo.0.rulename.as_str(),
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &str) -> Option<MetaVar> {
+    pub fn new(rulename: &str, name: &str, ty: &MetavarType) -> Option<MetaVar> {
+        use MetavarType::*;
         let minfo = (
             MetavarName { rulename: rulename.to_string(), varname: name.to_string() },
             KeepBinding::UNITARY,
         );
         match ty {
-            "expression" => Some(MetaVar::Exp(minfo)),
-            "identifier" => Some(MetaVar::Id(minfo)),
-            "type" => Some(MetaVar::Type(minfo)),
-            _ => None,
+            Expression => Some(Self::Exp(minfo)),
+            Identifier => Some(Self::Id(minfo)),
+            Type => Some(Self::Type(minfo)),
+            Struct(tyname) => Some(Self::Struct(tyname.clone(), minfo)),
+            Enum(tyname) => Some(Self::Enum(tyname.clone(), minfo)),
         }
     }
 
@@ -406,6 +424,37 @@ impl MetaVar {
 impl PartialEq for MetaVar {
     fn eq(&self, other: &Self) -> bool {
         self.getname() == other.getname() && self.getrulename() == other.getrulename()
+    }
+}
+
+#[derive(Debug)]
+pub enum MetavarType {
+    Expression,
+    Identifier,
+    Type,
+    Struct(String),
+    Enum(String),
+}
+
+impl MetavarType {
+    pub fn build(ty: &str, tyname: Option<&str>) -> MetavarType {
+        match tyname {
+            None => match ty {
+                "expression" => MetavarType::Expression,
+                "identifier" => MetavarType::Identifier,
+                "type" => MetavarType::Type,
+                _ => {
+                    panic!("Unexpected Type")
+                }
+            },
+            Some(tyname) => match ty {
+                "struct" => MetavarType::Struct(tyname.to_string()),
+                "enum" => MetavarType::Enum(tyname.to_string()),
+                _ => {
+                    panic!("Unexpected type.")
+                }
+            },
+        }
     }
 }
 

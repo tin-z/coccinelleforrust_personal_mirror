@@ -1,5 +1,4 @@
  // SPDX-License-Identifier: GPL-2.0
-
 use std::rc::Rc;
 use std::vec;
 
@@ -271,7 +270,18 @@ impl<'a, 'b> Looper<'a> {
                             }
                             return MetavarMatch::Maybe(node1, node2);
                         }
-
+                        MetaVar::Struct(_tyname, _info) => {
+                            if let Some(_ty) = &node2.wrapper.ty {
+                                //if ty.dis
+                            }
+                            else {
+                                panic!("Types should be resolved prior to matching.");
+                            }
+                            MetavarMatch::Fail
+                        }
+                        MetaVar::Enum(_tyname, _info) => {
+                            MetavarMatch::Fail
+                        }
                         MetaVar::NoMeta => {
                             panic!("Should never occur");
                             //since no meta has been taken care of in the previous match

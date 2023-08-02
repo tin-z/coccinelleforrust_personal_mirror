@@ -5,3 +5,7 @@
 - put proper error reporting for failure of hastype
 - ALLminus
 - See profiling tools
+- Make sure to understand what rowan does internally
+with children_with_tokens
+* I am expanding disjunctions in transformation. dothat while
+parsing the cocci file
