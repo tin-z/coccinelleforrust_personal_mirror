@@ -437,7 +437,7 @@ fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
 fn find_constants<'a>(rule: &'a Rule, env: HashMap<&str, &Combine<'a>>) -> Combine<'a> {
     let mut res = True;
     let mut work = |node: &'a Snode| {
-        if node.astnode.kind() == Tag::PATH_EXPR {
+        if node.kind() == Tag::PATH_EXPR {
             if node.wrapper.metavar == MetaVar::NoMeta {
                 if let Some(comb) = env.get(&*(rule.name)) { // want str for name
                     res = build_and(comb,&res);
@@ -447,7 +447,7 @@ fn find_constants<'a>(rule: &'a Rule, env: HashMap<&str, &Combine<'a>>) -> Combi
                 }
             }
             else {
-	        res = build_and(&res,&Elem(node.astnode.as_token().unwrap().text()));
+	        res = build_and(&res,&Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text()));
             }
         }
     };

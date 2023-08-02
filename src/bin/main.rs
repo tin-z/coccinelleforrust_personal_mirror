@@ -30,11 +30,12 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
 
 fn init_logger(args: &CoccinelleForRust) {
     let mut options = String::new();
-    if args.debug_cocci {
+    if args.debug {
         options.push_str(
             "
             coccinelleforrust::parsing_cocci,
-            coccinelleforrust::commons
+            coccinelleforrust::commons,
+            coccinelleforrust::engine
         ",
         );
     }

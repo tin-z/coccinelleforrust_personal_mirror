@@ -262,8 +262,8 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
         if plus.len() != 0 {
             debugcocci!(
                 "Plus Statements:- {:#?} attached to front of {}:{:?}",
-                plus.iter().map(|x| x.astnode.to_string()).collect_vec(),
-                node.astnode.to_string(),
+                plus.iter().map(|x| x.getstring()).collect_vec(),
+                node.getstring(),
                 node.kind()
             );
         }
@@ -279,8 +279,8 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
         if plus.len() != 0 {
             debugcocci!(
                 "Plus Statements:- {:#?} attached to back of {}:{:?}",
-                plus.iter().map(|x| x.astnode.to_string()).collect_vec(),
-                node.astnode.to_string(),
+                plus.iter().map(|x| x.getstring()).collect_vec(),
+                node.getstring(),
                 node.kind()
             );
         }

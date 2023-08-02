@@ -31,7 +31,7 @@ fn checkbindings(bindings1: Vec<Vec<MetavarBinding>>, bindings2: Vec<(&str, &str
         for binding2 in bindings2.clone() {
             for binding1 in bindingvec1.clone() {
                 if binding2.0 == binding1.metavarinfo.varname {
-                    if binding2.1 != binding1.rnode.astnode.to_string() {
+                    if binding2.1 != binding1.rnode.gettokenstream().trim() {
                         continue 'outer;
                     }
                 }

@@ -93,7 +93,7 @@ impl Patch {
         fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
             let mut work = |node: &mut Snode| {
                 if node.isexpr() || node.istype() || node.isid() {
-                    let stmp = node.astnode.to_string();
+                    let stmp = node.getstring(); //FIX ME should not convert to string before checking
                     if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                         //println!("MetaVar found - {:?}", mvar);
                         node.wrapper.metavar = mvar.clone();
@@ -120,7 +120,7 @@ impl Patch {
                         if node.children.len() == 0 {
                             debugcocci!(
                                 "Setting {}:{:?} to modifier:- {:?}",
-                                node.astnode.to_string(),
+                                node.getstring(),
                                 node.kind(),
                                 modkind
                             );
@@ -140,7 +140,7 @@ impl Patch {
                         if node.children.len() == 0 && modkind.is_some() {
                             debugcocci!(
                                 "Setting {}:{:?} to modifier:- {:?}",
-                                node.astnode.to_string(),
+                                node.getstring(),
                                 node.kind(),
                                 modkind.unwrap()
                             );
@@ -342,7 +342,7 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
             }
         }
         Tag::PATH_EXPR => {
-            let name = dep.astnode.to_string();
+            let name = dep.getstring();
             if rules.iter().any(|x| x.name == name) {
                 //IndexMap trait
                 Dep::Dep(name)
@@ -354,7 +354,7 @@ fn getdep(rules: &Vec<Rule>, lino: usize, dep: &mut Snode) -> Dep {
             let expr = &mut dep.children[1];
             getdep(rules, lino, expr)
         }
-        _ => syntaxerror!(lino, "malformed Rule", dep.astnode.to_string()),
+        _ => syntaxerror!(lino, "malformed Rule", dep.getstring()),
     }
 }
 
@@ -393,10 +393,9 @@ fn handlerules(rules: &Vec<Rule>, decl: Vec<&str>, lino: usize) -> (Name, Dep, b
             if currrulename == "type" {
                 hastype = true;
                 Name::from("")
-            }
-            else {
+            } else {
                 Name::from(currrulename) //converted &str to Name,
-                //because rule should own its name
+                                         //because rule should own its name
             }
         } else {
             format!("rule{lino}")

@@ -23,7 +23,7 @@ fn is_relational(node: &SyntaxElement) -> bool {
 
 fn process_exp(exp: &mut Snode) {
     exp.wrapper.set_test_exps();
-    match exp.astnode.kind() {
+    match exp.kind() {
         Tag::PAREN_EXPR => {
             let [_lp, exp, _rp] = tuple_of_3(&mut exp.children);
             process_exp(exp);
@@ -33,7 +33,7 @@ fn process_exp(exp: &mut Snode) {
 }
 
 fn set_test_exps_aux(node: &mut Snode) {
-    match node.astnode.kind() {
+    match node.kind() {
         Tag::IF_EXPR => {
             let [_if, cond] = tuple_of_2(&mut node.children);
             process_exp(cond);

@@ -9,7 +9,7 @@ use crate::{
     fail,
     parsing_cocci::ast0::Snode,
     parsing_cocci::ast0::{MetaVar, MetavarName, MODKIND},
-    parsing_rs::ast_rs::Rnode,
+    parsing_rs::ast_rs::Rnode, debugcocci,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -182,6 +182,7 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
+                    debugcocci!("Binding {} to {}.{}", b.gettokenstream(), minfo.0.rulename.to_string(), minfo.0.varname.to_string());
                     let binding = MetavarBinding::new(
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string(),
@@ -229,7 +230,7 @@ impl<'a, 'b> Looper<'a> {
                 {
                     //println!("{:?}========{}", node2.kind(), node2.astnode.to_string());
 
-                    if node1.astnode.to_string() != node2.astnode.to_string() {
+                    if node1.totoken() != node2.totoken() {
                         //basically checks for tokens
                         return MetavarMatch::Fail;
                     } else {

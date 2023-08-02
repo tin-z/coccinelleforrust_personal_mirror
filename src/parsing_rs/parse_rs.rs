@@ -49,9 +49,12 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
         let mut wrapped = fill_wrap(&lindex, &node);
         wrapped.wspaces.0 = estring;
         let children = df(&node);
+        let kind = node.kind();
+        let node = if children.len()==0 { Some(node) } else { None };
         let rnode = Rnode {
             wrapper: wrapped,
-            astnode: node, //Change this to SyntaxElement
+            asttoken: node, //Change this to SyntaxElement
+            kind: kind,
             children: children,
         };
         if rnode.kind() == SyntaxKind::EXPR_STMT && rnode.children.len() == 1 {

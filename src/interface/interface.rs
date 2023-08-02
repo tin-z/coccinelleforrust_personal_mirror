@@ -26,7 +26,7 @@ pub struct CoccinelleForRust {
     pub ignore: String,
 
     #[arg(short, long)]
-    pub debug_cocci: bool,
+    pub debug: bool,
 
     #[arg(long)]
     pub apply: bool,

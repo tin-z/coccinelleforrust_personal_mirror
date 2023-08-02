@@ -7,13 +7,14 @@ use super::visitor_ast0::work_node;
 use ra_ide_db::line_index::{LineCol, LineIndex};
 use ra_parser::SyntaxKind;
 use ra_syntax::ast::Type;
-use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxToken};
+use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode};
 
 #[derive(PartialEq, Clone)]
 /// Semantic Path Node
 pub struct Snode {
     pub wrapper: Wrap,
-    pub astnode: SyntaxElement,
+    pub asttoken: Option<SyntaxElement>,
+    kind: SyntaxKind,
     pub children: Vec<Snode>,
 }
 
@@ -21,48 +22,64 @@ pub type Pluses = (Vec<Snode>, Vec<Snode>);
 
 impl Debug for Snode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Snode")
-            .field("astnode", &self.astnode.to_string())
-            .field("children", &self.children)
-            .finish()
+        if self.children.len() == 0 {
+            f.debug_struct("Snode")
+                .field("asttoken", &self.asttoken.as_ref().unwrap().to_string())
+                .finish()
+        } else {
+            f.debug_struct("Snode")
+                .field("kind", &self.kind())
+                .field("children", &self.children)
+                .finish()
+        }
     }
 }
 
 impl<'a> Snode {
-    pub fn new_root(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Snode>) -> Snode {
-        Snode { wrapper: wrapper, astnode: syntax, children: children }
-    }
+    //pub fn new_rloot(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Snode>) -> Snode {
+    //    Snode { wrapper: wrapper, astnode: Some(syntax), kind: , children: children }
+    //}
 
     pub fn set_children(&mut self, children: Vec<Snode>) {
         self.children = children
     }
 
     pub fn tonode(self) -> SyntaxNode {
-        self.astnode.into_node().unwrap()
+        self.asttoken.unwrap().into_node().unwrap()
     }
 
-    pub fn toktoken(self) -> SyntaxToken {
-        self.astnode.into_token().unwrap()
+    pub fn totoken(&self) -> String {
+        //panics is element is node
+        self.asttoken.as_ref().unwrap().to_string()
     }
 
     pub fn kind(&self) -> SyntaxKind {
-        self.astnode.kind()
+        self.kind
     }
 
-    pub fn gettokenstream(&self) -> String {
+    pub fn getstring(&self) -> String {
         if self.children.len() == 0 {
-            return String::from(self.astnode.to_string());
+            if self.asttoken.is_none() {
+                return String::new();
+            }
+            return self.totoken();
         } else {
             let mut tokens: String = String::new();
             for i in &self.children {
-                tokens = format!("{} {}", tokens, i.gettokenstream());
+                tokens = format!("{} {}", tokens, i.getstring());
             }
             return String::from(tokens.trim());
         }
     }
 
     fn print_tree_aux(&self, pref: &String) {
-        println!("{}{:?}, {:?}: {:?}", pref, self.kind(), self.wrapper.modkind, self.wrapper.metavar);
+        println!(
+            "{}{:?}, {:?}: {:?}",
+            pref,
+            self.kind(),
+            self.wrapper.modkind,
+            self.wrapper.metavar
+        );
         let mut newbuf = String::from(pref);
         newbuf.push_str(&String::from("--"));
         for child in &self.children {
@@ -77,7 +94,7 @@ impl<'a> Snode {
 
     pub fn istype(&self) -> bool {
         use SyntaxKind::*;
-        
+
         match self.kind() {
             ARRAY_TYPE | DYN_TRAIT_TYPE | FN_PTR_TYPE | FOR_TYPE | IMPL_TRAIT_TYPE | INFER_TYPE
             | MACRO_TYPE | NEVER_TYPE | PAREN_TYPE | PATH_TYPE | PTR_TYPE | REF_TYPE
@@ -180,7 +197,7 @@ pub struct Dummy {}
 pub enum MODKIND {
     PLUS,
     MINUS,
-    STAR
+    STAR,
 }
 
 #[derive(Clone, PartialEq)]
@@ -513,7 +530,7 @@ pub fn parsedisjs<'a>(node: &mut Snode) {
         //println!("does it come here");
         //let ifexpr: IfExpr = IfExpr::cast(node.astnode.into_node().unwrap()).unwrap();//Just checked above
         let cond = &node.children[1]; //this gets the node for condition
-        if cond.kind() == SyntaxKind::PATH_EXPR && cond.astnode.to_string() == "COCCIVAR" {
+        if cond.kind() == SyntaxKind::PATH_EXPR && cond.getstring() == "COCCIVAR" {
             let block = &mut node.children[2].children[0].children;
             //println!("{:?}", block[0].kind());
             block.remove(0);
@@ -548,10 +565,13 @@ pub fn wrap_root(contents: &str) -> Snode {
      -> Snode {
         let mut wrapped = fill_wrap(&lindex, &node);
         wrapped.setmodkind(modkind.unwrap_or(String::new()));
+        let kind = node.kind();
         let children = df(&node);
+        let node = if children.len() == 0 { Some(node) } else { None };
         let mut snode = Snode {
             wrapper: wrapped,
-            astnode: node, //Change this to SyntaxElement
+            asttoken: node, //Change this to SyntaxElement
+            kind: kind,
             children: children,
         };
         parsedisjs(&mut snode);

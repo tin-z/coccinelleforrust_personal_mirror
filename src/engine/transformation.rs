@@ -31,7 +31,7 @@ use super::{
 fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
         if let Some(mvar) =
-            env.bindings.iter().find(|x| x.metavarinfo.varname == snode.astnode.to_string())
+            env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
         {
             return (*mvar.rnode).clone();
         } else {
@@ -40,7 +40,8 @@ fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     }
     let mut rnode = Rnode {
         wrapper: Wrap::dummy(snode.children.len()),
-        astnode: snode.astnode,
+        kind: snode.kind(),
+        asttoken: snode.asttoken,
         children: vec![],
     };
     for child in snode.children {

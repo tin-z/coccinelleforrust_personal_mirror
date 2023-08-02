@@ -5,7 +5,7 @@ use std::fs;
 
 use itertools::izip;
 use ra_parser::SyntaxKind;
-use ra_syntax::{NodeOrToken, SourceFile, SyntaxElement};
+use ra_syntax::SyntaxElement;
 use SyntaxKind::*;
 
 use crate::commons::info;
@@ -80,7 +80,8 @@ impl Wrap {
 #[derive(Eq, Hash, Clone)]
 pub struct Rnode {
     pub wrapper: Wrap,
-    pub astnode: SyntaxElement, //Not SyntaxNode because we need to take
+    pub asttoken: Option<SyntaxElement>, //Not SyntaxNode because we need to take
+    pub kind: SyntaxKind,
     //care of the whitespaces
     pub children: Vec<Rnode>,
 }
@@ -92,13 +93,12 @@ impl PartialEq for Rnode {
 }
 
 impl Rnode {
-    pub fn headlesschildren(nodes: Vec<Rnode>) -> Rnode {
-        let dummyhead = SourceFile::parse("").syntax_node();
-        Rnode { wrapper: Wrap::dummy(0), astnode: NodeOrToken::Node(dummyhead), children: nodes }
+    pub fn totoken(&self) -> String {
+        self.asttoken.as_ref().unwrap().to_string()
     }
 
     pub fn kind(&self) -> SyntaxKind {
-        self.astnode.kind()
+        self.kind
     }
 
     pub fn unwrap(&self) -> (SyntaxKind, &[Rnode]) {
@@ -124,18 +124,17 @@ impl Rnode {
 
         if self.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
             data.push_str(" ");
-        }
-        else {
+        } else {
             data.push_str(&format!("{}", self.wrapper.wspaces.0));
         }
-        
+
         //pluses before current node
         for plusbef in &self.wrapper.plussed.0 {
             data.push_str(&plusbef.gettokenstream());
             data.push(' ');
         }
         if self.children.len() == 0 && !self.wrapper.isremoved {
-            data.push_str(&format!("{}", self.astnode.to_string()));
+            data.push_str(&format!("{}", self.totoken()));
         } else {
             for i in &self.children {
                 data.push_str(&i.gettokenstream());
@@ -165,7 +164,7 @@ impl Rnode {
             }
         }
         if self.children.len() == 0 && !self.wrapper.isremoved {
-            data.push_str(&format!("{}", self.astnode.to_string()));
+            data.push_str(&format!("{}", self.totoken()));
         } else {
             for i in &self.children {
                 data.push_str(&i.getunformatted());
@@ -259,7 +258,7 @@ impl Rnode {
         if self.children.len() != node.children.len() {
             return false;
         } else if self.children.len() == 0 && node.children.len() == 0 {
-            return self.astnode.to_string() == node.astnode.to_string();
+            return self.totoken() == node.totoken();
         } else {
             for (a, b) in izip!(&self.children, &node.children) {
                 if !a.equals(b) {
@@ -278,7 +277,7 @@ impl Rnode {
 impl Debug for Rnode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Rnode")
-            .field("astnode", &self.astnode.to_string())
+            .field("astnode", &self.totoken())
             .field("children", &self.children)
             .finish()
     }
