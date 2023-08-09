@@ -71,6 +71,19 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
 
 }
 
+/// Get the formatted contents and diff of a file
+///
+/// ## Arguments
+///
+///  - `cfr`: Configuration object containing arguments provided by the user
+///  - `transformedcode`: Mutable reference to a node of modified Rust code
+///  - `targetpath`: Output path of the file to be written
+///
+/// ## Return Value
+///
+/// This function returns a tuple of [`String`]s, which represent respectively
+/// the formatted content of the file, and the delta or 'diff' resulting from
+/// the file prior to modification.
 fn getformattedfile(
     cfr: &CoccinelleForRust,
     transformedcode: &mut Rnode,
@@ -79,11 +92,13 @@ fn getformattedfile(
     let mut rng = rand::thread_rng();
     let randrustfile = format!("/tmp/tmp{}.rs", rng.gen::<u32>());
 
+    // In all cases, write the transformed code to a file so we can diff
+    transformedcode.writetreetofile(&randrustfile);
+
+    // Now, optionally, we may want to not rust-format the code.
     if !cfr.suppress_formatting {
         //should never be disabled except for debug
         //let original = fs::read_to_string(&targetpath).expect("Unable to read file");
-
-        transformedcode.writetreetofile(&randrustfile);
 
         let mut fcommand = Command::new("rustfmt")
             .arg("--config-path")
@@ -98,41 +113,42 @@ fn getformattedfile(
         } else {
             println!("Formatting failed.");
         }
-        
-        let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Counld not read")).unwrap();
-        adjustformat(transformedcode, &formattednode, None);
-        
-        transformedcode.writetreetofile(&randrustfile);
-        //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
-
-        let diffed = if !cfr.suppress_diff {
-            let diffout = Command::new("git")
-                .arg("diff")
-                .arg("--no-index")
-                .arg("--diff-algorithm=histogram")
-                .arg(targetpath)
-                .arg(&randrustfile)
-                .output()
-                .expect("diff failed");
-
-            String::from_utf8(diffout.stdout).expect("Bad diff")
-        } else {
-            String::new()
-        };
-
-        let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
-
-        //fs::write(targetpath, original).expect("Could not write file.");
-        fs::remove_file(&randrustfile).expect("No file found.");
-
-        return (formatted, diffed);
     }
+
+    let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Counld not read")).unwrap();
+    adjustformat(transformedcode, &formattednode, None);
+
+    transformedcode.writetreetofile(&randrustfile);
+    //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
+
+    let diffed = if !cfr.suppress_diff {
+        let diffout = Command::new("git")
+            .arg("diff")
+            .arg("--no-index")
+            .arg("--diff-algorithm=histogram")
+            .arg(targetpath)
+            .arg(&randrustfile)
+            .output()
+            .expect("diff failed");
+
+        String::from_utf8(diffout.stdout).expect("Bad diff")
+    } else {
+        String::new()
+    };
+
+    let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
+
+    //fs::write(targetpath, original).expect("Could not write file.");
+    fs::remove_file(&randrustfile).expect("No file found.");
+
+    return (formatted, diffed);
+    //}
 
     //transformedcode.writetreetofile(&randrustfile);
     //let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
     //fs::remove_file(randrustfile).expect("Could not reove file");
 
-    return (transformedcode.gettokenstream(), String::new());
+    //return (transformedcode.gettokenstream(), String::new());
 }
 
 fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
