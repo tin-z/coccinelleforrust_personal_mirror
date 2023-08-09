@@ -33,13 +33,13 @@ pub fn gettypedb(targetpath: &str) -> (AnalysisHost, Vfs){
 
     let (host, vfs, _) =
         load_workspace(workspace, &Default::default(), &load_cargo_config).unwrap();
-
+    //vfs.
     return (host, vfs);
     //let semantics = &mut Semantics::new(db);
 
 }
 
-pub fn t(targetpath: &str) {
+pub fn  t(targetpath: &str) {
     let root = Path::new(targetpath);
     let path_buf = &AbsPathBuf::assert(root.into());
 
@@ -51,7 +51,7 @@ pub fn t(targetpath: &str) {
         manifest,
         &cargo_config,
         &(|s| {
-            println!("{}", s);
+            println!("At {}", s);
         }),
     )
     .unwrap();
@@ -67,6 +67,8 @@ pub fn t(targetpath: &str) {
 
     // Preparing running wrapper
     let db = host.raw_database();
+    //host
+    //db.modul
     let semantics = &mut Semantics::new(db);
 
     for source_root_id in db.local_roots().iter() {
@@ -79,14 +81,17 @@ pub fn t(targetpath: &str) {
             println!("Walking: {}", file.as_path().expect(""));
 
             let source_file = semantics.parse(file_id);
-            let _syntax = source_file.syntax();
+            let syntax = source_file.syntax();
 
-            fn _dfs(node: SyntaxNode, prefix: &str, semantics: &mut Semantics<'_, RootDatabase>) {
+            fn dfs(node: SyntaxNode, prefix: &str, semantics: &mut Semantics<'_, RootDatabase>) {
+                println!("infinite");
+                
                 let _typename = ast::Expr::cast(node.clone())
                     .and_then(|ex| semantics.type_of_expr(&ex.into()))
                     .map(|ex| ex.original)
                     .map(|og| og.display(semantics.db).to_string())
                     .unwrap_or("[Ty ty]".to_string());
+                println!("dem");
                 let tyn = match ast::Expr::cast(node.clone()) {
                     Some(exp) => match semantics.type_of_expr(&exp) {
                         Some(ty) => ty.original.display(semantics.db).to_string(),
@@ -102,18 +107,18 @@ pub fn t(targetpath: &str) {
                 } else {
                     println!(" {}  {:#?} ({})", &(prefix.to_owned() + "+-"), node.kind(), tyn);
                 }
-
+                println!("here");
                 for child in node.children() {
                     if let Some(last_child) = node.children().last() {
                         if child == last_child {
-                            _dfs(child, &(prefix.to_owned() + "  "), semantics);
+                            dfs(child, &(prefix.to_owned() + "  "), semantics);
                         } else {
-                            _dfs(child, &(prefix.to_owned() + "| "), semantics);
+                            dfs(child, &(prefix.to_owned() + "| "), semantics);
                         }
                     }
                 }
             }
-            //dfs(syntax.clone(), "", semantics);
+            dfs(syntax.clone(), "", semantics);
         }
     }
 }

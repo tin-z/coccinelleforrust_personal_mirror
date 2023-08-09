@@ -7,5 +7,5 @@
 - See profiling tools
 - Make sure to understand what rowan does internally
 with children_with_tokens
-* I am expanding disjunctions in transformation. dothat while
+* I am expanding disjunctions in transformation. do that while
 parsing the cocci file

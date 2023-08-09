@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use itertools::izip;
 use ra_hir::Type;
 use ra_parser::SyntaxKind;
-use ra_syntax::SyntaxElement;
+use ra_syntax::{SyntaxElement, SyntaxNode};
 use SyntaxKind::*;
 
 use crate::commons::info;
@@ -96,7 +96,7 @@ impl Wrap {
 #[derive(Eq, Hash, Clone)]
 pub struct Rnode {
     pub wrapper: Wrap,
-    pub asttoken: Option<SyntaxElement>, //Not SyntaxNode because we need to take
+    astnode: Option<SyntaxElement>, //Not SyntaxNode because we need to take
     pub kind: SyntaxKind,
     //care of the whitespaces
     pub children: Vec<Rnode>,
@@ -109,8 +109,21 @@ impl PartialEq for Rnode {
 }
 
 impl Rnode {
+    pub fn new(
+        wrapper: Wrap,
+        astnode: Option<SyntaxElement>,
+        kind: SyntaxKind,
+        children: Vec<Rnode>,
+    ) -> Rnode {
+        return Rnode { wrapper, astnode, kind, children };
+    }
+
+    pub fn astnode(&self) -> Option<&SyntaxNode> {
+        return self.astnode.as_ref().and_then(|x| x.as_node());
+    }
+
     pub fn totoken(&self) -> String {
-        self.asttoken.as_ref().unwrap().to_string()
+        self.astnode.as_ref().unwrap().to_string()
     }
 
     pub fn kind(&self) -> SyntaxKind {

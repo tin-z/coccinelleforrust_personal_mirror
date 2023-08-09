@@ -2,6 +2,7 @@
 
 use clap::Parser;
 use coccinelleforrust::commons::info::ParseError::{self, *};
+use coccinelleforrust::commons::util::workrnode;
 use coccinelleforrust::engine::transformation::transformrnode;
 use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
 use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
@@ -12,7 +13,8 @@ use coccinelleforrust::{
 };
 use env_logger::{Builder, Env};
 use itertools::{izip, Itertools};
-use ra_hir::Semantics;
+use ra_hir::{Semantics, HirDisplay};
+use ra_syntax::{ast, AstNode};
 use ra_vfs::VfsPath;
 use rand::Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -20,6 +22,7 @@ use std::fs::DirEntry;
 use std::io;
 use std::io::Write;
 use std::process::Command;
+use std::sync::{RwLock, Arc};
 use std::{fs, path::Path, process::exit};
 
 #[allow(dead_code)]
@@ -205,8 +208,12 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
 
             let mut transformedcode = match transformedcode {
                 Ok(node) => node,
-                Err(_error) => {
+                Err(error) => {
                     //failedfiles.push((error, targetpath));
+                    match error {
+                        TARGETERROR(msg, _) => println!("{}", msg),
+                        RULEERROR(msg, error, _) => println!("{}:{}", msg, error),
+                    }
                     println!("Failed to transform {}", targetpath);
                     return;
                 }
@@ -226,9 +233,11 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
         }
         let (host, vfs) = gettypedb(&files[0]);
         let db = host.raw_database();
-        let semantics = &mut Semantics::new(db);
+        //let semantics = &mut Semantics::new(db);
+        let semantics = &Semantics::new(db);
 
         let transform = |targetpath: &String| {
+            //println!();
             let (rules, needsti, hasstars) = processcocci(&patchstring);
             let fileid = vfs
                 .file_id(&VfsPath::new_real_path(targetpath.clone()))
@@ -236,10 +245,34 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
             let syntaxnode = semantics.parse_or_expand(fileid.into());
             let rcode = fs::read_to_string(targetpath).expect("Could not read file");
 
-            let rnode = processrswithsemantics(&rcode, syntaxnode).expect("Could not convert SyntaxNode to Rnode");
-            println!("{}", rnode.gettokenstream());
+            let mut rnode = processrswithsemantics(&rcode, syntaxnode).expect("Could not convert SyntaxNode to Rnode");
+            workrnode(&mut rnode, &mut |node| {
+                let node = if node.astnode().is_none() {
+                    return false;
+                }
+                else {
+                    node.astnode().unwrap()
+                };
+                
+                let typename = ast::Expr::cast(node.clone())
+                    .and_then(|ex| semantics.type_of_expr(&ex.into()))
+                    .map(|ex| ex.original)
+                    .map(|og| og.display(semantics.db).to_string())
+                    .unwrap_or("[Ty ty]".to_string());
+                if typename != "[Ty ty]" {
+                    println!("{}: {}", node.to_string(), typename);
+                }
+                true
+            });
             //transformrnode(&rules, rnode);
         };
+
+        if !args.no_parallel {
+            //files.par_iter().for_each(transform);
+        } else {
+            files.iter().for_each(transform);
+        }
+
     };
 }
 

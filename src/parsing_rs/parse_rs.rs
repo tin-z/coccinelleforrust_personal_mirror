@@ -37,8 +37,7 @@ pub fn processrswithsemantics(contents: &str, rnode: SyntaxNode) -> Result<Rnode
         wrapped.wspaces.0 = estring;
         let kind = node.kind();
         let children = df(&node);
-        let node = if children.len() == 0 { Some(node.clone()) } else { None };
-        let rnode = Rnode { wrapper: wrapped, asttoken: node, kind: kind, children: children };
+        let rnode = Rnode::new(wrapped, Some(node), kind, children);
         rnode
     };
     Ok(work_node(wrap_node, String::new(), SyntaxElement::Node(rnode)))
@@ -74,12 +73,10 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
         let children = df(&node);
         let kind = node.kind();
         let node = if children.len() == 0 { Some(node) } else { None };
-        let rnode = Rnode {
-            wrapper: wrapped,
-            asttoken: node, //Change this to SyntaxElement
-            kind: kind,
-            children: children,
-        };
+        let rnode = Rnode::new(
+            wrapped, node, //Change this to SyntaxElement
+            kind, children,
+        );
         rnode
     };
     Ok(work_node(wrap_node, String::new(), SyntaxElement::Node(root)))

@@ -42,12 +42,13 @@ fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
             panic!("Metavariable should already be present in environment.");
         }
     }
-    let mut rnode = Rnode {
-        wrapper: Wrap::dummy(snode.children.len()),
-        kind: snode.kind(),
-        asttoken: snode.asttoken,
-        children: vec![],
-    };
+    let kind = snode.kind();
+    let mut rnode = Rnode::new(
+        Wrap::dummy(snode.children.len()),
+        snode.asttoken,
+        kind,
+        vec![],
+    );
     for child in snode.children {
         rnode.children.push(copytornodewithenv(child, env));
     }
