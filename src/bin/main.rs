@@ -3,7 +3,6 @@
 use clap::Parser;
 use coccinelleforrust::commons::info::ParseError::{self, *};
 use coccinelleforrust::commons::util::workrnode;
-use coccinelleforrust::engine::transformation::transformrnode;
 use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
 use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
 use coccinelleforrust::parsing_rs::type_inference::gettypedb;
@@ -13,7 +12,7 @@ use coccinelleforrust::{
 };
 use env_logger::{Builder, Env};
 use itertools::{izip, Itertools};
-use ra_hir::{Semantics, HirDisplay};
+use ra_hir::{HirDisplay, Name, Semantics, Struct};
 use ra_syntax::{ast, AstNode};
 use ra_vfs::VfsPath;
 use rand::Rng;
@@ -22,7 +21,6 @@ use std::fs::DirEntry;
 use std::io;
 use std::io::Write;
 use std::process::Command;
-use std::sync::{RwLock, Arc};
 use std::{fs, path::Path, process::exit};
 
 #[allow(dead_code)]
@@ -120,7 +118,8 @@ fn getformattedfile(
         }
     }
 
-    let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Counld not read")).unwrap();
+    let formattednode =
+        processrs(&fs::read_to_string(&randrustfile).expect("Counld not read")).unwrap();
     adjustformat(transformedcode, &formattednode, None);
 
     transformedcode.writetreetofile(&randrustfile);
@@ -245,23 +244,34 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
             let syntaxnode = semantics.parse_or_expand(fileid.into());
             let rcode = fs::read_to_string(targetpath).expect("Could not read file");
 
-            let mut rnode = processrswithsemantics(&rcode, syntaxnode).expect("Could not convert SyntaxNode to Rnode");
+            let mut rnode = processrswithsemantics(&rcode, syntaxnode)
+                .expect("Could not convert SyntaxNode to Rnode");
             workrnode(&mut rnode, &mut |node| {
                 let node = if node.astnode().is_none() {
                     return false;
-                }
-                else {
+                } else {
                     node.astnode().unwrap()
                 };
-                
-                let typename = ast::Expr::cast(node.clone())
+
+                let ty = ast::Expr::cast(node.clone())
                     .and_then(|ex| semantics.type_of_expr(&ex.into()))
-                    .map(|ex| ex.original)
-                    .map(|og| og.display(semantics.db).to_string())
-                    .unwrap_or("[Ty ty]".to_string());
-                if typename != "[Ty ty]" {
-                    println!("{}: {}", node.to_string(), typename);
-                }
+                    .map(|ex| ex.original);
+                let _ = ty.is_some_and(|ty| {
+                    ty.as_adt().is_some_and(|x| {
+                        let a = x.module(semantics.db).path_to_root(semantics.db)
+                        .into_iter()
+                        .rev()
+                        .flat_map(|it| it.name(db).map(|name| name.display(db).to_string())).join("::");
+                        let typename = x.module(semantics.db).display(semantics.db).to_string();
+                        //let typename = x.display(semantics.db).to_string();
+                        //let typename = x.name(semantics.db);
+                        println!("{}: {}-{:?}", node.to_string(), a, typename);
+                        true
+                    }
+                )
+                });
+
+
                 true
             });
             //transformrnode(&rules, rnode);
@@ -272,7 +282,6 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
         } else {
             files.iter().for_each(transform);
         }
-
     };
 }
 
