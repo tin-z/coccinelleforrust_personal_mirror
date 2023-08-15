@@ -18,8 +18,8 @@ pub struct CoccinelleForRust {
     pub output: Option<String>,
 
     /// rustfmt config file path
-    #[arg(short, long, default_value_t = String::from("rustfmt.toml"))]
-    pub rustfmt_config: String,
+    #[arg(short, long)]
+    pub rustfmt_config: Option<String>,
 
     //ignores files and folders with the string present
     #[arg(short, long, default_value_t = String::new())]
