@@ -4,7 +4,7 @@
 use ra_parser::SyntaxKind;
 
 use crate::{
-    engine::cocci_vs_rs::Environment, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
+    engine::cocci_vs_rs::Environment, parsing_cocci::ast0::{Snode, Mcodekind}, parsing_rs::ast_rs::Rnode,
 };
 
 #[macro_export]
@@ -267,7 +267,15 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
                 node.kind()
             );
         }
-        node.wrapper.plusesbef.extend(plus);
+        match &mut node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                a.extend(plus);
+            }
+            Mcodekind::Context(a , _) => {
+                a.extend(plus);
+            }
+            _ => {}
+        }
     } else {
         attachfront(&mut node.children[0], plus);
     }
@@ -284,7 +292,15 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
                 node.kind()
             );
         }
-        node.wrapper.plusesaft.extend(plus);
+        match &mut node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                a.extend(plus);
+            }
+            Mcodekind::Context(_ , a) => {
+                a.extend(plus);
+            }
+            _ => {}
+        }
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
         attachback(&mut node.children[len - 1], plus);

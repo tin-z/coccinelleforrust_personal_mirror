@@ -23,6 +23,7 @@ impl<'a> TransformTest<'a> {
 
     pub fn testtransformation(&self, coccifile: &str, rsfile: &str, expectedfile: &str) -> bool {
         let out = self.transformfile(coccifile, rsfile);
+        println!("Outfile:- {}", out.gettokenstream());
         let expected = fs::read_to_string(format!("{}{}", &self.prefix, expectedfile))
             .expect("This should not be empty.");
         let rnode = processrs(&expected).unwrap();

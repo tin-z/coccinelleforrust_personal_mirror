@@ -65,8 +65,9 @@ fn collect_plus_refs(mut root: &mut Snode) -> HashSet<MetaVar> {
         }
     };
     let mut work = |node: &mut Snode| {
-        work_exp_list_list(&mut node.wrapper.plusesbef);
-        work_exp_list_list(&mut node.wrapper.plusesaft);
+        let pluses = node.wrapper.mcodekind.getpluses();
+        //work_exp_list_list(&mut node.wrapper.plusesbef);
+        //work_exp_list_list(&mut node.wrapper.plusesaft);
     };
     worktree(&mut root, &mut work);
     refs

@@ -9,7 +9,6 @@ use ra_syntax::SyntaxElement;
 use SyntaxKind::*;
 
 use crate::commons::info;
-use crate::parsing_cocci::ast0::Mcodekind;
 
 type VirtualPosition = (info::ParseInfo, usize);
 
@@ -34,7 +33,7 @@ pub enum Danger {
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
-    cocci_tag: Option<Vec<Mcodekind>>,
+    //cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,
     pub wspaces: (String, String),
     pub isremoved: bool,
@@ -45,13 +44,13 @@ impl Wrap {
     pub fn new(
         info: info::ParseInfo,
         index: usize,
-        cocci_tag: Option<Vec<Mcodekind>>,
+        //cocci_tag: Option<Vec<Mcodekind>>,
         danger: Danger,
     ) -> Wrap {
         Wrap {
             info: info,
             index: index,
-            cocci_tag: cocci_tag,
+            //cocci_tag: cocci_tag,
             danger: danger,
             wspaces: (String::new(), String::new()),
             isremoved: false,
@@ -68,7 +67,7 @@ impl Wrap {
         Wrap {
             info: info::ParseInfo::new(String::new(), 0, 0, 0, 0, 0, String::new()),
             index: 0,
-            cocci_tag: None,
+            //cocci_tag: None,
             danger: Danger::NoDanger,
             wspaces: wp,
             isremoved: false,

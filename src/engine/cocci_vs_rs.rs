@@ -1,4 +1,4 @@
- // SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0
 
 use std::rc::Rc;
 use std::vec;
@@ -6,10 +6,10 @@ use std::vec;
 use itertools::Itertools;
 
 use crate::{
-    fail,
-    parsing_cocci::ast0::Snode,
-    parsing_cocci::ast0::{MetaVar, MetavarName, MODKIND},
-    parsing_rs::ast_rs::Rnode, debugcocci,
+    debugcocci, fail,
+    parsing_cocci::ast0::{MetaVar, MetavarName},
+    parsing_cocci::ast0::{Mcodekind, Snode},
+    parsing_rs::ast_rs::Rnode,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -98,15 +98,23 @@ fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     if a.children.len() == 1 {
         addplustoenv(&a.children[0], b, env)
     } else {
-        if a.wrapper.plusesbef.len() != 0 {
-            env.modifiers.pluses.push((
-                b.wrapper.info.charstart,
-                true,
-                a.wrapper.plusesbef.clone(),
-            ));
-        }
-        if a.wrapper.plusesaft.len() != 0 {
-            env.modifiers.pluses.push((b.wrapper.info.charend, false, a.wrapper.plusesaft.clone()));
+        match &a.wrapper.mcodekind {
+            Mcodekind::Context(avec, bvec) => {
+                if avec.len() != 0 {
+                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, avec.clone()));
+                }
+                if bvec.len() != 0 {
+                    env.modifiers.pluses.push((b.wrapper.info.charend, false, bvec.clone()));
+                }
+            }
+            Mcodekind::Minus(pluses) => {
+                //This is a replacement
+                if pluses.len()!=0 {
+
+                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -167,12 +175,12 @@ impl<'a, 'b> Looper<'a> {
                     );
 
                     if !renv.failed {
-                        match a.wrapper.modkind {
-                            Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
-                                //env.modifiers.minuses.push(b.getpos());
-                            }
-                            _ => {}
-                        }
+                        //match a.wrapper. {
+                        //  Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
+                        //env.modifiers.minuses.push(b.getpos());
+                        //}
+                        //_ => {}
+                        //}
                         addplustoenv(a, b, &mut env);
 
                         env.add(renv);
@@ -182,31 +190,36 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
-                    debugcocci!("Binding {} to {}.{}", b.gettokenstream(), minfo.0.rulename.to_string(), minfo.0.varname.to_string());
+                    debugcocci!(
+                        "Binding {} to {}.{}",
+                        b.gettokenstream(),
+                        minfo.0.rulename.to_string(),
+                        minfo.0.varname.to_string()
+                    );
                     let binding = MetavarBinding::new(
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string(),
                         b.clone(),
                     );
-                    match a.wrapper.modkind {
-                        Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
+                    match a.wrapper.mcodekind {
+                        Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
                         }
-                        Some(MODKIND::PLUS) => {}
-                        None => {}
+                        Mcodekind::Plus => {}
+                        Mcodekind::Context(_, _) => {}
                     }
                     addplustoenv(a, b, &mut env);
                     env.addbinding(binding);
                 }
                 MetavarMatch::Exists => {
                     addplustoenv(a, b, &mut env);
-                    match a.wrapper.modkind {
-                        Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
+                    match a.wrapper.mcodekind {
+                        Mcodekind::Minus(_) | Mcodekind::Star => {
                             //println!("exists -> {}", b.astnode.to_string());
                             env.modifiers.minuses.push(b.getpos());
                         }
-                        Some(MODKIND::PLUS) => {}
-                        None => {}
+                        Mcodekind::Plus => {}
+                        Mcodekind::Context(_, _) => {}
                     }
                 }
             }

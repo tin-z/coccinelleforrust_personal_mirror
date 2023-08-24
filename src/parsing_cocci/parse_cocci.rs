@@ -14,7 +14,7 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, vec};
 
-use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, MODKIND};
+use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, Mcodekind};
 use crate::{
     commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
     debugcocci, syntaxerror,
@@ -109,12 +109,37 @@ impl Patch {
 
     fn setmods(&mut self) {
         let mut tagmods = |node: &mut Snode,
-                           (lino, modkind): (usize, Option<MODKIND>)|
-         -> (usize, Option<MODKIND>) {
+                           (lino, modifier): (usize, Mcodekind)|
+         -> (usize, Mcodekind) {
             let (start, end) = node.wrapper.getlinenos();
 
-            match node.wrapper.modkind {
-                Some(modkind) => {
+            match node.wrapper.mcodekind {
+                Mcodekind::Context(_, _) => {
+                    if lino == 0 {
+                        return (0, Mcodekind::Context(vec![], vec![]));
+                    } else if start == lino && start == end {
+                        //debugstart
+                        if node.children.len() == 0 {
+                            debugcocci!(
+                                "Setting {}:{:?} to modifier:- {:?}",
+                                node.getstring(),
+                                node.kind(),
+                                modifier
+                            );
+                        } //debugend
+
+                        node.wrapper.mcodekind = modifier.clone();
+                        return (lino, modifier);
+                        //everytime lino is not 0, modkind is
+                        //a Some value
+                    } else if start == lino && start != end {
+                        //this node spills onto the next line
+                        return (lino, modifier.clone());
+                    }
+                    return (0, Mcodekind::Context(vec![], vec![]));
+                },
+                Mcodekind::Plus | Mcodekind::Minus(_) | Mcodekind::Star => {
+                    //println!("NODE - {}, {}", node.getstring());
                     if start == end {
                         //debugstart
                         if node.children.len() == 0 {
@@ -122,45 +147,23 @@ impl Patch {
                                 "Setting {}:{:?} to modifier:- {:?}",
                                 node.getstring(),
                                 node.kind(),
-                                modkind
+                                modifier
                             );
                         } //debugend
 
-                        node.wrapper.modkind = Some(modkind);
+                        //node.wrapper.mcodekind = modifier.clone();
+                        return (start, node.wrapper.mcodekind.clone());
                     } else {
-                        node.wrapper.modkind = None;
+                        let tmpmod = node.wrapper.mcodekind.clone();
+                        node.wrapper.mcodekind = Mcodekind::Context(vec![], vec![]);
+                        return (start, tmpmod);
                     }
-                    return (start, Some(modkind));
-                }
-                None => {
-                    if lino == 0 {
-                        return (0, None);
-                    } else if start == lino && start == end {
-                        //debugstart
-                        if node.children.len() == 0 && modkind.is_some() {
-                            debugcocci!(
-                                "Setting {}:{:?} to modifier:- {:?}",
-                                node.getstring(),
-                                node.kind(),
-                                modkind.unwrap()
-                            );
-                        } //debugend
-
-                        node.wrapper.modkind = modkind;
-                        return (lino, modkind);
-                        //everytime lino is not 0, modkind is
-                        //a Some value
-                    } else if start == lino && start != end {
-                        //this node spills onto the next line
-                        return (lino, modkind);
-                    }
-                    return (0, None);
                 }
             }
         };
 
-        worksnode(&mut self.plus, (0, None), &mut tagmods);
-        worksnode(&mut self.minus, (0, None), &mut tagmods);
+        worksnode(&mut self.plus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
+        worksnode(&mut self.minus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
     }
 
     pub fn striplet(&mut self, hastype: bool) {
@@ -203,26 +206,27 @@ impl Patch {
             loop {
                 match (&mut a, &b) {
                     (Some(ak), Some(bk)) => {
-                        match (ak.wrapper.modkind, bk.wrapper.modkind) {
-                            (_, Some(MODKIND::PLUS)) => {
+                        match (&ak.wrapper.mcodekind, &bk.wrapper.mcodekind) {
+                            (_, Mcodekind::Plus) => {
                                 pvec.push((*bk).clone());
                                 b = bchildren.next();
                             }
-                            (Some(MODKIND::MINUS), _) => {
+                            (Mcodekind::Minus(_), _) => {
                                 //minus code
                                 //with any thing other than a plus
                                 attachfront(ak, pvec);
                                 pvec = vec![];
                                 a = achildren.next();
                             }
-                            (None, None) => {
+                            (Mcodekind::Context(_, _), Mcodekind::Context(_, _)) => {
                                 //context code
                                 //with context code
                                 if ak.wrapper.isdisj {
                                     //DISJUNCTIONS ARE THE ONLY PART
                                     //WHERE PLUSES ARE ADDED TO A NODE
                                     //AND NOT A TOKEN
-                                    ak.wrapper.plusesbef.extend(pvec);
+                                    ak.wrapper.mcodekind.push_pluses_front(pvec);
+                                    //ak.wrapper.plusesbef.extend(pvec);
                                 } else {
                                     attachfront(ak, pvec);
                                 }
@@ -231,11 +235,11 @@ impl Patch {
                                 a = achildren.next();
                                 b = bchildren.next();
                             }
-                            (Some(MODKIND::STAR), Some(MODKIND::STAR)) => {
+                            (Mcodekind::Star, Mcodekind::Star) => {
                                 a = achildren.next();
                                 b = bchildren.next();
                             }
-                            (Some(MODKIND::STAR), _) | (_, Some(MODKIND::STAR)) => {
+                            (Mcodekind::Star, _) | (_, Mcodekind::Star) => {
                                 panic!("Minus and Plus buffers do not have matching stars");
                             }
                             _ => {
@@ -243,8 +247,8 @@ impl Patch {
                             }
                         }
                     }
-                    (None, Some(bk)) => match bk.wrapper.modkind {
-                        Some(MODKIND::PLUS) => {
+                    (None, Some(bk)) => match bk.wrapper.mcodekind {
+                        Mcodekind::Plus => {
                             pvec.push((*bk).clone());
                             b = bchildren.next();
                         }
@@ -270,7 +274,8 @@ impl Patch {
                 }
                 let a = a.unwrap();
                 if a.wrapper.isdisj {
-                    a.wrapper.plusesaft.extend(pvec);
+                    a.wrapper.mcodekind.push_pluses_back(pvec);
+                    //a.wrapper.plusesaft.extend(pvec);
                 } else {
                     //println!("attaching {} to {:?}", a.gettokenstream(), pvec);
                     attachback(a, pvec);

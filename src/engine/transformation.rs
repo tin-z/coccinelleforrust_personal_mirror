@@ -75,11 +75,14 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
             }
         }
         for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
+            println!("HAHAH = {}", env.modifiers.pluses.len());
             if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
+                println!("TESTIG bef {}", x.totoken());
                 //println!("======================== {:?}", x);
             } else if pos.1 == pluspos && x.children.len() == 0 && !isbef {
                 x.wrapper.plussed.1 = snodetornode(pluses, env);
+                println!("TESTIG aft {}", x.totoken());
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
             }
