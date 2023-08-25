@@ -1,3 +1,4 @@
+#![allow(unused)]
 use ra_hir_ty::display::HirDisplay;
 use ra_ide::Semantics;
 use ra_ide_db::{base_db::SourceDatabaseExt, symbol_index::SymbolsDatabase, RootDatabase};

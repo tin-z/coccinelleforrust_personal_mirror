@@ -10,9 +10,9 @@ use itertools::Itertools;
 use crate::{
     commons::{
         info::ParseError,
-        util::{getstmtlist, visitrnode, workrnode},
+        util::{getstmtlist, workrnode},
     },
-    engine::cocci_vs_rs::MetavarBinding,
+    engine::cocci_vs_rs::{visitrnode, MetavarBinding},
     parsing_cocci::{
         ast0::{MetaVar, MetavarName, Snode},
         parse_cocci::processcocci,
@@ -30,8 +30,7 @@ use super::{
 
 fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
-        if let Some(mvar) =
-            env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
+        if let Some(mvar) = env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
         {
             return (*mvar.rnode).clone();
         } else {

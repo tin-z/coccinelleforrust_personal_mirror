@@ -3,8 +3,7 @@
  use itertools::Itertools;
 use ra_parser::SyntaxKind;
 
-use crate::{
-    engine::cocci_vs_rs::Environment, parsing_cocci::ast0::{Snode, Mcodekind}, parsing_rs::ast_rs::Rnode,
+use crate::{ parsing_cocci::ast0::{Snode, Mcodekind}, parsing_rs::ast_rs::Rnode,
 };
 
 #[macro_export]
@@ -142,40 +141,6 @@ pub fn workrnode(node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool) {
     for child in &mut node.children {
         workrnode(child, f);
     }
-}
-
-pub fn visitrnode<'a>(
-    nodea: &Vec<Vec<Snode>>,
-    nodeb: &'a Rnode,
-    f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment>, bool),
-) -> Vec<Environment> {
-    //use async function to wrap the for loop
-    //for other cases TODO
-    let mut environments = vec![];
-    //println!("sending single node");
-    //let tmp = f(nodea, &vec![nodeb]);
-
-    //if tmp.1 {
-    //    environments.extend(tmp.0);
-    //}
-    let nodebchildren = &mut nodeb.children.iter();
-
-    loop {
-        let tmp = f(nodea, &nodebchildren.clone().collect_vec());
-
-        if tmp.1 {
-            environments.extend(tmp.0);
-        }
-
-        //if nodebchildren.len() == 1 { break; }
-
-        if let Some(child) = nodebchildren.next() {
-            environments.extend(visitrnode(nodea, child, f));
-        } else {
-            break;
-        }
-    }
-    return environments;
 }
 
 pub fn isexpr(node1: &Snode) -> bool {

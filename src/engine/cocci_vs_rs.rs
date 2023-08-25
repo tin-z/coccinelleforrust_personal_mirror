@@ -315,3 +315,27 @@ impl<'a, 'b> Looper<'a> {
         (environments, matched)
     }
 }
+
+pub fn visitrnode<'a>(
+    nodea: &Vec<Vec<Snode>>,
+    nodeb: &'a Rnode,
+    f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment>, bool),
+) -> Vec<Environment> {
+    let mut environments = vec![];
+    let nodebchildren = &mut nodeb.children.iter();
+
+    loop {
+        let tmp = f(nodea, &nodebchildren.clone().collect_vec());
+
+        if tmp.1 {
+            environments.extend(tmp.0);
+        }
+
+        if let Some(child) = nodebchildren.next() {
+            environments.extend(visitrnode(nodea, child, f));
+        } else {
+            break;
+        }
+    }
+    return environments;
+}
