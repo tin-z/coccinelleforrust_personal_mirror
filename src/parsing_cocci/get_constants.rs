@@ -34,6 +34,7 @@ use std::collections::HashMap;
 use super::parse_cocci::Rule;
 use crate::parsing_cocci::ast0::Snode;
 use crate::parsing_cocci::ast0::MetaVar;
+use crate::parsing_cocci::ast0::Mcodekind;
 use crate::commons::util::worktree_pure;
 use crate::{syntaxerror,commons};
 use ra_parser::SyntaxKind;
@@ -434,23 +435,66 @@ fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
     }
 }
 
-fn find_constants<'a>(rule: &'a Rule, env: HashMap<&str, &Combine<'a>>) -> Combine<'a> {
-    let mut res = True;
-    let mut work = |node: &'a Snode| {
-        if node.kind() == Tag::PATH_EXPR {
-            if node.wrapper.metavar == MetaVar::NoMeta {
-                if let Some(comb) = env.get(&*(rule.name)) { // want str for name
-                    res = build_and(comb,&res);
-                }
-                else {
-                    res = False;
-                }
+fn do_get_constants<'a>(node: &'a Snode, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    if node.kind() == Tag::PATH_EXPR {
+        if node.wrapper.metavar != MetaVar::NoMeta {
+            if let Some(comb) = env.get(node.wrapper.metavar.getrulename()) {
+                comb.clone()
             }
             else {
-	        res = build_and(&res,&Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text()));
+                False
             }
+        }
+        else if !kwds { // not sure what to do if kwds is true
+            Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+        }
+        else {
+            True
+        }
+    }
+    else if node.wrapper.isdisj {
+        node.children.iter()
+            .fold(False,
+                  |acc, child: &'a Snode|
+                  build_or(&acc, &do_get_constants(child, kwds, env)))
+    }
+    else {
+        node.children.iter()
+            .fold(False,
+                  |acc, child: &'a Snode|
+                  build_and(&acc, &do_get_constants(child, kwds, env)))
+    }
+}
+
+fn find_constants<'a>(rule: &'a Rule, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    do_get_constants(&rule.patch.minus, kwds, env)
+}
+
+// it would be nice if one could just abort when False
+// is reached
+fn all_context<'a>(rule: &'a Rule) -> bool {
+    let mut res = true;
+    let mut work = |node: &'a Snode| {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Context(bef,aft) => {
+                if bef.len() > 0 || aft.len() > 0 {
+                    res = false
+                }
+            }
+            _ => { res = false }
         }
     };
     worktree_pure(&rule.patch.minus, &mut work);
     res
 }
+
+fn rule_fn<'a>(rule: &'a Rule, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    let minuses = find_constants(rule, false, env);
+    match minuses {
+        True => find_constants(rule, true, env),
+        x => x
+    }
+}
+
+// let run<'a>(rule: &'a Rule) -> Combine<'a> {
+    
