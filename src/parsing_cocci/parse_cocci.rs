@@ -503,7 +503,7 @@ fn buildrule(
     let mut freevars: Vec<MetaVar> = vec![];
     for metavar in &metavars {
         if metavar.getrulename() != currrulename {
-            debugcocci!("Ferevar found- {:?}", metavar);
+            debugcocci!("Freevar found- {:?}", metavar);
             freevars.push(metavar.clone());
         }
     }
