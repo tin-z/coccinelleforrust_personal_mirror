@@ -32,6 +32,7 @@ use regex::Regex;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use super::parse_cocci::Rule;
+use super::parse_cocci::Dep;
 use crate::parsing_cocci::ast0::Snode;
 use crate::parsing_cocci::ast0::MetaVar;
 use crate::parsing_cocci::ast0::Mcodekind;
@@ -496,5 +497,43 @@ fn rule_fn<'a>(rule: &'a Rule, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> 
     }
 }
 
-// let run<'a>(rule: &'a Rule) -> Combine<'a> {
-    
+fn dependencies<'a>(env: &HashMap<&str, Combine<'a>>, dep: &Dep) -> Combine<'a> {
+    match dep {
+        Dep::NoDep => True,
+        Dep::FailDep => False,
+        Dep::Dep(nm) => { // maybe nm could be a str up front?
+            if let Some(comb) = env.get(&nm.as_str()) {
+                comb.clone()
+            }
+            else {
+                False
+            }
+        }
+        Dep::AndDep(args) => build_and(&dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::OrDep(args)  => build_or(&dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::AntiDep(_)   => True
+    }
+}
+
+fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
+    let mut env = HashMap::new();
+    let mut res = False;
+    for r in rules.iter() {
+        match dependencies(&env, &r.dependson) {
+            False => {}
+            dependencies => {
+                    env.insert(&r.name,True);
+                    let cur_info = rule_fn(&r, &env);
+                    let re_cur_info = build_and(&dependencies, &cur_info);
+                    if all_context(r) {
+                        env.entry(&r.name).and_modify(|i| *i = re_cur_info);
+                    }
+                    else {
+                        res = build_or(&re_cur_info,&res);
+                        env.entry(&r.name).and_modify(|i| *i = cur_info);
+                }
+            }
+        }
+    }
+    res
+}
