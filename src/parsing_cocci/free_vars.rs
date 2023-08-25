@@ -23,12 +23,14 @@ fn collect_unitary_nonunitary(free_usage: &Vec<MetaVar>) -> (HashSet<MetaVar>, H
     let mut unitary: HashSet<MetaVar> = HashSet::new();
     let mut nonunitary: HashSet<MetaVar> = HashSet::new();
     for id in free_usage {
-        if unitary.contains(id) {
-            unitary.remove(id);
-            nonunitary.insert(id.clone());
-        } else {
-            if !nonunitary.contains(id) {
-                unitary.insert(id.clone());
+        match unitary.take(id) {
+            Some(removed) => {
+                nonunitary.insert(removed);
+            }
+            None => {
+                if !nonunitary.contains(id) {
+                    unitary.insert(id.clone());
+                }
             }
         }
     }
