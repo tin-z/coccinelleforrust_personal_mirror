@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::process::exit;
 
+use crate::commons::util::collecttree;
+
 use super::visitor_ast0::work_node;
+use itertools::Itertools;
 use ra_ide_db::line_index::{LineCol, LineIndex};
 use ra_parser::SyntaxKind;
 use ra_syntax::ast::Type;
@@ -189,6 +193,21 @@ impl<'a> Snode {
         }
         let disjs = collectdisjs(&self);
         return (disjs, self.wrapper.mcodekind.getpluses());
+    }
+    
+
+    pub fn get_constants(&self) -> Vec<String> {
+        let mut constants: HashSet<String> = HashSet::new();
+
+        let mut f = |node: &Snode| {
+            if node.kind().is_keyword() {
+                constants.insert(node.totoken());
+            }
+        };
+
+        collecttree(self, &mut f);
+
+        constants.into_iter().collect_vec()
     }
 }
 
