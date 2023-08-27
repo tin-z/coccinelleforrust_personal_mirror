@@ -540,3 +540,10 @@ fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
     }
     res
 }
+
+// first component of the result is for use with grep
+// second component of the result is for use with gitgrep or cocci grep
+fn get_constants<'a>(rules: &'a Vec<Rule>) -> (Option<Clause<'a>>, Option<(Regex, Vec<Regex>, Vec<String>)>) {
+    let res = run(rules);
+    (interpret_grep(true, &res), interpret_cocci_git_grep(true, &res))
+}
