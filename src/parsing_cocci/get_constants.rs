@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
-#![allow(unused)]
-
 /*
-(*
- * This file is part of Coccinelle, licensed under the terms of the GPL v2.
- * See copyright.txt in the Coccinelle source code for more information.
- * The Coccinelle source code can be obtained at http://coccinelle.lip6.fr
- *)
-
 (* Issues:
 
 1.  If a rule X depends on a rule Y (in a positive way), then we can ignore
@@ -37,7 +29,7 @@ use crate::parsing_cocci::ast0::Snode;
 use crate::parsing_cocci::ast0::MetaVar;
 use crate::parsing_cocci::ast0::Mcodekind;
 use crate::commons::util::worktree_pure;
-use crate::{syntaxerror,commons};
+use crate::syntaxerror;
 use ra_parser::SyntaxKind;
 
 type Tag = SyntaxKind;
@@ -256,7 +248,7 @@ fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
         match dep {
             Elem(x) => { acc.insert(x); }
             And(_) | Or(_) | True | False => (),
-            Not(x) => syntaxerror!(0, "Not unexpected in atoms")
+            Not(_) => syntaxerror!(0, "Not unexpected in atoms")
         }
     }
     acc
@@ -543,7 +535,7 @@ fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
 
 // first component of the result is for use with grep
 // second component of the result is for use with gitgrep or cocci grep
-fn get_constants<'a>(rules: &'a Vec<Rule>) -> (Option<Clause<'a>>, Option<(Regex, Vec<Regex>, Vec<String>)>) {
+pub fn get_constants<'a>(rules: &'a Vec<Rule>) -> (Option<Clause<'a>>, Option<(Regex, Vec<Regex>, Vec<String>)>) {
     let res = run(rules);
     (interpret_grep(true, &res), interpret_cocci_git_grep(true, &res))
 }
