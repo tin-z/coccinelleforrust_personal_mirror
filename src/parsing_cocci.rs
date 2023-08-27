@@ -3,4 +3,5 @@ pub mod parse_cocci;
 pub mod visitor_ast0;
 pub mod ast0;
 mod get_constants;
+mod cocci_grep;
 mod free_vars;
