@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
-#![allow(unused)]
-
 /*
-(*
- * This file is part of Coccinelle, licensed under the terms of the GPL v2.
- * See copyright.txt in the Coccinelle source code for more information.
- * The Coccinelle source code can be obtained at http://coccinelle.lip6.fr
- *)
-
 (* Issues:
 
 1.  If a rule X depends on a rule Y (in a positive way), then we can ignore
@@ -32,10 +24,12 @@ use regex::Regex;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use super::parse_cocci::Rule;
+use super::parse_cocci::Dep;
 use crate::parsing_cocci::ast0::Snode;
 use crate::parsing_cocci::ast0::MetaVar;
+use crate::parsing_cocci::ast0::Mcodekind;
 use crate::commons::util::worktree_pure;
-use crate::{syntaxerror,commons};
+use crate::syntaxerror;
 use ra_parser::SyntaxKind;
 
 type Tag = SyntaxKind;
@@ -254,7 +248,7 @@ fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
         match dep {
             Elem(x) => { acc.insert(x); }
             And(_) | Or(_) | True | False => (),
-            Not(x) => syntaxerror!(0, "Not unexpected in atoms")
+            Not(_) => syntaxerror!(0, "Not unexpected in atoms")
         }
     }
     acc
@@ -434,23 +428,114 @@ fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
     }
 }
 
-fn find_constants<'a>(rule: &'a Rule, env: HashMap<&str, &Combine<'a>>) -> Combine<'a> {
-    let mut res = True;
-    let mut work = |node: &'a Snode| {
-        if node.kind() == Tag::PATH_EXPR {
-            if node.wrapper.metavar == MetaVar::NoMeta {
-                if let Some(comb) = env.get(&*(rule.name)) { // want str for name
-                    res = build_and(comb,&res);
-                }
-                else {
-                    res = False;
-                }
+fn do_get_constants<'a>(node: &'a Snode, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    if kwds && node.kind().is_keyword() {
+        Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+    }
+    else if node.kind() == Tag::PATH_EXPR {
+        if node.wrapper.metavar != MetaVar::NoMeta {
+            if let Some(comb) = env.get(node.wrapper.metavar.getrulename()) {
+                comb.clone()
             }
             else {
-	        res = build_and(&res,&Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text()));
+                False
             }
+        }
+        else if !kwds {
+            Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+        }
+        else {
+            True
+        }
+    }
+    else if node.wrapper.isdisj {
+        node.children.iter()
+            .fold(False,
+                  |acc, child: &'a Snode|
+                  build_or(&acc, &do_get_constants(child, kwds, env)))
+    }
+    else {
+        node.children.iter()
+            .fold(False,
+                  |acc, child: &'a Snode|
+                  build_and(&acc, &do_get_constants(child, kwds, env)))
+    }
+}
+
+fn find_constants<'a>(rule: &'a Rule, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    do_get_constants(&rule.patch.minus, kwds, env)
+}
+
+// it would be nice if one could just abort when False
+// is reached
+fn all_context<'a>(rule: &'a Rule) -> bool {
+    let mut res = true;
+    let mut work = |node: &'a Snode| {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Context(bef,aft) => {
+                if bef.len() > 0 || aft.len() > 0 {
+                    res = false
+                }
+            }
+            _ => { res = false }
         }
     };
     worktree_pure(&rule.patch.minus, &mut work);
     res
+}
+
+fn rule_fn<'a>(rule: &'a Rule, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    let minuses = find_constants(rule, false, env);
+    match minuses {
+        True => find_constants(rule, true, env),
+        x => x
+    }
+}
+
+fn dependencies<'a>(env: &HashMap<&str, Combine<'a>>, dep: &Dep) -> Combine<'a> {
+    match dep {
+        Dep::NoDep => True,
+        Dep::FailDep => False,
+        Dep::Dep(nm) => { // maybe nm could be a str up front?
+            if let Some(comb) = env.get(&nm.as_str()) {
+                comb.clone()
+            }
+            else {
+                False
+            }
+        }
+        Dep::AndDep(args) => build_and(&dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::OrDep(args)  => build_or(&dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::AntiDep(_)   => True
+    }
+}
+
+fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
+    let mut env = HashMap::new();
+    let mut res = False;
+    for r in rules.iter() {
+        match dependencies(&env, &r.dependson) {
+            False => {}
+            dependencies => {
+                    env.insert(&r.name,True);
+                    let cur_info = rule_fn(&r, &env);
+                    let re_cur_info = build_and(&dependencies, &cur_info);
+                    if all_context(r) {
+                        env.entry(&r.name).and_modify(|i| *i = re_cur_info);
+                    }
+                    else {
+                        res = build_or(&re_cur_info,&res);
+                        env.entry(&r.name).and_modify(|i| *i = cur_info);
+                }
+            }
+        }
+    }
+    res
+}
+
+// first component of the result is for use with grep
+// second component of the result is for use with gitgrep or cocci grep
+pub fn get_constants<'a>(rules: &'a Vec<Rule>) -> (Option<Clause<'a>>, Option<(Regex, Vec<Regex>, Vec<String>)>) {
+    let res = run(rules);
+    (interpret_grep(true, &res), interpret_cocci_git_grep(true, &res))
 }
