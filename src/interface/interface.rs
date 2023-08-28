@@ -10,7 +10,6 @@ pub struct CoccinelleForRust {
     pub coccifile: String,
 
     /// Path of Rust Target file/folder path
-    #[arg(short, long)]
     pub targetpath: String,
 
     /// Path of transformed file path
