@@ -23,6 +23,7 @@
 use regex::Regex;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use super::parse_cocci::Rule;
 use super::parse_cocci::Dep;
 use crate::parsing_cocci::ast0::Snode;
@@ -31,6 +32,9 @@ use crate::parsing_cocci::ast0::Mcodekind;
 use crate::commons::util::worktree_pure;
 use crate::syntaxerror;
 use ra_parser::SyntaxKind;
+use std::process::Command;
+use crate::interface::interface::CoccinelleForRust;
+use clap::ValueEnum;
 
 type Tag = SyntaxKind;
 
@@ -143,7 +147,7 @@ static FALSE_ON_TOP_ERR: &str =
 type Clause<'a> = BTreeSet<&'a str>;
 type CNF<'a> = BTreeSet<Clause<'a>>;
 
-fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Clause<'a>> {
+fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Vec<String>> {
     if let True = x {
         return None;
     };
@@ -169,7 +173,7 @@ fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Clause<'a>> {
                 }
         }
     }
-    Some(collected)
+    Some(collected.iter().map(|x| x.to_string()).collect())
 }
 
 // -------------------------------------------------------------------------
@@ -533,9 +537,107 @@ fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
     res
 }
 
-// first component of the result is for use with grep
-// second component of the result is for use with gitgrep or cocci grep
-pub fn get_constants<'a>(rules: &'a Vec<Rule>) -> (Option<Clause<'a>>, Option<(Regex, Vec<Regex>, Vec<String>)>) {
-    let res = run(rules);
-    (interpret_grep(true, &res), interpret_cocci_git_grep(true, &res))
+// -------------------------------
+
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+pub enum Scanner {
+   NoScanner,
+   Grep,
+   GitGrep,
+   CocciGrep,
+}
+
+fn get_files(dir: String) -> Vec<String> {
+    let o = Command::new("find").arg(dir).args(["-type", "f", "-name", "\"*rs\""])
+                .output().expect(format!("{} unknown or not a directory", dir).as_str());
+    String::from_utf8(o.stdout).unwrap().lines().collect()
+}
+
+fn call_grep(files: Vec<String>, query: Vec<String>) -> Vec<String> {
+    let full = Regex::new(r"^[A-Za-z_][A-Za-z_0-9]*$").unwrap();
+    let start = Regex::new(r"^[A-Za-z_]").unwrap();
+    let finish = Regex::new(r".*[A-Za-z_]$").unwrap();
+    let query = query.iter().map(|x| {
+                  if full.is_match_at(x, 0) {
+                      format!("{}{}{}", r"\b", x, r"\b")
+                  }
+                  else if start.is_match_at(x, 0) {
+                      format!("{}{}", r"\b", x)
+                  }
+                  else if finish.is_match_at(x, 0) {
+                      format!("{}{}", x, r"\b")
+                  }
+                  else {
+                      x
+                  }
+              });
+    let query = format!("'({})'", separated_list(" | ", &query));
+    files.iter().filter(|fl| {
+        if let Ok(_) = Command::new("egrep").args(["-q", query, fl]).output() {
+            true
+        }
+        else {
+            false
+        }
+    })
+}
+
+fn call_git_grep(dir: String, query: Vec<String>) -> HashSet<String> {
+    let o = Command::new("/bin/bash")
+                .arg(format!("cd {}; git grep -l -w {} -- \"*.rs\"", dir, query))
+                .output().expect(format!("{} unknown or not a directory", dir).as_str());
+    if let Ok(lines) = String::from_utf8(o.stdout) {
+        lines.lines().collect()
+    }
+    else {
+        HashSet::new()
+    }
+}
+
+pub fn do_get_files<'a>(cfr: &CoccinelleForRust, dir: String, rules: &'a Vec<Rule>) -> Vec<String> {
+    if cfr.worth_trying == Scanner::NoScanner {
+        get_files(dir)
+    }
+    else {
+        let res = run(rules);
+        match cfr.worth_trying {
+            Scanner::Grep => {
+                let query = interpret_grep(true, &res);
+                let files = get_files(dir);
+                if let Some(query) = query {
+                    call_grep(files, query)
+                }
+                else {
+                    files
+                }
+            }
+            Scanner::GitGrep => {
+                let query = interpret_cocci_git_grep(true, &res);
+                if let Some((_, _, query)) = query {
+                    let file_matches = query.map(|q| call_git_grep(dir, q));
+                    if let Some(e) = file_matches.pop() {
+                        file_matches.iter().fold(e, |acc, x| acc.intersection(x).collect())
+                    }
+                    else {
+                        get_files(dir)
+                    }
+                }
+                else {
+                    get_files(dir)
+                }
+            }
+            Scanner::CocciGrep => {
+                let query = interpret_cocci_git_grep(true, &res);
+                let files = get_files(dir);
+                if let Some((big_regexp, regexps, _)) = query {
+                    files.iter().filter(|fl| Cocci_grep::interpret(big_regexp, regexps, fl))
+                         .collect()
+                }
+                else {
+                    files
+                }
+            }
+            _ => Vec::<_>::new() // not possible
+        }
+    }
 }

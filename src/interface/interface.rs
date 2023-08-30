@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use clap::Parser;
+use crate::parsing_cocci::get_constants;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -39,4 +40,8 @@ pub struct CoccinelleForRust {
 
     #[arg(long)]
     pub no_parallel: bool,
+
+    /// strategy for identifying files that may be matched by the semantic patch
+    #[arg(long, value_enum, default_value_t = get_constants::Scanner::CocciGrep)]
+    pub worth_trying: get_constants::Scanner,
 }
