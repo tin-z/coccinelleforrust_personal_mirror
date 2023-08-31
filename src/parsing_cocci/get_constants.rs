@@ -55,10 +55,10 @@ where &'a Iterable: std::iter::IntoIterator<Item=Item>
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 	let mut iter = self.iterable.into_iter();
 	if let Some(first) = iter.next() {
-	    first.fmt(f);
+	    first.fmt(f)?;
 	    for item in iter {
-		self.sep.fmt(f);
-		item.fmt(f);
+		self.sep.fmt(f)?;
+		item.fmt(f)?;
 	    }
 	}
 	Ok(())
