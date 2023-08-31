@@ -74,7 +74,6 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
             }
         }
         for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
-            println!("HAHAH = {}", env.modifiers.pluses.len());
             if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
                 println!("TESTIG bef {}", x.totoken());
@@ -133,6 +132,11 @@ pub fn getfiltered(
                 set.insert(b.clone());
             }
         } //from all the collected bindings it gets all unique bindings for a given metavar
+
+        if set.len() == 0 {
+            //no bindings have been made
+            continue;
+        }
         toret.push(set.into_iter().collect_vec());
     }
 
@@ -157,9 +161,12 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
 
     let mut savedbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
     for mut rule in rules {
+        println!("Rule: {}, freevars: {:?}", rule.name, rule.freevars);
         let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
+        println!("filtered bindings : {:?}", getfiltered(&rule.freevars, &savedbindings));
         let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
+        println!("Expanded bindings: {:?}", expandedbindings);
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for gbindings in expandedbindings {
@@ -179,7 +186,7 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
                 continue;
             }
             */
-
+            println!("For rule {}, inherited: {:#?}", rule.name, gbindings);
             let looper = Looper::new(tokenf);
             let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
                 looper.handledisjunctions(k, l, gbindings.iter().collect_vec())
@@ -193,7 +200,9 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         }
         //patchbindings.extend(tmpbindings);
         savedbindings.extend(tmpbindings);
+        println!("usedafter : {:#?}", rule.usedafter);
         trimpatchbindings(&mut savedbindings, rule.usedafter);
+        println!("After trimming {:?}", savedbindings);
 
         let transformedstring = transformedcode.getunformatted();
 

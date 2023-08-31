@@ -157,7 +157,8 @@ impl<'a, 'b> Looper<'a> {
 
             let akind = a.kind();
             let bkind = b.kind();
-            //println!("{:?} ===== {:?}", akind, bkind);//please dont remove this line
+            //println!("{:?} ===== {:?}", akind, bkind);
+            //please dont remove this line
             //helps in debugging, and I always forget where to put it
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
                 //println!("fail");
@@ -175,12 +176,6 @@ impl<'a, 'b> Looper<'a> {
                     );
 
                     if !renv.failed {
-                        //match a.wrapper. {
-                        //  Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
-                        //env.modifiers.minuses.push(b.getpos());
-                        //}
-                        //_ => {}
-                        //}
                         addplustoenv(a, b, &mut env);
 
                         env.add(renv);
@@ -190,12 +185,14 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
+
                     debugcocci!(
                         "Binding {} to {}.{}",
                         b.gettokenstream(),
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string()
                     );
+
                     let binding = MetavarBinding::new(
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string(),
@@ -215,8 +212,8 @@ impl<'a, 'b> Looper<'a> {
                     addplustoenv(a, b, &mut env);
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
-                            //println!("exists -> {}", b.astnode.to_string());
                             env.modifiers.minuses.push(b.getpos());
+                            println!("But ive got it wrong again");
                         }
                         Mcodekind::Plus => {}
                         Mcodekind::Context(_, _) => {}
@@ -253,18 +250,28 @@ impl<'a, 'b> Looper<'a> {
                 return MetavarMatch::Maybe(node1, node2); //not sure
             }
             metavar => {
-                //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
                 if let Some(binding) = bindings
                     .iter()
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
+                    //this is entered if a metavar has already been bound or is present
+                    //in the inherited environment
                     if binding.rnode.equals(node2) {
                         MetavarMatch::Exists
                     } else {
                         MetavarMatch::Fail
                     }
                 } else {
+
+                    if metavar.isinherited() {
+                        //If the metavar is inhertited
+                        //but no bindings exist from previous rules
+                        //then fail matching
+                        println!("Comes here");
+                        return MetavarMatch::Fail;
+                    }
+                    println!("{}.{}", metavar.getrulename(), metavar.getname());
                     match metavar {
                         MetaVar::Exp(_info) => {
                             if node2.isexpr() {
@@ -303,9 +310,29 @@ impl<'a, 'b> Looper<'a> {
     ) -> (Vec<Environment>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
-        for disj in disjs {
+        let dnum = disjs.len();
+
+        println!("Inhertied Bindings {:#?}", inheritedbindings);
+
+        'outer:
+        for din in 0..dnum {
+            let disj = &disjs[din];
             let mut inheritedenv = Environment::new();
             inheritedenv.addbindings(&inheritedbindings);
+
+            //this part makes sure that if any previous disjunctions
+            //match for the current piece of code, we shall abort the matching
+            //(a | b) is converted into (a | (not a) and b)
+            let mut ctr = 0;
+            for prevdisj in &disjs[0..din] {
+                let penv = self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
+                println!("{}", ctr);
+                if !penv.failed {
+                    continue 'outer;
+                }
+                ctr+=1;
+            }
+
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
             matched = matched || !env.failed;
             if !env.failed {
@@ -323,7 +350,7 @@ pub fn visitrnode<'a>(
 ) -> Vec<Environment> {
     let mut environments = vec![];
     let nodebchildren = &mut nodeb.children.iter();
-
+    
     loop {
         let tmp = f(nodea, &nodebchildren.clone().collect_vec());
 

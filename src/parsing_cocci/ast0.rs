@@ -194,7 +194,6 @@ impl<'a> Snode {
         let disjs = collectdisjs(&self);
         return (disjs, self.wrapper.mcodekind.getpluses());
     }
-    
 
     pub fn get_constants(&self) -> Vec<String> {
         let mut constants: HashSet<String> = HashSet::new();
@@ -309,25 +308,21 @@ pub enum KeepBinding {
     SAVED,      //Need a witness
 }
 
-type Minfo = (MetavarName, KeepBinding); //rulename, metavar name, keepbinding
+type Minfo = (MetavarName, KeepBinding, bool); //rulename, metavar name, keepbinding, is_inherited
 
 #[derive(Clone, Hash, Debug, PartialEq)]
 pub enum Mcodekind {
     Minus(Vec<Snode>),
     Plus,
     Context(Vec<Snode>, Vec<Snode>),
-    Star
+    Star,
 }
 
 impl<'a> Mcodekind {
-    pub fn is_context(&self) -> bool{
+    pub fn is_context(&self) -> bool {
         match self {
-            Mcodekind::Context(_, _) => {
-                true
-            }
-            _ => {
-                false
-            }
+            Mcodekind::Context(_, _) => true,
+            _ => false,
         }
     }
 
@@ -335,7 +330,7 @@ impl<'a> Mcodekind {
         match self {
             Mcodekind::Context(a, _) => a,
             Mcodekind::Minus(a) => a,
-            _ => panic!("No pluses should be attached to Plus or star nodes")
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
         }
     }
 
@@ -343,7 +338,7 @@ impl<'a> Mcodekind {
         match self {
             Mcodekind::Context(_, a) => a,
             Mcodekind::Minus(a) => a,
-            _ => panic!("No pluses should be attached to Plus or star nodes")
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
         }
     }
 
@@ -351,7 +346,7 @@ impl<'a> Mcodekind {
         match self {
             Mcodekind::Context(a, _) => &a,
             Mcodekind::Minus(a) => &a,
-            _ => panic!("No pluses should be attached to Plus or star nodes")
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
         }
     }
 
@@ -359,7 +354,7 @@ impl<'a> Mcodekind {
         match self {
             Mcodekind::Context(_, a) => &a,
             Mcodekind::Minus(a) => &a,
-            _ => panic!("No pluses should be attached to Plus or star nodes")
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
         }
     }
 
@@ -368,7 +363,7 @@ impl<'a> Mcodekind {
         match self {
             Mcodekind::Context(a, b) => (a.clone(), b.clone()),
             Mcodekind::Minus(a) => (a.clone(), vec![]),
-            _ => panic!("No pluses should be attached to Plus or star nodes")
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
         }
     }
 
@@ -377,13 +372,10 @@ impl<'a> Mcodekind {
             Mcodekind::Context(a, _) => {
                 a.extend(pluses);
             }
-            Mcodekind::Minus(a) => {
-                a.extend(pluses)
-            }
+            Mcodekind::Minus(a) => a.extend(pluses),
             _ => {
                 panic!("Cannot attach plus to Plus or Star nodes");
             }
-
         }
     }
 
@@ -392,13 +384,10 @@ impl<'a> Mcodekind {
             Mcodekind::Context(_, a) => {
                 a.extend(pluses);
             }
-            Mcodekind::Minus(a) => {
-                a.extend(pluses)
-            }
+            Mcodekind::Minus(a) => a.extend(pluses),
             _ => {
                 panic!("Cannot attach plus to Plus or Star nodes");
             }
-
         }
     }
 }
@@ -471,10 +460,11 @@ impl MetaVar {
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &str) -> Option<MetaVar> {
+    pub fn new(rulename: &str, name: &str, ty: &str, isinherited: bool) -> Option<MetaVar> {
         let minfo = (
             MetavarName { rulename: rulename.to_string(), varname: name.to_string() },
             KeepBinding::UNITARY,
+            isinherited,
         );
         match ty {
             "expression" => Some(MetaVar::Exp(minfo)),
@@ -488,6 +478,33 @@ impl MetaVar {
         match self {
             MetaVar::NoMeta => true,
             _ => false,
+        }
+    }
+
+    pub fn makeinherited(&self) -> MetaVar{
+        let mut inhertited = self.clone();
+        match &mut inhertited {
+            MetaVar::NoMeta => {}
+            MetaVar::Exp(minfo) => {
+                minfo.2 = true;
+            }
+            MetaVar::Id(minfo) => {
+                minfo.2 = true;
+            }
+            MetaVar::Type(minfo) => {
+                minfo.2 = true;
+            }
+        }
+
+        return inhertited;
+    }
+
+    pub fn isinherited(&self) -> bool {
+        match self {
+            MetaVar::NoMeta => false,
+            MetaVar::Exp(minfo) => minfo.2,
+            MetaVar::Id(minfo) => minfo.2,
+            MetaVar::Type(minfo) => minfo.2
         }
     }
 }
@@ -509,7 +526,7 @@ pub struct Wrap {
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
     pub isdisj: bool,
-    pub mcodekind: Mcodekind
+    pub mcodekind: Mcodekind,
 }
 
 impl Wrap {
@@ -534,8 +551,8 @@ impl Wrap {
             true_if_test_exp: true_if_test_exp,
             iso_info: iso_info,
             isdisj: isdisj,
-            mcodekind: Mcodekind::Context(vec![], vec![]),//All tokens start out as context
-            //before being modified accordingly
+            mcodekind: Mcodekind::Context(vec![], vec![]), //All tokens start out as context
+                                                           //before being modified accordingly
         }
     }
 

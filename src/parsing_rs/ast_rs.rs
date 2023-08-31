@@ -276,7 +276,7 @@ impl Rnode {
 impl Debug for Rnode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Rnode")
-            .field("astnode", &self.totoken())
+            .field("astnode", &self.getunformatted())
             .field("children", &self.children)
             .finish()
     }

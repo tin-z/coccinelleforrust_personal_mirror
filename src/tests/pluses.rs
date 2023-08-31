@@ -20,3 +20,8 @@ pub fn test2() {
 pub fn test3() {
     assert!(PLUSTEST.testtransformation("test3.cocci", "test3.rs", "expected3.rs"))
 }
+
+#[test]
+pub fn test4() {
+    assert!(PLUSTEST.testtransformation("test4.cocci", "test4.rs", "expected4.rs"))
+}
