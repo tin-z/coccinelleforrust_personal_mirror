@@ -1,0 +1,11 @@
+@rule@                                                                                                                                                                                                        
+expression x, y;                                                                                                                                                                                              
+@@                                                                                                                                                                                                            
+                                                                                                                                                                                                              
+(                                                                                                                                                                                                             
+-x.setSpeed(-y);                                                                                                                                                                                              
++x.setSpeed(y, false);                                                                                                                                                                                        
+|                                                                                                                                                                                                             
+-x.setSpeed(y);                                                                                                                                                                                               
++x.setSpeed(y, true);                                                                                                                                                                                         
+)  

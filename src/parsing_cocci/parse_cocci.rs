@@ -55,7 +55,7 @@ fn makemetavar(
     match (split.get(0), split.get(1), split.get(2)) {
         (Some(var), None, None) => {
             debugcocci!("Added Metavar {}.{}", rulename, var);
-            MetaVar::new(rulename, var, metatype)
+            MetaVar::new(rulename, var, metatype, false)
                 .unwrap_or_else(|| syntaxerror!(lino, "Unexpected Metavariable type"))
         }
         (Some(rulen), Some(var), None) => {
@@ -74,7 +74,8 @@ fn makemetavar(
                     );
                 }
                 debugcocci!("Added Metavar {}.{}", mvar.getrulename(), mvar.getname());
-                return mvar.clone();
+                let inhertedvar = mvar.makeinherited();
+                return inhertedvar;
             } else {
                 syntaxerror!(lino, format!("No such metavariable in rule {}", rule.name), varname)
             }
