@@ -15,7 +15,7 @@ where P: AsRef<Path>, {
     Ok(io::BufReader::new(file).lines())
 }
 
-pub fn interpret<'a>(mut big_regexp : &'a Regex, regexps : Vec<&'a Regex>, file : String) -> bool {
+pub fn interpret<'a>(mut big_regexp : &'a Regex, regexps : &Vec<&'a Regex>, file : &String) -> bool {
     if let Ok(lines) = read_lines(file) {
         let mut simple = regexps.len() == 1;
         for line in lines {
