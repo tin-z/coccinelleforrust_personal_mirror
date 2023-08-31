@@ -548,11 +548,11 @@ pub enum Scanner {
 }
 
 fn get_files(dir: String) -> Vec<String> {
-    let msg = format!("{} unknown or not a directory", dir).as_str();
+    let msg = format!("{} unknown or not a directory", dir);
     let output = Command::new("find").arg(dir).args(["-type", "f", "-name", "\"*rs\""])
         .stdout(Stdio::piped())
         .output()
-        .expect(&msg);
+        .expect(&msg.as_str());
     String::from_utf8(output.stdout).expect(&msg).lines().map(|x| x.to_string()).collect()
 }
 
@@ -617,11 +617,11 @@ pub fn do_get_files<'a>(cfr: &CoccinelleForRust, dir: String, rules: &'a Vec<Rul
             Scanner::GitGrep => {
                 let query = interpret_cocci_git_grep(true, &res);
                 if let Some((_, _, query)) = query {
-                    let file_matches: Vec<HashSet<String>> =
+                    let mut file_matches: Vec<HashSet<String>> =
                         query.into_iter().map(|q| call_git_grep(&dir, q)).collect();
-                    if let Some(e) = file_matches.pop() {
+                    if let Some(mut e) = file_matches.pop() {
                         for x in file_matches {
-                            e.retain(|x| e.contains(x));
+                            e.retain(|v| x.contains(v));
                         }
                         e.into_iter().collect()
                     }
