@@ -240,17 +240,17 @@ fn cnf<'a> (strict:bool, dep: &Combine<'a>) -> Result<CNF<'a>,()> {
 }
 
 fn optimize<'a> (l : CNF<'a>) -> CNF<'a> {
-    let mut l: Vec<_> = l.into_iter().map(|x| (x.len(), x)).collect();
-    l.sort();
+    let mut l: Vec<_> = l.into_iter().collect();
+    l.sort_by_key(|x| x.len());
     l.reverse();
-    big_and(l.into_iter().map(|(_,x)| x))
+    big_and(l)
 }
 
 fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
-    let mut acc = BTreeSet::<&'a str>::new();
+    let mut acc = BTreeSet::new();
     for dep in dep {
         match dep {
-            Elem(x) => { acc.insert(x); }
+            Elem(x) => { acc.insert(*x); }
             And(_) | Or(_) | True | False => (),
             Not(_) => syntaxerror!(0, "Not unexpected in atoms")
         }
@@ -299,9 +299,8 @@ fn leftres_rightres<'a>(tbl : &mut dyn DoubleEndedIterator<Item = &'a str>,
     (leftres,rightres)
 }
 
-fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
-    let mut tbl = count_atoms(l);
-    let mut available = l.clone();
+fn split<'a>(mut available : CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(&available);
     // run extend
     let mut preres : CNF<'a> = CNF::new();
     tbl.retain(|&(f,ct)| ct > 1 || {
@@ -342,13 +341,11 @@ fn interpret_cocci_git_grep<'a> (strict: bool, x: &Combine<'a>) ->
                 let res1: Regex = orify(&atoms(x)); // all atoms
                 let res = cnf(strict, x)?;
                 let res = optimize(res);
-                let res = split(&res);
+                let res = split(res);
                 let res2: Vec<Regex> = res.iter().map(orify).collect(); // atoms in conjunction
                 let res3: Vec<String> =
                     res.iter().map(|x| {
-                                   let x : Vec<String> =
-                                       x.iter().map(|x| x.to_string()).collect();
-                                   format!("\\( -e {} \\)", separated_list(" -e ", &x)) }).collect();
+                                   format!("\\( -e {} \\)", separated_list(" -e ", x)) }).collect();
                 Ok::<(regex::Regex, Vec<regex::Regex>, Vec<std::string::String>), ()>((res1,res2,res3))
              })().ok()
         }
@@ -356,78 +353,118 @@ fn interpret_cocci_git_grep<'a> (strict: bool, x: &Combine<'a>) ->
 }
 
 // -------------------------------------------------------------------------
-
+/*
 fn interpret_idutils<'a>(dep: Combine<'a>) -> Option<Combine<'a>> {
     match dep {
         True => None,
         x => Some(x)
     }
 }
-
+*/
 // -------------------------------------------------------------------------
 
-fn build_and<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
-    if x == y {
-        x.clone()
+fn build_and_nested<'a>(l: BTreeSet<Combine<'a>>, x: Combine<'a>) -> Combine<'a> {
+    let mut others: BTreeSet<Combine<'a>> =
+        l.into_iter().filter(|y| {
+	    if let Or(l) = y {
+		!l.contains(&x)
+	    }
+	    else {
+		true
+	    }
+	}).collect();
+    others.insert(x);
+    And(Box::new(others))
+}
+
+fn build_and<'a>(x: Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
+    if x == *y {
+        x
     }
     else {
         match (x,y) {
-            (True,x) | (x,True) => x.clone(),
-            (False,_x) | (_x,False) => False,
-            (And(l1),And(l2)) => And(Box::new(l1.union(&*l2).cloned().collect())),
-            (x,Or(l)) if l.contains(&x) => x.clone(),
+            (x,True) => x,
+            (True,x) => x.clone(),
+            (False,_) | (_,False) => False,
+            (And(l1),And(l2)) => And(Box::new(l1.union(l2).cloned().collect())),
+            (x,Or(l)) if l.contains(&x) => x,
             (Or(l),x) if l.contains(&x) => x.clone(),
-            (Or(l1),Or(l2)) if l1.intersection(&*l2).count() > 0 => {
-                let a1 = l1.difference(&l2).fold(False, |acc,a| build_or(&acc,a));
-                let a2 = l2.difference(&*l1).fold(False, |acc,a| build_or(&acc,a));
-                let inner = build_and(&a1,&a2);
-                l1.intersection(&*l2).fold(inner, |acc,a| build_or(&acc,&a))
+            (Or(l1),Or(l2)) if l1.intersection(l2).count() > 0 => {
+                let a1 = l1.difference(l2).fold(False, build_or);
+                let a2 = l2.difference(&l1).fold(False, build_or);
+                let inner = build_and(a1,&a2);
+                l1.intersection(l2).fold(inner, build_or)
             }
-            (x,And(l)) | (And(l),x) => {
-                if l.contains(x) {
+            (x,And(l)) => {
+                if l.contains(&x) {
                     And(l.clone())
                 }
                 else {
-                    let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let Or(l1) = y { !l1.contains(x) } else { true }}).cloned().collect();
-                    others.insert(x.clone());
-                    And(Box::new(others))
+                    build_and_nested((**l).clone(), x)
                 }
             }
-            (x,y) => And(Box::new(BTreeSet::from([x.clone(),y.clone()])))
+            (And(l),x) => {
+                if l.contains(x) {
+                    And(l)
+                }
+                else {
+                    build_and_nested(*l, x.clone())
+                }
+            }
+            (x,y) => And(Box::new(BTreeSet::from([x,y.clone()])))
         }
     }
 }
 
-fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
-    if x == y {
-        x.clone()
+fn build_or_nested<'a>(l: BTreeSet<Combine<'a>>, x: Combine<'a>) -> Combine<'a> {
+    let mut others: BTreeSet<Combine<'a>> =
+        l.into_iter().filter(|y| {
+	    if let And(l) = y {
+		!l.contains(&x)
+	    }
+	    else {
+		true
+	    }
+	}).collect();
+    others.insert(x);
+    Or(Box::new(others))
+}
+
+fn build_or<'a>(x: Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
+    if x == *y {
+        x
     }
     else {
         match (x,y) {
-            (True,_x) | (_x,True) => True,
-            (False,x) | (x,False) => x.clone(),
-            (Or(l1),Or(l2)) => Or(Box::new(l1.union(&*l2).cloned().collect())),
-            (x,And(l)) if l.contains(&x) => x.clone(),
+            (True,_) | (_,True) => True,
+            (x,False) => x,
+            (False,x) => x.clone(),
+            (Or(l1),Or(l2)) => Or(Box::new(l1.union(l2).cloned().collect())),
+            (x,And(l)) if l.contains(&x) => x,
             (And(l),x) if l.contains(&x) => x.clone(),
-            (And(l1),And(l2)) if !(l1.intersection(&*l2).count() == 0) => {
-                let a1 = l1.difference(&l2).fold(True, |acc,a| build_and(&acc,a));
-                let a2 = l2.difference(&*l1).fold(True, |acc,a| build_and(&acc,a));
-                let inner = build_or(&a1,&a2);
-                l1.intersection(&*l2).cloned().fold(inner, |acc,a| build_and(&acc,&a))
+            (And(l1),And(l2)) if !(l1.intersection(l2).count() == 0) => {
+                let a1 = l1.difference(l2).fold(True, build_and);
+                let a2 = l2.difference(&l1).fold(True, build_and);
+                let inner = build_or(a1,&a2);
+                l1.intersection(&*l2).fold(inner, build_and)
             }
-            (x,Or(l)) | (Or(l),x) => {
+            (x,Or(l)) => {
                 if l.contains(&x) {
                     Or(l.clone())
                 }
                 else {
-                    let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let And(l1) = y { !l1.contains(&x) } else { true }}).cloned().collect();
-                    others.insert(x.clone());
-                    Or(Box::new(others))
+                    build_or_nested((**l).clone(), x)
                 }
             }
-            (x,y) => Or(Box::new(BTreeSet::from([x.clone(),y.clone()])))
+            (Or(l),x) => {
+                if l.contains(x) {
+                    Or(l)
+                }
+                else {
+                    build_or_nested(*l, x.clone())
+                }
+            }
+            (x,y) => Or(Box::new(BTreeSet::from([x, y.clone()])))
         }
     }
 }
@@ -456,13 +493,13 @@ fn do_get_constants<'a>(node: &'a Snode, kwds: bool, env: &HashMap<&str, Combine
         node.children.iter()
             .fold(False,
                   |acc, child: &'a Snode|
-                  build_or(&acc, &do_get_constants(child, kwds, env)))
+                  build_or(acc, &do_get_constants(child, kwds, env)))
     }
     else {
         node.children.iter()
             .fold(False,
                   |acc, child: &'a Snode|
-                  build_and(&acc, &do_get_constants(child, kwds, env)))
+                  build_and(acc, &do_get_constants(child, kwds, env)))
     }
 }
 
@@ -508,8 +545,8 @@ fn dependencies<'a>(env: &HashMap<&str, Combine<'a>>, dep: &Dep) -> Combine<'a> 
                 False
             }
         }
-        Dep::AndDep(args) => build_and(&dependencies(env, &args.0), &dependencies(env, &args.1)),
-        Dep::OrDep(args)  => build_or(&dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::AndDep(args) => build_and(dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::OrDep(args)  => build_or(dependencies(env, &args.0), &dependencies(env, &args.1)),
         Dep::AntiDep(_)   => True
     }
 }
@@ -523,12 +560,12 @@ fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
             dependencies => {
                     env.insert(&r.name,True);
                     let cur_info = rule_fn(&r, &env);
-                    let re_cur_info = build_and(&dependencies, &cur_info);
+                    let re_cur_info = build_and(dependencies, &cur_info);
                     if all_context(r) {
                         env.entry(&r.name).and_modify(|i| *i = re_cur_info);
                     }
                     else {
-                        res = build_or(&re_cur_info,&res);
+                        res = build_or(re_cur_info,&res);
                         env.entry(&r.name).and_modify(|i| *i = cur_info);
                 }
             }
