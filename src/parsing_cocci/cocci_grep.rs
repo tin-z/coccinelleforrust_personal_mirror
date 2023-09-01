@@ -15,27 +15,20 @@ where P: AsRef<Path>, {
     Ok(io::BufReader::new(file).lines())
 }
 
-pub fn interpret<'a>(mut big_regexp : &'a Regex, regexps : Vec<&'a Regex>, file : String) -> bool {
+pub fn interpret(big_regexp : &Regex, regexps : &Vec<Regex>, file : &String) -> bool {
+    let mut regexps = regexps.clone();
+    let mut rlen = regexps.len();
     if let Ok(lines) = read_lines(file) {
-        let mut simple = regexps.len() == 1;
         for line in lines {
             if let Ok(l) = line {
+                if rlen == 1 && regexps[0].is_match(&l) {
+                    return true
+                }
                 if big_regexp.is_match(&l) {
-                    if simple {
+                    regexps.retain(|re| !re.is_match(&l));
+                    rlen = regexps.len();
+                    if rlen == 0 {
                         return true
-                    }
-                    else {
-                        let res: Vec<_> =
-                            regexps.iter()
-                                .filter(|regexp| !regexp.is_match(&l)).collect();
-                        let rlen = res.len();
-                        if rlen == 0 {
-                            return true
-                        }
-                        else if rlen == 1 {
-                            simple = true;
-                            big_regexp = regexps[0];
-                        }
                     }
                 }
             }
