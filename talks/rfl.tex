@@ -150,16 +150,16 @@ Date:   Mon Feb 6 17:48:12 2023 -0700
 diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/.../conflict_errors.rs
 @@ -2592,4 +2592,4 @@ fn annotate_argument_and_return_for_borrow(
              } else {
--                let ty = self.infcx.tcx.type_of(self.mir_def_id());
-+                let ty = self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity();
+-                £\textcolor{red}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{red}{;}£
++                £\textcolor{gr}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{gr}{;}£
                  match ty.kind() {
                      ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
 diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.rs
 @@ -1185,4 +1185,4 @@ fn explain_captures(
                          matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
                              .then_some(parent_did)
--                            .and_then(|did| match tcx.type_of(did).kind() {
-+                            .and_then(|did| match tcx.bound_type_of(did).subst_identity().kind() {
+-                            £\textcolor{red}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{red}{.kind() \ttlb}£
++                            £\textcolor{gr}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{gr}{.kind() \ttlb}£
                                  ty::Adt(def, ..) => Some(def.did()),
 ...
 \end{lstlisting}
