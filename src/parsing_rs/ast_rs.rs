@@ -11,7 +11,6 @@ use ra_syntax::{SyntaxElement, SyntaxNode};
 use SyntaxKind::*;
 
 use crate::commons::info;
-use crate::parsing_cocci::ast0::Mcodekind;
 
 type VirtualPosition = (info::ParseInfo, usize);
 
@@ -36,7 +35,7 @@ pub enum Danger {
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
-    cocci_tag: Option<Vec<Mcodekind>>,
+    //cocci_tag: Option<Vec<Mcodekind>>,
     danger: Danger,
     pub wspaces: (String, String),
     pub isremoved: bool,
@@ -48,7 +47,6 @@ impl Hash for Wrap {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.info.hash(state);
         self.index.hash(state);
-        self.cocci_tag.hash(state);
         self.danger.hash(state);
         self.wspaces.hash(state);
         self.plussed.hash(state)
@@ -59,13 +57,13 @@ impl Wrap {
     pub fn new(
         info: info::ParseInfo,
         index: usize,
-        cocci_tag: Option<Vec<Mcodekind>>,
+        //cocci_tag: Option<Vec<Mcodekind>>,
         danger: Danger,
     ) -> Wrap {
         Wrap {
             info: info,
             index: index,
-            cocci_tag: cocci_tag,
+            //cocci_tag: cocci_tag,
             danger: danger,
             wspaces: (String::new(), String::new()),
             isremoved: false,
@@ -83,7 +81,7 @@ impl Wrap {
         Wrap {
             info: info::ParseInfo::new(String::new(), 0, 0, 0, 0, 0, String::new()),
             index: 0,
-            cocci_tag: None,
+            //cocci_tag: None,
             danger: Danger::NoDanger,
             wspaces: wp,
             isremoved: false,
@@ -306,7 +304,7 @@ impl Rnode {
 impl Debug for Rnode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Rnode")
-            .field("astnode", &self.totoken())
+            .field("astnode", &self.getunformatted())
             .field("children", &self.children)
             .finish()
     }

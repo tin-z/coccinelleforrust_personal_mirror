@@ -3,8 +3,7 @@
  use itertools::Itertools;
 use ra_parser::SyntaxKind;
 
-use crate::{
-    engine::cocci_vs_rs::Environment, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
+use crate::{ parsing_cocci::ast0::{Snode, Mcodekind}, parsing_rs::ast_rs::Rnode,
 };
 
 #[macro_export]
@@ -144,40 +143,6 @@ pub fn workrnode(node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool) {
     }
 }
 
-pub fn visitrnode<'a>(
-    nodea: &Vec<Vec<Snode>>,
-    nodeb: &'a Rnode,
-    f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment>, bool),
-) -> Vec<Environment> {
-    //use async function to wrap the for loop
-    //for other cases TODO
-    let mut environments = vec![];
-    //println!("sending single node");
-    //let tmp = f(nodea, &vec![nodeb]);
-
-    //if tmp.1 {
-    //    environments.extend(tmp.0);
-    //}
-    let nodebchildren = &mut nodeb.children.iter();
-
-    loop {
-        let tmp = f(nodea, &nodebchildren.clone().collect_vec());
-
-        if tmp.1 {
-            environments.extend(tmp.0);
-        }
-
-        //if nodebchildren.len() == 1 { break; }
-
-        if let Some(child) = nodebchildren.next() {
-            environments.extend(visitrnode(nodea, child, f));
-        } else {
-            break;
-        }
-    }
-    return environments;
-}
-
 pub fn isexpr(node1: &Snode) -> bool {
     use SyntaxKind::*;
 
@@ -267,7 +232,15 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
                 node.kind()
             );
         }
-        node.wrapper.plusesbef.extend(plus);
+        match &mut node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                a.extend(plus);
+            }
+            Mcodekind::Context(a , _) => {
+                a.extend(plus);
+            }
+            _ => {}
+        }
     } else {
         attachfront(&mut node.children[0], plus);
     }
@@ -284,7 +257,15 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
                 node.kind()
             );
         }
-        node.wrapper.plusesaft.extend(plus);
+        match &mut node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                a.extend(plus);
+            }
+            Mcodekind::Context(_ , a) => {
+                a.extend(plus);
+            }
+            _ => {}
+        }
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
         attachback(&mut node.children[len - 1], plus);

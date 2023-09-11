@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
-#![allow(unused)]
-
 /*
-(*
- * This file is part of Coccinelle, licensed under the terms of the GPL v2.
- * See copyright.txt in the Coccinelle source code for more information.
- * The Coccinelle source code can be obtained at http://coccinelle.lip6.fr
- *)
-
 (* Issues:
 
 1.  If a rule X depends on a rule Y (in a positive way), then we can ignore
@@ -31,12 +23,18 @@
 use regex::Regex;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use super::parse_cocci::Rule;
+use super::parse_cocci::Dep;
 use crate::parsing_cocci::ast0::Snode;
 use crate::parsing_cocci::ast0::MetaVar;
+use crate::parsing_cocci::ast0::Mcodekind;
+use crate::parsing_cocci::cocci_grep;
 use crate::commons::util::worktree_pure;
-use crate::{syntaxerror,commons};
+use crate::syntaxerror;
 use ra_parser::SyntaxKind;
+use std::process::{Command, Stdio};
+use crate::interface::interface::CoccinelleForRust;
 
 type Tag = SyntaxKind;
 
@@ -57,10 +55,10 @@ where &'a Iterable: std::iter::IntoIterator<Item=Item>
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 	let mut iter = self.iterable.into_iter();
 	if let Some(first) = iter.next() {
-	    first.fmt(f);
+	    first.fmt(f)?;
 	    for item in iter {
-		self.sep.fmt(f);
-		item.fmt(f);
+		self.sep.fmt(f)?;
+		item.fmt(f)?;
 	    }
 	}
 	Ok(())
@@ -149,7 +147,7 @@ static FALSE_ON_TOP_ERR: &str =
 type Clause<'a> = BTreeSet<&'a str>;
 type CNF<'a> = BTreeSet<Clause<'a>>;
 
-fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Clause<'a>> {
+fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Vec<String>> {
     if let True = x {
         return None;
     };
@@ -175,7 +173,7 @@ fn interpret_grep<'a>(strict: bool, x: &Combine<'a>) -> Option<Clause<'a>> {
                 }
         }
     }
-    Some(collected)
+    Some(collected.iter().map(|x| x.to_string()).collect())
 }
 
 // -------------------------------------------------------------------------
@@ -242,19 +240,19 @@ fn cnf<'a> (strict:bool, dep: &Combine<'a>) -> Result<CNF<'a>,()> {
 }
 
 fn optimize<'a> (l : CNF<'a>) -> CNF<'a> {
-    let mut l: Vec<_> = l.into_iter().map(|x| (x.len(), x)).collect();
-    l.sort();
+    let mut l: Vec<_> = l.into_iter().collect();
+    l.sort_by_key(|x| x.len());
     l.reverse();
-    big_and(l.into_iter().map(|(_,x)| x))
+    big_and(l)
 }
 
 fn atoms<'a>(dep: &Combine<'a>) -> BTreeSet<&'a str> {
-    let mut acc = BTreeSet::<&'a str>::new();
+    let mut acc = BTreeSet::new();
     for dep in dep {
         match dep {
-            Elem(x) => { acc.insert(x); }
+            Elem(x) => { acc.insert(*x); }
             And(_) | Or(_) | True | False => (),
-            Not(x) => syntaxerror!(0, "Not unexpected in atoms")
+            Not(_) => syntaxerror!(0, "Not unexpected in atoms")
         }
     }
     acc
@@ -301,9 +299,8 @@ fn leftres_rightres<'a>(tbl : &mut dyn DoubleEndedIterator<Item = &'a str>,
     (leftres,rightres)
 }
 
-fn split<'a>(l : &CNF<'a>) -> CNF<'a> {
-    let mut tbl = count_atoms(l);
-    let mut available = l.clone();
+fn split<'a>(mut available : CNF<'a>) -> CNF<'a> {
+    let mut tbl = count_atoms(&available);
     // run extend
     let mut preres : CNF<'a> = CNF::new();
     tbl.retain(|&(f,ct)| ct > 1 || {
@@ -344,13 +341,11 @@ fn interpret_cocci_git_grep<'a> (strict: bool, x: &Combine<'a>) ->
                 let res1: Regex = orify(&atoms(x)); // all atoms
                 let res = cnf(strict, x)?;
                 let res = optimize(res);
-                let res = split(&res);
+                let res = split(res);
                 let res2: Vec<Regex> = res.iter().map(orify).collect(); // atoms in conjunction
                 let res3: Vec<String> =
                     res.iter().map(|x| {
-                                   let x : Vec<String> =
-                                       x.iter().map(|x| x.to_string()).collect();
-                                   format!("\\( -e {} \\)", separated_list(" -e ", &x)) }).collect();
+                                   format!("\\( -e {} \\)", separated_list(" -e ", x)) }).collect();
                 Ok::<(regex::Regex, Vec<regex::Regex>, Vec<std::string::String>), ()>((res1,res2,res3))
              })().ok()
         }
@@ -358,99 +353,335 @@ fn interpret_cocci_git_grep<'a> (strict: bool, x: &Combine<'a>) ->
 }
 
 // -------------------------------------------------------------------------
-
+/*
 fn interpret_idutils<'a>(dep: Combine<'a>) -> Option<Combine<'a>> {
     match dep {
         True => None,
         x => Some(x)
     }
 }
-
+*/
 // -------------------------------------------------------------------------
 
-fn build_and<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
-    if x == y {
-        x.clone()
+fn build_and_nested<'a>(l: BTreeSet<Combine<'a>>, x: Combine<'a>) -> Combine<'a> {
+    let mut others: BTreeSet<Combine<'a>> =
+        l.into_iter().filter(|y| {
+	    if let Or(l) = y {
+		!l.contains(&x)
+	    }
+	    else {
+		true
+	    }
+	}).collect();
+    others.insert(x);
+    And(Box::new(others))
+}
+
+fn build_and<'a>(x: Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
+    if x == *y {
+        x
     }
     else {
         match (x,y) {
-            (True,x) | (x,True) => x.clone(),
-            (False,_x) | (_x,False) => False,
-            (And(l1),And(l2)) => And(Box::new(l1.union(&*l2).cloned().collect())),
-            (x,Or(l)) if l.contains(&x) => x.clone(),
+            (x,True) => x,
+            (True,x) => x.clone(),
+            (False,_) | (_,False) => False,
+            (And(l1),And(l2)) => And(Box::new(l1.union(l2).cloned().collect())),
+            (x,Or(l)) if l.contains(&x) => x,
             (Or(l),x) if l.contains(&x) => x.clone(),
-            (Or(l1),Or(l2)) if l1.intersection(&*l2).count() > 0 => {
-                let a1 = l1.difference(&l2).fold(False, |acc,a| build_or(&acc,a));
-                let a2 = l2.difference(&*l1).fold(False, |acc,a| build_or(&acc,a));
-                let inner = build_and(&a1,&a2);
-                l1.intersection(&*l2).fold(inner, |acc,a| build_or(&acc,&a))
+            (Or(l1),Or(l2)) if l1.intersection(l2).count() > 0 => {
+                let a1 = l1.difference(l2).fold(False, build_or);
+                let a2 = l2.difference(&l1).fold(False, build_or);
+                let inner = build_and(a1,&a2);
+                l1.intersection(l2).fold(inner, build_or)
             }
-            (x,And(l)) | (And(l),x) => {
-                if l.contains(x) {
+            (x,And(l)) => {
+                if l.contains(&x) {
                     And(l.clone())
                 }
                 else {
-                    let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let Or(l1) = y { !l1.contains(x) } else { true }}).cloned().collect();
-                    others.insert(x.clone());
-                    And(Box::new(others))
+                    build_and_nested((**l).clone(), x)
                 }
             }
-            (x,y) => And(Box::new(BTreeSet::from([x.clone(),y.clone()])))
+            (And(l),x) => {
+                if l.contains(x) {
+                    And(l)
+                }
+                else {
+                    build_and_nested(*l, x.clone())
+                }
+            }
+            (x,y) => And(Box::new(BTreeSet::from([x,y.clone()])))
         }
     }
 }
 
-fn build_or<'a>(x: &Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
-    if x == y {
-        x.clone()
+fn build_or_nested<'a>(l: BTreeSet<Combine<'a>>, x: Combine<'a>) -> Combine<'a> {
+    let mut others: BTreeSet<Combine<'a>> =
+        l.into_iter().filter(|y| {
+	    if let And(l) = y {
+		!l.contains(&x)
+	    }
+	    else {
+		true
+	    }
+	}).collect();
+    others.insert(x);
+    Or(Box::new(others))
+}
+
+fn build_or<'a>(x: Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
+    if x == *y {
+        x
     }
     else {
         match (x,y) {
-            (True,_x) | (_x,True) => True,
-            (False,x) | (x,False) => x.clone(),
-            (Or(l1),Or(l2)) => Or(Box::new(l1.union(&*l2).cloned().collect())),
-            (x,And(l)) if l.contains(&x) => x.clone(),
+            (True,_) | (_,True) => True,
+            (x,False) => x,
+            (False,x) => x.clone(),
+            (Or(l1),Or(l2)) => Or(Box::new(l1.union(l2).cloned().collect())),
+            (x,And(l)) if l.contains(&x) => x,
             (And(l),x) if l.contains(&x) => x.clone(),
-            (And(l1),And(l2)) if !(l1.intersection(&*l2).count() == 0) => {
-                let a1 = l1.difference(&l2).fold(True, |acc,a| build_and(&acc,a));
-                let a2 = l2.difference(&*l1).fold(True, |acc,a| build_and(&acc,a));
-                let inner = build_or(&a1,&a2);
-                l1.intersection(&*l2).cloned().fold(inner, |acc,a| build_and(&acc,&a))
+            (And(l1),And(l2)) if !(l1.intersection(l2).count() == 0) => {
+                let a1 = l1.difference(l2).fold(True, build_and);
+                let a2 = l2.difference(&l1).fold(True, build_and);
+                let inner = build_or(a1,&a2);
+                l1.intersection(&*l2).fold(inner, build_and)
             }
-            (x,Or(l)) | (Or(l),x) => {
+            (x,Or(l)) => {
                 if l.contains(&x) {
                     Or(l.clone())
                 }
                 else {
-                    let mut others: BTreeSet<Combine<'a>> =
-                        l.iter().filter(|y| {if let And(l1) = y { !l1.contains(&x) } else { true }}).cloned().collect();
-                    others.insert(x.clone());
-                    Or(Box::new(others))
+                    build_or_nested((**l).clone(), x)
                 }
             }
-            (x,y) => Or(Box::new(BTreeSet::from([x.clone(),y.clone()])))
+            (Or(l),x) => {
+                if l.contains(x) {
+                    Or(l)
+                }
+                else {
+                    build_or_nested(*l, x.clone())
+                }
+            }
+            (x,y) => Or(Box::new(BTreeSet::from([x, y.clone()])))
         }
     }
 }
 
-fn find_constants<'a>(rule: &'a Rule, env: HashMap<&str, &Combine<'a>>) -> Combine<'a> {
-    let mut res = True;
-    let mut work = |node: &'a Snode| {
-        if node.kind() == Tag::PATH_EXPR {
-            if node.wrapper.metavar == MetaVar::NoMeta {
-                if let Some(comb) = env.get(&*(rule.name)) { // want str for name
-                    res = build_and(comb,&res);
-                }
-                else {
-                    res = False;
-                }
+fn do_get_constants<'a>(node: &'a Snode, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    if kwds && node.kind().is_keyword() {
+        Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+    }
+    else if node.kind() == Tag::PATH_EXPR {
+        if node.wrapper.metavar != MetaVar::NoMeta {
+            if let Some(comb) = env.get(node.wrapper.metavar.getrulename()) {
+                comb.clone()
             }
             else {
-	        res = build_and(&res,&Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text()));
+                False
             }
+        }
+        else if !kwds {
+            Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+        }
+        else {
+            True
+        }
+    }
+    else if node.wrapper.isdisj {
+        node.children.iter()
+            .fold(False,
+                  |acc, child: &'a Snode|
+                  build_or(acc, &do_get_constants(child, kwds, env)))
+    }
+    else {
+        node.children.iter()
+            .fold(False,
+                  |acc, child: &'a Snode|
+                  build_and(acc, &do_get_constants(child, kwds, env)))
+    }
+}
+
+fn find_constants<'a>(rule: &'a Rule, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    do_get_constants(&rule.patch.minus, kwds, env)
+}
+
+// it would be nice if one could just abort when False
+// is reached
+fn all_context<'a>(rule: &'a Rule) -> bool {
+    let mut res = true;
+    let mut work = |node: &'a Snode| {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Context(bef,aft) => {
+                if bef.len() > 0 || aft.len() > 0 {
+                    res = false
+                }
+            }
+            _ => { res = false }
         }
     };
     worktree_pure(&rule.patch.minus, &mut work);
     res
+}
+
+fn rule_fn<'a>(rule: &'a Rule, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
+    let minuses = find_constants(rule, false, env);
+    match minuses {
+        True => find_constants(rule, true, env),
+        x => x
+    }
+}
+
+fn dependencies<'a>(env: &HashMap<&str, Combine<'a>>, dep: &Dep) -> Combine<'a> {
+    match dep {
+        Dep::NoDep => True,
+        Dep::FailDep => False,
+        Dep::Dep(nm) => { // maybe nm could be a str up front?
+            if let Some(comb) = env.get(&nm.as_str()) {
+                comb.clone()
+            }
+            else {
+                False
+            }
+        }
+        Dep::AndDep(args) => build_and(dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::OrDep(args)  => build_or(dependencies(env, &args.0), &dependencies(env, &args.1)),
+        Dep::AntiDep(_)   => True
+    }
+}
+
+fn run<'a>(rules: &'a Vec<Rule>) -> Combine<'a> {
+    let mut env = HashMap::new();
+    let mut res = False;
+    for r in rules.iter() {
+        match dependencies(&env, &r.dependson) {
+            False => {}
+            dependencies => {
+                    env.insert(&r.name,True);
+                    let cur_info = rule_fn(&r, &env);
+                    let re_cur_info = build_and(dependencies, &cur_info);
+                    if all_context(r) {
+                        env.entry(&r.name).and_modify(|i| *i = re_cur_info);
+                    }
+                    else {
+                        res = build_or(re_cur_info,&res);
+                        env.entry(&r.name).and_modify(|i| *i = cur_info);
+                }
+            }
+        }
+    }
+    res
+}
+
+// -------------------------------
+
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
+pub enum Scanner {
+   NoScanner,
+   Grep,
+   GitGrep,
+   CocciGrep,
+}
+
+fn get_files(dir: String) -> Vec<String> {
+    let msg = format!("{} unknown or not a directory", dir);
+    let output = Command::new("find").arg(dir).args(["-type", "f", "-name", "\"*rs\""])
+        .stdout(Stdio::piped())
+        .output()
+        .expect(&msg.as_str());
+    String::from_utf8(output.stdout).expect(&msg).lines().map(|x| x.to_string()).collect()
+}
+
+fn call_grep(files: Vec<String>, query: Vec<String>) -> Vec<String> {
+    let full = Regex::new(r"^[A-Za-z_][A-Za-z_0-9]*$").unwrap();
+    let start = Regex::new(r"^[A-Za-z_]").unwrap();
+    let finish = Regex::new(r".*[A-Za-z_]$").unwrap();
+    let query : Vec<_> = query.iter().map(|x| {
+                  if full.is_match_at(x, 0) {
+                      format!("{}{}{}", r"\b", x, r"\b")
+                  }
+                  else if start.is_match_at(x, 0) {
+                      format!("{}{}", r"\b", x)
+                  }
+                  else if finish.is_match_at(x, 0) {
+                      format!("{}{}", x, r"\b")
+                  }
+                  else {
+                      x.to_string()
+                  }
+              }).collect();
+    let query = format!("'({})'", separated_list(" | ", &query));
+    files.into_iter().filter(|fl| {
+        if let Ok(_) = Command::new("egrep").args(["-q", &query, &fl]).output() {
+            true
+        }
+        else {
+            false
+        }
+    }).collect()
+}
+
+fn call_git_grep(dir: &String, query: String) -> HashSet<String> {
+    let o = Command::new("/bin/bash")
+                .arg(format!("cd {}; git grep -l -w {} -- \"*.rs\"", dir, query))
+                .output().expect(format!("{} unknown or not a directory", dir).as_str());
+    if let Ok(lines) = String::from_utf8(o.stdout) {
+        lines.lines().map(|x| x.to_string()).collect()
+    }
+    else {
+        HashSet::new()
+    }
+}
+
+pub fn do_get_files<'a>(cfr: &CoccinelleForRust, dir: String, rules: &'a Vec<Rule>) -> Vec<String> {
+    if cfr.worth_trying == Scanner::NoScanner {
+        get_files(dir)
+    }
+    else {
+        let res = run(rules);
+        match cfr.worth_trying {
+            Scanner::Grep => {
+                let query = interpret_grep(true, &res);
+                let files = get_files(dir);
+                if let Some(query) = query {
+                    call_grep(files, query)
+                }
+                else {
+                    files
+                }
+            }
+            Scanner::GitGrep => {
+                let query = interpret_cocci_git_grep(true, &res);
+                if let Some((_, _, query)) = query {
+                    let mut file_matches: Vec<HashSet<String>> =
+                        query.into_iter().map(|q| call_git_grep(&dir, q)).collect();
+                    if let Some(mut e) = file_matches.pop() {
+                        for x in file_matches {
+                            e.retain(|v| x.contains(v));
+                        }
+                        e.into_iter().collect()
+                    }
+                    else {
+                        get_files(dir)
+                    }
+                }
+                else {
+                    get_files(dir)
+                }
+            }
+            Scanner::CocciGrep => {
+                let query = interpret_cocci_git_grep(true, &res);
+                let files = get_files(dir);
+                if let Some((big_regexp, regexps, _)) = query {
+                    files.into_iter().filter(|fl| cocci_grep::interpret(&big_regexp, &regexps, fl))
+                         .collect()
+                }
+                else {
+                    files
+                }
+            }
+            _ => Vec::<_>::new() // not possible
+        }
+    }
 }

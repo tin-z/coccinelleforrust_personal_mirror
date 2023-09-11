@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use clap::Parser;
+use crate::parsing_cocci::get_constants;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -10,7 +11,6 @@ pub struct CoccinelleForRust {
     pub coccifile: String,
 
     /// Path of Rust Target file/folder path
-    #[arg(short, long)]
     pub targetpath: String,
 
     /// Path of transformed file path
@@ -18,8 +18,8 @@ pub struct CoccinelleForRust {
     pub output: Option<String>,
 
     /// rustfmt config file path
-    #[arg(short, long, default_value_t = String::from("rustfmt.toml"))]
-    pub rustfmt_config: String,
+    #[arg(short, long)]
+    pub rustfmt_config: Option<String>,
 
     //ignores files and folders with the string present
     #[arg(short, long, default_value_t = String::new())]
@@ -39,4 +39,8 @@ pub struct CoccinelleForRust {
 
     #[arg(long)]
     pub no_parallel: bool,
+
+    /// strategy for identifying files that may be matched by the semantic patch
+    #[arg(long, value_enum, default_value_t = get_constants::Scanner::CocciGrep)]
+    pub worth_trying: get_constants::Scanner,
 }

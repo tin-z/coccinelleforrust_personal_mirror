@@ -10,7 +10,7 @@ use std::vec;
 
 use super::parse_cocci::Rule;
 use super::ast0::{KeepBinding, MetaVar, Snode};
-use crate::commons::util::worktree;
+use crate::commons::util::worktree_pure;
 
 type Tag = SyntaxKind;
 type Name = String;
@@ -23,20 +23,22 @@ fn collect_unitary_nonunitary(free_usage: &Vec<MetaVar>) -> (HashSet<MetaVar>, H
     let mut unitary: HashSet<MetaVar> = HashSet::new();
     let mut nonunitary: HashSet<MetaVar> = HashSet::new();
     for id in free_usage {
-        if unitary.contains(id) {
-            unitary.remove(id);
-            nonunitary.insert(id.clone());
-        } else {
-            if !nonunitary.contains(id) {
-                unitary.insert(id.clone());
+        match unitary.take(id) {
+            Some(removed) => {
+                nonunitary.insert(removed);
+            }
+            None => {
+                if !nonunitary.contains(id) {
+                    unitary.insert(id.clone());
+                }
             }
         }
     }
     (unitary, nonunitary)
 }
 
-fn collect_refs(mut root: &mut Snode, add: &mut dyn FnMut(MetaVar)) {
-    let mut work = |node: &mut Snode| {
+fn collect_refs(root: &Snode, add: &mut dyn FnMut(MetaVar)) {
+    let mut work = |node: &Snode| {
         if let Tag::NAME_REF = node.kind() {
             match &node.wrapper.metavar {
                 MetaVar::NoMeta => {}
@@ -44,7 +46,7 @@ fn collect_refs(mut root: &mut Snode, add: &mut dyn FnMut(MetaVar)) {
             }
         }
     };
-    worktree(&mut root, &mut work)
+    worktree_pure(&root, &mut work)
 }
 
 fn collect_minus_refs_unitary_nonunitary(root: &mut Snode) -> (HashSet<MetaVar>, HashSet<MetaVar>) {
@@ -59,16 +61,17 @@ fn collect_plus_refs(mut root: &mut Snode) -> HashSet<MetaVar> {
     let mut add = |x| {
         refs.insert(x);
     };
-    let mut work_exp_list_list = |expss: &mut Vec<Snode>| {
-        for x in expss.iter_mut() {
+    let mut work_exp_list_list = |expss: &Vec<Snode>| {
+        for x in expss.iter() {
                 collect_refs(x, &mut add)
         }
     };
-    let mut work = |node: &mut Snode| {
-        work_exp_list_list(&mut node.wrapper.plusesbef);
-        work_exp_list_list(&mut node.wrapper.plusesaft);
+    let mut work = |node: &Snode| {
+        let (lplusses,rplusses) = node.wrapper.mcodekind.getpluses();
+        work_exp_list_list(&lplusses);
+        work_exp_list_list(&rplusses);
     };
-    worktree(&mut root, &mut work);
+    worktree_pure(&mut root, &mut work);
     refs
 }
 

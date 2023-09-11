@@ -1,14 +1,15 @@
- // SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0
+
 use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
 
 use crate::{
-    fail,
-    parsing_cocci::ast0::Snode,
-    parsing_cocci::ast0::{MetaVar, MetavarName, MODKIND},
-    parsing_rs::ast_rs::Rnode, debugcocci,
+    debugcocci, fail,
+    parsing_cocci::ast0::{MetaVar, MetavarName},
+    parsing_cocci::ast0::{Mcodekind, Snode},
+    parsing_rs::ast_rs::Rnode,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -97,15 +98,23 @@ fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     if a.children.len() == 1 {
         addplustoenv(&a.children[0], b, env)
     } else {
-        if a.wrapper.plusesbef.len() != 0 {
-            env.modifiers.pluses.push((
-                b.wrapper.info.charstart,
-                true,
-                a.wrapper.plusesbef.clone(),
-            ));
-        }
-        if a.wrapper.plusesaft.len() != 0 {
-            env.modifiers.pluses.push((b.wrapper.info.charend, false, a.wrapper.plusesaft.clone()));
+        match &a.wrapper.mcodekind {
+            Mcodekind::Context(avec, bvec) => {
+                if avec.len() != 0 {
+                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, avec.clone()));
+                }
+                if bvec.len() != 0 {
+                    env.modifiers.pluses.push((b.wrapper.info.charend, false, bvec.clone()));
+                }
+            }
+            Mcodekind::Minus(pluses) => {
+                //This is a replacement
+                if pluses.len()!=0 {
+
+                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -148,7 +157,8 @@ impl<'a, 'b> Looper<'a> {
 
             let akind = a.kind();
             let bkind = b.kind();
-            //println!("{:?} ===== {:?}", akind, bkind);//please dont remove this line
+            //println!("{:?} ===== {:?}", akind, bkind);
+            //please dont remove this line
             //helps in debugging, and I always forget where to put it
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
                 //println!("fail");
@@ -166,12 +176,6 @@ impl<'a, 'b> Looper<'a> {
                     );
 
                     if !renv.failed {
-                        match a.wrapper.modkind {
-                            Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
-                                //env.modifiers.minuses.push(b.getpos());
-                            }
-                            _ => {}
-                        }
                         addplustoenv(a, b, &mut env);
 
                         env.add(renv);
@@ -181,31 +185,38 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
-                    debugcocci!("Binding {} to {}.{}", b.gettokenstream(), minfo.0.rulename.to_string(), minfo.0.varname.to_string());
+
+                    debugcocci!(
+                        "Binding {} to {}.{}",
+                        b.gettokenstream(),
+                        minfo.0.rulename.to_string(),
+                        minfo.0.varname.to_string()
+                    );
+
                     let binding = MetavarBinding::new(
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string(),
                         b.clone(),
                     );
-                    match a.wrapper.modkind {
-                        Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
+                    match a.wrapper.mcodekind {
+                        Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
                         }
-                        Some(MODKIND::PLUS) => {}
-                        None => {}
+                        Mcodekind::Plus => {}
+                        Mcodekind::Context(_, _) => {}
                     }
                     addplustoenv(a, b, &mut env);
                     env.addbinding(binding);
                 }
                 MetavarMatch::Exists => {
                     addplustoenv(a, b, &mut env);
-                    match a.wrapper.modkind {
-                        Some(MODKIND::MINUS) | Some(MODKIND::STAR) => {
-                            //println!("exists -> {}", b.astnode.to_string());
+                    match a.wrapper.mcodekind {
+                        Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
+                            println!("But ive got it wrong again");
                         }
-                        Some(MODKIND::PLUS) => {}
-                        None => {}
+                        Mcodekind::Plus => {}
+                        Mcodekind::Context(_, _) => {}
                     }
                 }
             }
@@ -239,18 +250,28 @@ impl<'a, 'b> Looper<'a> {
                 return MetavarMatch::Maybe(node1, node2); //not sure
             }
             metavar => {
-                //NOTE THIS TAKES CARE OF EXP AND ID ONLY
                 //println!("Found Expr {}, {:?}", node1.wrapper.metavar.getname(), node2.kind());
                 if let Some(binding) = bindings
                     .iter()
                     .find(|binding| binding.metavarinfo.varname == node1.wrapper.metavar.getname())
                 {
+                    //this is entered if a metavar has already been bound or is present
+                    //in the inherited environment
                     if binding.rnode.equals(node2) {
                         MetavarMatch::Exists
                     } else {
                         MetavarMatch::Fail
                     }
                 } else {
+
+                    if metavar.isinherited() {
+                        //If the metavar is inhertited
+                        //but no bindings exist from previous rules
+                        //then fail matching
+                        println!("Comes here");
+                        return MetavarMatch::Fail;
+                    }
+                    println!("{}.{}", metavar.getrulename(), metavar.getname());
                     match metavar {
                         MetaVar::Exp(_info) => {
                             if node2.isexpr() {
@@ -300,9 +321,29 @@ impl<'a, 'b> Looper<'a> {
     ) -> (Vec<Environment>, bool) {
         let mut environments: Vec<Environment> = vec![];
         let mut matched = false;
-        for disj in disjs {
+        let dnum = disjs.len();
+
+        println!("Inhertied Bindings {:#?}", inheritedbindings);
+
+        'outer:
+        for din in 0..dnum {
+            let disj = &disjs[din];
             let mut inheritedenv = Environment::new();
             inheritedenv.addbindings(&inheritedbindings);
+
+            //this part makes sure that if any previous disjunctions
+            //match for the current piece of code, we shall abort the matching
+            //(a | b) is converted into (a | (not a) and b)
+            let mut ctr = 0;
+            for prevdisj in &disjs[0..din] {
+                let penv = self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
+                println!("{}", ctr);
+                if !penv.failed {
+                    continue 'outer;
+                }
+                ctr+=1;
+            }
+
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
             matched = matched || !env.failed;
             if !env.failed {
@@ -311,4 +352,28 @@ impl<'a, 'b> Looper<'a> {
         }
         (environments, matched)
     }
+}
+
+pub fn visitrnode<'a>(
+    nodea: &Vec<Vec<Snode>>,
+    nodeb: &'a Rnode,
+    f: &dyn Fn(&Vec<Vec<Snode>>, &Vec<&'a Rnode>) -> (Vec<Environment>, bool),
+) -> Vec<Environment> {
+    let mut environments = vec![];
+    let nodebchildren = &mut nodeb.children.iter();
+    
+    loop {
+        let tmp = f(nodea, &nodebchildren.clone().collect_vec());
+
+        if tmp.1 {
+            environments.extend(tmp.0);
+        }
+
+        if let Some(child) = nodebchildren.next() {
+            environments.extend(visitrnode(nodea, child, f));
+        } else {
+            break;
+        }
+    }
+    return environments;
 }

@@ -10,9 +10,9 @@ use itertools::Itertools;
 use crate::{
     commons::{
         info::ParseError,
-        util::{getstmtlist, visitrnode, workrnode},
+        util::{getstmtlist, workrnode},
     },
-    engine::cocci_vs_rs::MetavarBinding,
+    engine::cocci_vs_rs::{visitrnode, MetavarBinding},
     parsing_cocci::{
         ast0::{MetaVar, MetavarName, Snode},
         parse_cocci::Rule,
@@ -34,8 +34,7 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
 
 fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
-        if let Some(mvar) =
-            env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
+        if let Some(mvar) = env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
         {
             return (*mvar.rnode).clone();
         } else {
@@ -82,9 +81,11 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
             if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
+                println!("TESTIG bef {}", x.totoken());
                 //println!("======================== {:?}", x);
             } else if pos.1 == pluspos && x.children.len() == 0 && !isbef {
                 x.wrapper.plussed.1 = snodetornode(pluses, env);
+                println!("TESTIG aft {}", x.totoken());
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
             }
@@ -136,6 +137,11 @@ pub fn getfiltered(
                 set.insert(b.clone());
             }
         } //from all the collected bindings it gets all unique bindings for a given metavar
+
+        if set.len() == 0 {
+            //no bindings have been made
+            continue;
+        }
         toret.push(set.into_iter().collect_vec());
     }
 
@@ -148,9 +154,12 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
 
     let mut savedbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
     for rule in rules {
+        println!("Rule: {}, freevars: {:?}", rule.name, rule.freevars);
         let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&rule.patch.minus).clone().children]));
+        println!("filtered bindings : {:?}", getfiltered(&rule.freevars, &savedbindings));
         let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
+        println!("Expanded bindings: {:?}", expandedbindings);
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for gbindings in expandedbindings {
@@ -170,7 +179,7 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
                 continue;
             }
             */
-
+            println!("For rule {}, inherited: {:#?}", rule.name, gbindings);
             let looper = Looper::new(tokenf);
             let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
                 looper.handledisjunctions(k, l, gbindings.iter().collect_vec())
@@ -184,7 +193,9 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
         }
         //patchbindings.extend(tmpbindings);
         savedbindings.extend(tmpbindings);
+        println!("usedafter : {:#?}", rule.usedafter);
         trimpatchbindings(&mut savedbindings, &rule.usedafter);
+        println!("After trimming {:?}", savedbindings);
 
         let transformedstring = transformedcode.getunformatted();
 

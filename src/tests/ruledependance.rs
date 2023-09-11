@@ -20,3 +20,14 @@ pub fn test2() {
 pub fn test3() {
     assert!(RULETEST.testtransformation("test3.cocci", "test3.rs", "expected3.rs"))
 }
+
+#[test]
+pub fn test4() {
+    assert!(RULETEST.testtransformation("test4.cocci", "test4.rs", "expected4.rs"))
+}
+
+#[test]
+pub fn test5() {
+    assert!(RULETEST.testtransformation("test5.cocci", "test5.rs", "expected5.rs"))
+}
+

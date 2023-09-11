@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 
+use std::collections::HashSet;
 use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 use std::process::exit;
 
+use crate::commons::util::collecttree;
+
 use super::visitor_ast0::work_node;
+use itertools::Itertools;
 use ra_ide_db::line_index::{LineCol, LineIndex};
 use ra_parser::SyntaxKind;
 use ra_syntax::ast::Type;
@@ -16,6 +21,13 @@ pub struct Snode {
     pub asttoken: Option<SyntaxElement>,
     kind: SyntaxKind,
     pub children: Vec<Snode>,
+}
+
+impl Hash for Snode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.wrapper.info.pos_info.cstart.hash(state);
+        self.wrapper.info.pos_info.cend.hash(state);
+    }
 }
 
 pub type Pluses = (Vec<Snode>, Vec<Snode>);
@@ -77,7 +89,7 @@ impl<'a> Snode {
             "{}{:?}, {:?}: {:?}",
             pref,
             self.kind(),
-            self.wrapper.modkind,
+            self.wrapper.mcodekind,
             self.wrapper.metavar
         );
         let mut newbuf = String::from(pref);
@@ -180,7 +192,21 @@ impl<'a> Snode {
             return disjs;
         }
         let disjs = collectdisjs(&self);
-        return (disjs, (self.wrapper.plusesbef.clone(), self.wrapper.plusesaft.clone()));
+        return (disjs, self.wrapper.mcodekind.getpluses());
+    }
+
+    pub fn get_constants(&self) -> Vec<String> {
+        let mut constants: HashSet<String> = HashSet::new();
+
+        let mut f = |node: &Snode| {
+            if node.kind().is_keyword() {
+                constants.insert(node.totoken());
+            }
+        };
+
+        collecttree(self, &mut f);
+
+        constants.into_iter().collect_vec()
     }
 }
 
@@ -214,7 +240,10 @@ pub struct PositionInfo {
     pub line_end: usize,
     pub logical_start: usize,
     pub logical_end: usize,
+
     pub column: usize,
+    pub cstart: usize,
+    pub cend: usize,
     pub offset: usize,
 }
 
@@ -225,6 +254,8 @@ impl PositionInfo {
         logical_start: usize,
         logical_end: usize,
         column: usize,
+        cstart: usize,
+        cend: usize,
         offset: usize,
     ) -> PositionInfo {
         PositionInfo {
@@ -233,49 +264,18 @@ impl PositionInfo {
             logical_start: logical_start,
             logical_end: logical_end,
             column: column,
+            cstart: cstart,
+            cend: cend,
             offset: offset,
         }
     }
 }
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Count {
-    ONE,
-    MINUS,
-}
-
-#[derive(PartialEq, Clone)]
-pub enum Replacement {
-    REPLACEMENT(Vec<Vec<Snode>>),
-    NOREPLACEMENT,
-}
-
-#[derive(PartialEq, Clone)]
-pub enum Befaft {
-    BEFORE(Vec<Vec<Snode>>),
-    AFTER(Vec<Vec<Snode>>),
-    BEFOREAFTER(Vec<Vec<Snode>>, Vec<Vec<Snode>>),
-    NOTHING,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub enum Mcodekind {
-    //MINUS(Replacement),
-    PLUS(Count),
-    //CONTEXT(Befaft),
-    //MIXED(Befaft),
-}
-
-#[derive(Clone, PartialEq)]
-pub struct DotsBefAft {}
 
 #[derive(PartialEq, Clone)]
 pub struct Info {
     pos_info: PositionInfo,
     attachable_start: bool,
     attachable_end: bool,
-    mcode_start: Vec<Mcodekind>,
-    mcode_end: Vec<Mcodekind>,
     strings_before: Vec<(Dummy, PositionInfo)>,
     strings_after: Vec<(Dummy, PositionInfo)>,
     is_symbol_ident: bool,
@@ -286,8 +286,6 @@ impl Info {
         pos_info: PositionInfo,
         attachable_start: bool,
         attachable_end: bool,
-        mcode_start: Vec<Mcodekind>,
-        mcode_end: Vec<Mcodekind>,
         strings_before: Vec<(Dummy, PositionInfo)>,
         strings_after: Vec<(Dummy, PositionInfo)>,
         is_symbol_ident: bool,
@@ -296,8 +294,6 @@ impl Info {
             pos_info: pos_info,
             attachable_start: attachable_start,
             attachable_end: attachable_end,
-            mcode_start: mcode_start,
-            mcode_end: mcode_end,
             strings_before: strings_before,
             strings_after: strings_after,
             is_symbol_ident,
@@ -312,7 +308,89 @@ pub enum KeepBinding {
     SAVED,      //Need a witness
 }
 
-type Minfo = (MetavarName, KeepBinding); //rulename, metavar name, keepbinding
+type Minfo = (MetavarName, KeepBinding, bool); //rulename, metavar name, keepbinding, is_inherited
+
+#[derive(Clone, Hash, Debug, PartialEq)]
+pub enum Mcodekind {
+    Minus(Vec<Snode>),
+    Plus,
+    Context(Vec<Snode>, Vec<Snode>),
+    Star,
+}
+
+impl<'a> Mcodekind {
+    pub fn is_context(&self) -> bool {
+        match self {
+            Mcodekind::Context(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_plusesbef_ref_mut(&'a mut self) -> &'a mut Vec<Snode> {
+        match self {
+            Mcodekind::Context(a, _) => a,
+            Mcodekind::Minus(a) => a,
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
+        }
+    }
+
+    pub fn get_plusesaft_ref_mut(&'a mut self) -> &'a mut Vec<Snode> {
+        match self {
+            Mcodekind::Context(_, a) => a,
+            Mcodekind::Minus(a) => a,
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
+        }
+    }
+
+    pub fn get_plusesbef_ref(&'a self) -> &'a Vec<Snode> {
+        match self {
+            Mcodekind::Context(a, _) => &a,
+            Mcodekind::Minus(a) => &a,
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
+        }
+    }
+
+    pub fn get_plusesaft_ref(&'a self) -> &'a Vec<Snode> {
+        match self {
+            Mcodekind::Context(_, a) => &a,
+            Mcodekind::Minus(a) => &a,
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
+        }
+    }
+
+    //Warning: Clones plussed nodes
+    pub fn getpluses(&self) -> (Vec<Snode>, Vec<Snode>) {
+        match self {
+            Mcodekind::Context(a, b) => (a.clone(), b.clone()),
+            Mcodekind::Minus(a) => (a.clone(), vec![]),
+            _ => panic!("No pluses should be attached to Plus or star nodes"),
+        }
+    }
+
+    pub fn push_pluses_front(&mut self, pluses: Vec<Snode>) {
+        match self {
+            Mcodekind::Context(a, _) => {
+                a.extend(pluses);
+            }
+            Mcodekind::Minus(a) => a.extend(pluses),
+            _ => {
+                panic!("Cannot attach plus to Plus or Star nodes");
+            }
+        }
+    }
+
+    pub fn push_pluses_back(&mut self, pluses: Vec<Snode>) {
+        match self {
+            Mcodekind::Context(_, a) => {
+                a.extend(pluses);
+            }
+            Mcodekind::Minus(a) => a.extend(pluses),
+            _ => {
+                panic!("Cannot attach plus to Plus or Star nodes");
+            }
+        }
+    }
+}
 
 #[derive(Clone, Hash, Debug, Eq)]
 pub enum MetaVar {
@@ -398,18 +476,19 @@ impl MetaVar {
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &MetavarType) -> Option<MetaVar> {
-        use MetavarType::*;
+    pub fn new(rulename: &str, name: &str, ty: &MetavarType, isinherited: bool) -> Option<MetaVar> {
+        
         let minfo = (
             MetavarName { rulename: rulename.to_string(), varname: name.to_string() },
             KeepBinding::UNITARY,
+            isinherited,
         );
         match ty {
-            Expression => Some(Self::Exp(minfo)),
-            Identifier => Some(Self::Id(minfo)),
-            Type => Some(Self::Type(minfo)),
-            Struct(tyname) => Some(Self::Struct(tyname.clone(), minfo)),
-            Enum(tyname) => Some(Self::Enum(tyname.clone(), minfo)),
+            MetavarType::Expression => Some(Self::Exp(minfo)),
+            MetavarType::Identifier => Some(Self::Id(minfo)),
+            MetavarType::Type => Some(Self::Type(minfo)),
+            MetavarType::Struct(tyname) => Some(Self::Struct(tyname.clone(), minfo)),
+            MetavarType::Enum(tyname) => Some(Self::Enum(tyname.clone(), minfo)),
         }
     }
 
@@ -417,6 +496,41 @@ impl MetaVar {
         match self {
             MetaVar::NoMeta => true,
             _ => false,
+        }
+    }
+
+    pub fn makeinherited(&self) -> MetaVar{
+        let mut inhertited = self.clone();
+        match &mut inhertited {
+            MetaVar::NoMeta => {}
+            MetaVar::Exp(minfo) => {
+                minfo.2 = true;
+            }
+            MetaVar::Id(minfo) => {
+                minfo.2 = true;
+            }
+            MetaVar::Type(minfo) => {
+                minfo.2 = true;
+            }
+            MetaVar::Struct(_, minfo) => {
+                minfo.2 = true;
+            }
+            MetaVar::Enum(_, minfo) => {
+                minfo.2 = true;
+            }
+        }
+
+        return inhertited;
+    }
+
+    pub fn isinherited(&self) -> bool {
+        match self {
+            MetaVar::NoMeta => false,
+            MetaVar::Exp(minfo) => minfo.2,
+            MetaVar::Id(minfo) => minfo.2,
+            MetaVar::Type(minfo) => minfo.2,
+            MetaVar::Struct(_, minfo) => minfo.2,
+            MetaVar::Enum(_, minfo) => minfo.2,
         }
     }
 }
@@ -462,29 +576,21 @@ impl MetavarType {
 pub struct Wrap {
     info: Info,
     index: usize,
-    pub mcodekind: Mcodekind,
     exp_ty: Option<Type>,
-    bef_aft: DotsBefAft, //needed?
-    pub plusesbef: Vec<Snode>,
-    pub plusesaft: Vec<Snode>,
     pub metavar: MetaVar,
     true_if_arg: bool,
     pub true_if_test: bool,
     pub true_if_test_exp: bool,
     iso_info: Vec<(String, Dummy)>,
     pub isdisj: bool,
-    pub modkind: Option<MODKIND>,
+    pub mcodekind: Mcodekind,
 }
 
 impl Wrap {
     pub fn new(
         info: Info,
         index: usize,
-        mcodekind: Mcodekind,
         exp_ty: Option<Type>,
-        bef_aft: DotsBefAft,
-        plusesbef: Vec<Snode>,
-        plusesaft: Vec<Snode>,
         metavar: MetaVar,
         true_if_arg: bool,
         true_if_test: bool,
@@ -495,18 +601,15 @@ impl Wrap {
         Wrap {
             info: info,
             index: index,
-            mcodekind: mcodekind,
             exp_ty: exp_ty,
-            bef_aft: bef_aft,
-            plusesbef: plusesbef,
-            plusesaft: plusesaft,
             metavar: metavar,
             true_if_arg: true_if_arg,
             true_if_test: true_if_test,
             true_if_test_exp: true_if_test_exp,
             iso_info: iso_info,
             isdisj: isdisj,
-            modkind: None,
+            mcodekind: Mcodekind::Context(vec![], vec![]), //All tokens start out as context
+                                                           //before being modified accordingly
         }
     }
 
@@ -532,17 +635,19 @@ impl Wrap {
 
     pub fn setmodkind(&mut self, modkind: String) {
         match modkind.as_str() {
-            "+" => self.modkind = Some(MODKIND::PLUS),
-            "-" => self.modkind = Some(MODKIND::MINUS),
-            "*" => self.modkind = Some(MODKIND::STAR),
-            _ => self.modkind = None,
+            "+" => self.mcodekind = Mcodekind::Plus,
+            "-" => self.mcodekind = Mcodekind::Minus(vec![]),
+            "*" => self.mcodekind = Mcodekind::Star,
+            _ => self.mcodekind = Mcodekind::Context(vec![], vec![]),
         }
     }
 }
 
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
-    let sindex: LineCol = lindex.line_col(node.text_range().start());
-    let eindex: LineCol = lindex.line_col(node.text_range().end());
+    let cstart = node.text_range().start();
+    let cend = node.text_range().end();
+    let sindex: LineCol = lindex.line_col(cstart);
+    let eindex: LineCol = lindex.line_col(cend);
 
     let pos_info: PositionInfo = PositionInfo::new(
         //all casted to usize because linecol returns u32
@@ -551,18 +656,16 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         0,
         0,
         sindex.col as usize,
+        cstart.into(),
+        cend.into(),
         node.text_range().start().into(),
     );
 
-    let info = Info::new(pos_info, false, false, vec![], vec![], vec![], vec![], false);
+    let info = Info::new(pos_info, false, false, vec![], vec![], false);
     let wrap: Wrap = Wrap::new(
         info,
         0,
-        Mcodekind::PLUS(Count::ONE),
         None, //will be filled later with type inference
-        DotsBefAft {},
-        vec![],
-        vec![],
         MetaVar::NoMeta,
         false,
         false,

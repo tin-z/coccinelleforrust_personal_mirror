@@ -3,9 +3,9 @@ use itertools::Itertools;
 use std::fs;
 
 use crate::{
-    commons::util::{getstmtlist, visitrnode},
+    commons::util::getstmtlist,
     engine::{
-        cocci_vs_rs::{Looper, MetavarBinding},
+        cocci_vs_rs::{Looper, MetavarBinding, visitrnode},
         disjunctions::{getdisjunctions, Disjunction},
     },
     parsing_cocci::{ast0::Snode, parse_cocci::processcocci},

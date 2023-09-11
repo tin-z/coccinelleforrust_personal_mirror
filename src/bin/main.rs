@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use clap::Parser;
-use coccinelleforrust::commons::info::ParseError::{self, *};
+use coccinelleforrust::commons::info::ParseError::{*};
 use coccinelleforrust::commons::util::workrnode;
 use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
 use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
@@ -12,7 +12,7 @@ use coccinelleforrust::{
 };
 use env_logger::{Builder, Env};
 use itertools::{izip, Itertools};
-use ra_hir::{HirDisplay, Name, Semantics, Struct};
+use ra_hir::{HirDisplay, Semantics };
 use ra_syntax::{ast, AstNode};
 use ra_vfs::VfsPath;
 use rand::Rng;
@@ -103,27 +103,35 @@ fn getformattedfile(
         //should never be disabled except for debug
         //let original = fs::read_to_string(&targetpath).expect("Unable to read file");
 
-        let mut fcommand = Command::new("rustfmt")
-            .arg("--config-path")
-            .arg(cfr.rustfmt_config.as_str())
+        // Depending on whether the user provided a `rustfmt` config file or not,
+        // add it to the invokation.
+        // As it turns out, argument order for rustfmt does not matter, you can
+        // add the configuration file later and it is still accounted for when
+        // parsing files provided before.
+
+        // Core command is in a separate binding so it stays alive. The others
+        // are just references to it.
+        let mut core_command = Command::new("rustfmt");
+        let mut fcommand = core_command
             .arg(&randrustfile)
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .expect("rustfmt failed");
+            .stderr(std::process::Stdio::null());
 
-        if let Ok(_) = fcommand.wait() {
-        } else {
+        if let Some(fmtconfig_path) = &cfr.rustfmt_config {
+            fcommand = fcommand.arg("--config-path")
+                .arg(fmtconfig_path.as_str());
+        }
+
+        if fcommand.spawn().expect("rustfmt failed").wait().is_err() {
             println!("Formatting failed.");
         }
+
+        let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
+        adjustformat(transformedcode, &formattednode, None);
+        transformedcode.writetreetofile(&randrustfile);
+
+        //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
     }
-
-    let formattednode =
-        processrs(&fs::read_to_string(&randrustfile).expect("Counld not read")).unwrap();
-    adjustformat(transformedcode, &formattednode, None);
-
-    transformedcode.writetreetofile(&randrustfile);
-    //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
 
     let diffed = if !cfr.suppress_diff {
         let diffout = Command::new("git")
@@ -145,14 +153,13 @@ fn getformattedfile(
     //fs::write(targetpath, original).expect("Could not write file.");
     fs::remove_file(&randrustfile).expect("No file found.");
 
-    return (formatted, diffed);
     //}
 
     //transformedcode.writetreetofile(&randrustfile);
     //let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
     //fs::remove_file(randrustfile).expect("Could not reove file");
 
-    //return (transformedcode.gettokenstream(), String::new());
+    (formatted, diffed)
 }
 
 fn showdiff(
@@ -311,7 +318,7 @@ fn findfmtconfig(args: &mut CoccinelleForRust) {
             .collect_vec();
         let path = paths.into_iter().find(|x| x.ends_with("rustfmt.toml"));
         if let Some(path) = path {
-            args.rustfmt_config = path;
+            args.rustfmt_config = Some(path);
             break;
         } else {
             target = target.join("../");

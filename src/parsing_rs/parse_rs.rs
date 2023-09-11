@@ -21,7 +21,7 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         String::new(),
     );
 
-    let wrap: Wrap = Wrap::new(parse_info, 0, None, super::ast_rs::Danger::NoDanger);
+    let wrap: Wrap = Wrap::new(parse_info, 0, super::ast_rs::Danger::NoDanger);
     wrap
 }
 
