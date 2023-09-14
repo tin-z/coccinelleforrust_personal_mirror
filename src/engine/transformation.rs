@@ -20,7 +20,7 @@ use crate::{
     parsing_rs::{
         ast_rs::{Rnode, Wrap},
         parse_rs::processrs,
-    },
+    }, debugcocci,
 };
 
 use super::{
@@ -81,11 +81,11 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
             if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
-                println!("TESTIG bef {}", x.totoken());
+                //println!("TESTIG bef {}", x.totoken());
                 //println!("======================== {:?}", x);
             } else if pos.1 == pluspos && x.children.len() == 0 && !isbef {
                 x.wrapper.plussed.1 = snodetornode(pluses, env);
-                println!("TESTIG aft {}", x.totoken());
+                //println!("TESTIG aft {}", x.totoken());
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
             }
@@ -154,12 +154,12 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
 
     let mut savedbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
     for rule in rules {
-        println!("Rule: {}, freevars: {:?}", rule.name, rule.freevars);
+        debugcocci!("Rule: {}, freevars: {:?}", rule.name, rule.freevars);
         let a: Disjunction =
             getdisjunctions(Disjunction(vec![getstmtlist(&rule.patch.minus).clone().children]));
-        println!("filtered bindings : {:?}", getfiltered(&rule.freevars, &savedbindings));
+        debugcocci!("filtered bindings : {:?}", getfiltered(&rule.freevars, &savedbindings));
         let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
-        println!("Expanded bindings: {:?}", expandedbindings);
+        debugcocci!("Expanded bindings: {:?}", expandedbindings);
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for gbindings in expandedbindings {
@@ -179,7 +179,7 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
                 continue;
             }
             */
-            println!("For rule {}, inherited: {:#?}", rule.name, gbindings);
+            debugcocci!("For rule {}, inherited: {:#?}", rule.name, gbindings);
             let looper = Looper::new(tokenf);
             let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
                 looper.handledisjunctions(k, l, gbindings.iter().collect_vec())
@@ -193,9 +193,9 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
         }
         //patchbindings.extend(tmpbindings);
         savedbindings.extend(tmpbindings);
-        println!("usedafter : {:#?}", rule.usedafter);
+        debugcocci!("usedafter : {:#?}", rule.usedafter);
         trimpatchbindings(&mut savedbindings, &rule.usedafter);
-        println!("After trimming {:?}", savedbindings);
+        debugcocci!("After trimming {:?}", savedbindings);
 
         let transformedstring = transformedcode.getunformatted();
 

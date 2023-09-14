@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use clap::Parser;
-use coccinelleforrust::commons::info::ParseError::{*};
-use coccinelleforrust::commons::util::workrnode;
+use coccinelleforrust::commons::info::ParseError::*;
 use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
 use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
-use coccinelleforrust::parsing_rs::type_inference::gettypedb;
+use coccinelleforrust::parsing_rs::type_inference::{gettypedb, set_types};
 use coccinelleforrust::{
     engine::cocci_vs_rs::MetavarBinding, engine::transformation,
     interface::interface::CoccinelleForRust, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
 use env_logger::{Builder, Env};
 use itertools::{izip, Itertools};
-use ra_hir::{HirDisplay, Semantics };
-use ra_syntax::{ast, AstNode};
+use ra_hir::Semantics;
 use ra_vfs::VfsPath;
 use rand::Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::fs::DirEntry;
+use std::fs::{canonicalize, DirEntry};
 use std::io;
 use std::io::Write;
 use std::process::Command;
@@ -118,15 +116,15 @@ fn getformattedfile(
             .stderr(std::process::Stdio::null());
 
         if let Some(fmtconfig_path) = &cfr.rustfmt_config {
-            fcommand = fcommand.arg("--config-path")
-                .arg(fmtconfig_path.as_str());
+            fcommand = fcommand.arg("--config-path").arg(fmtconfig_path.as_str());
         }
 
         if fcommand.spawn().expect("rustfmt failed").wait().is_err() {
             println!("Formatting failed.");
         }
 
-        let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
+        let formattednode =
+            processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
         adjustformat(transformedcode, &formattednode, None);
         transformedcode.writetreetofile(&randrustfile);
 
@@ -150,14 +148,7 @@ fn getformattedfile(
 
     let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
 
-    //fs::write(targetpath, original).expect("Could not write file.");
     fs::remove_file(&randrustfile).expect("No file found.");
-
-    //}
-
-    //transformedcode.writetreetofile(&randrustfile);
-    //let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
-    //fs::remove_file(randrustfile).expect("Could not reove file");
 
     (formatted, diffed)
 }
@@ -195,20 +186,16 @@ fn showdiff(
     }
 }
 
-fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
+fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
     let patchstring = fs::read_to_string(&args.coccifile).expect("Could not read file.");
     let (_, needsti, _) = processcocci(&patchstring);
-    //let lockedrules = Arc::new(Mutex::new(rules));
+
     if !needsti {
         let transform = |targetpath: &String| {
-            //rule cloned here because to pass references while keeping
-            //the code thread safe, I need to study more about locks and Mutex
-            //let rules = Arc::clone(&lockedrules);
-            //let rules = rules.lock().unwrap();
-
             let (rules, _, hasstars) = processcocci(&patchstring);
             //Currently have to parse cocci again because Rule has SyntaxNode which which has
             //rowan `NonNull<rowan::cursor::NodeData>` which cannot be shared between threads safely
+
             let rcode = fs::read_to_string(&targetpath).expect("Could not read file");
             let transformedcode = transformation::transformfile(&rules, rcode);
 
@@ -237,14 +224,14 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
         if files.len() == 0 {
             return;
         }
+
         let (host, vfs) = gettypedb(&files[0]);
         let db = host.raw_database();
         //let semantics = &mut Semantics::new(db);
         let semantics = &Semantics::new(db);
 
         let transform = |targetpath: &String| {
-            //println!();
-            let (rules, needsti, hasstars) = processcocci(&patchstring);
+            let (rules, _needsti, hasstars) = processcocci(&patchstring);
             let fileid = vfs
                 .file_id(&VfsPath::new_real_path(targetpath.clone()))
                 .expect(&format!("Could not get FileId for file {}", &targetpath));
@@ -253,34 +240,25 @@ fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
 
             let mut rnode = processrswithsemantics(&rcode, syntaxnode)
                 .expect("Could not convert SyntaxNode to Rnode");
-            workrnode(&mut rnode, &mut |node| {
-                let node = if node.astnode().is_none() {
-                    return false;
-                } else {
-                    node.astnode().unwrap()
-                };
+            
+            set_types(&mut rnode, semantics, db);
 
-                let ty = ast::Expr::cast(node.clone())
-                    .and_then(|ex| semantics.type_of_expr(&ex.into()))
-                    .map(|ex| ex.original);
-                let _ = ty.is_some_and(|ty| {
-                    ty.as_adt().is_some_and(|x| {
-                        let a = x.module(semantics.db).path_to_root(semantics.db)
-                        .into_iter()
-                        .rev()
-                        .flat_map(|it| it.name(db).map(|name| name.display(db).to_string())).join("::");
-                        let typename = x.module(semantics.db).display(semantics.db).to_string();
-                        //let typename = x.display(semantics.db).to_string();
-                        //let typename = x.name(semantics.db);
-                        println!("{}: {}-{:?}", node.to_string(), a, typename);
-                        true
+            let transformedcode = transformation::transformrnode(&rules, rnode);
+
+            let mut transformedcode = match transformedcode {
+                Ok(node) => node,
+                Err(error) => {
+                    //failedfiles.push((error, targetpath));
+                    match error {
+                        TARGETERROR(msg, _) => println!("{}", msg),
+                        RULEERROR(msg, error, _) => println!("{}:{}", msg, error),
                     }
-                )
-                });
+                    println!("Failed to transform {}", targetpath);
+                    return;
+                }
+            };
 
-
-                true
-            });
+            showdiff(args, &mut transformedcode, targetpath, hasstars);
             //transformrnode(&rules, rnode);
         };
 
@@ -349,14 +327,14 @@ fn main() {
     makechecks(&args);
     let targetpath = Path::new(&args.targetpath);
     if targetpath.is_file() {
-        transformfiles(&args, vec![args.targetpath.to_string()]);
+        transformfiles(&args, &[String::from(canonicalize(targetpath).unwrap().to_str().unwrap())]);
     } else {
         let mut files = vec![];
         let _ = visit_dirs(targetpath, &args.ignore, &mut |f: &DirEntry| {
             if f.file_name().to_str().unwrap().ends_with(".rs") {
-                files.push(String::from(f.path().to_str().unwrap()));
+                files.push(String::from(canonicalize(f.path()).unwrap().to_str().unwrap()));
             }
         });
-        transformfiles(&args, files);
+        transformfiles(&args, &files[..]);
     }
 }

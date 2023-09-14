@@ -1,4 +1,5 @@
 #![allow(unused)]
+use itertools::Itertools;
 use ra_hir_ty::display::HirDisplay;
 use ra_ide::{Semantics, AnalysisHost};
 use ra_ide_db::{base_db::SourceDatabaseExt, symbol_index::SymbolsDatabase, RootDatabase};
@@ -9,10 +10,13 @@ use ra_syntax::{ast, AstNode, SyntaxNode};
 use std::path::Path;
 use ra_vfs::Vfs;
 
+use crate::commons::util::workrnode;
+
+use super::ast_rs::Rnode;
+
 pub fn gettypedb(targetpath: &str) -> (AnalysisHost, Vfs){
     let root = Path::new(targetpath);
     let path_buf = &AbsPathBuf::assert(root.into());
-    println!("{:?}", path_buf);
     let manifest = ProjectManifest::discover_single(path_buf).unwrap();
 
     let mut cargo_config = CargoConfig::default();
@@ -40,7 +44,66 @@ pub fn gettypedb(targetpath: &str) -> (AnalysisHost, Vfs){
 
 }
 
-pub fn  t(targetpath: &str) {
+pub fn set_types(rnode: &mut Rnode, semantics: &Semantics<'_, RootDatabase>, db: &RootDatabase) {
+    workrnode(rnode, &mut |node| {
+        //Checking if the node is an expression and if it is an expression
+        //Then getting its type
+        if !node.isexpr() {
+            return true;
+        }
+
+        let ty = ast::Expr::cast(node.astnode().unwrap().clone())
+            .and_then(|ex| semantics.type_of_expr(&ex.into()))
+            .map(|ex| ex.original);
+        match ty {
+            Some(ty) => match ty.as_adt() {
+                //adt stads for A Data Type which can be
+                //Struct, Enum or Union
+                Some(adt) => {
+                    //Custom Data Type
+                    let namespace = adt
+                        .module(semantics.db)
+                        .path_to_root(semantics.db)
+                        .into_iter()
+                        .rev()
+                        .flat_map(|it| it.name(db).map(|name| name.display(db).to_string()))
+                        .join("::");
+                    let typename = adt.ty(semantics.db).display(semantics.db).to_string();
+
+                    if namespace == "" {
+                        node.wrapper.set_type(Some(typename));
+                    }
+                    else {
+                        println!("SETTING - {}", node.getunformatted());
+                        node.wrapper.set_type(Some(format!("{}::{}", namespace, typename)));
+                    }
+                }
+                None => {
+                    //I am asuming everything non-ADT does
+                    //not have to be explicitly imported and is a part of the language
+                    //Subject to change TODO
+
+                    let typename = ty.display(semantics.db).to_string();
+                    node.wrapper.set_type(Some(typename));
+                }
+            }
+            None => {
+                node.wrapper.set_type(None);
+            }
+        }
+
+        //This is for debugging types
+        node.wrapper.get_type().is_some_and(|x| {
+            println!("{}:{:?} ---> {}", node.gettokenstream(), node.kind(), x);
+            true
+        });
+
+        true
+    });
+}
+
+#[allow(unused)]
+pub fn t(targetpath: &str) {
     let root = Path::new(targetpath);
     let path_buf = &AbsPathBuf::assert(root.into());
 

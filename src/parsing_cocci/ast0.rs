@@ -11,7 +11,6 @@ use super::visitor_ast0::work_node;
 use itertools::Itertools;
 use ra_ide_db::line_index::{LineCol, LineIndex};
 use ra_parser::SyntaxKind;
-use ra_syntax::ast::Type;
 use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode};
 
 #[derive(PartialEq, Clone)]
@@ -400,6 +399,8 @@ pub enum MetaVar {
     Type(Minfo),
     Struct(String, Minfo), //typename, minfo
     Enum(String, Minfo),   //typename, minfo
+    //I have not yet added primtiive support
+    //But it should not be hard
 }
 
 impl MetaVar {
@@ -576,7 +577,7 @@ impl MetavarType {
 pub struct Wrap {
     info: Info,
     index: usize,
-    exp_ty: Option<Type>,
+    exp_ty: Option<String>,
     pub metavar: MetaVar,
     true_if_arg: bool,
     pub true_if_test: bool,
@@ -590,7 +591,7 @@ impl Wrap {
     pub fn new(
         info: Info,
         index: usize,
-        exp_ty: Option<Type>,
+        exp_ty: Option<String>,
         metavar: MetaVar,
         true_if_arg: bool,
         true_if_test: bool,

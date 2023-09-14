@@ -1,24 +1,6 @@
-@r@
-expression i,j;
+@@
+struct .*::Snode a;
 @@
 
-f
- (
-(
-i
-|
-j
-)
- )
-
-@rule1@
-expression r.i,r.j;
-@@
-
-(
--j
-+12
-|
--i
-+15
-)
+-a
++snode2

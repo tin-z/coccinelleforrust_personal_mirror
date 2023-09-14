@@ -5,7 +5,6 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 
 use itertools::izip;
-use ra_hir::Type;
 use ra_parser::SyntaxKind;
 use ra_syntax::{SyntaxElement, SyntaxNode};
 use SyntaxKind::*;
@@ -40,7 +39,7 @@ pub struct Wrap {
     pub wspaces: (String, String),
     pub isremoved: bool,
     pub plussed: (Vec<Rnode>, Vec<Rnode>),
-    pub ty: Option<Type>,
+    pub(crate) exp_ty: Option<String>,
 }
 
 impl Hash for Wrap {
@@ -68,8 +67,16 @@ impl Wrap {
             wspaces: (String::new(), String::new()),
             isremoved: false,
             plussed: (vec![], vec![]),
-            ty: None,
+            exp_ty: None,
         }
+    }
+
+    pub fn set_type(&mut self, ty: Option<String>) {
+        self.exp_ty = ty;
+    }
+
+    pub fn get_type(&self) -> Option<&String> {
+        return self.exp_ty.as_ref()
     }
 
     pub fn dummy(nc: usize) -> Wrap {
@@ -86,7 +93,7 @@ impl Wrap {
             wspaces: wp,
             isremoved: false,
             plussed: (vec![], vec![]),
-            ty: None,
+            exp_ty: None,
         }
     }
 }

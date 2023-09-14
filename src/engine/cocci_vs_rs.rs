@@ -4,11 +4,12 @@ use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
+use regex::Regex;
 
 use crate::{
     debugcocci, fail,
-    parsing_cocci::ast0::{MetaVar, MetavarName},
     parsing_cocci::ast0::{Mcodekind, Snode},
+    parsing_cocci::ast0::{MetaVar, MetavarName},
     parsing_rs::ast_rs::Rnode,
 };
 
@@ -109,14 +110,18 @@ fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
             }
             Mcodekind::Minus(pluses) => {
                 //This is a replacement
-                if pluses.len()!=0 {
-
+                if pluses.len() != 0 {
                     env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
                 }
             }
             _ => {}
         }
     }
+}
+
+pub fn types_equal(ty1: &str, ty2: &str) -> bool {
+    let pattern = Regex::new(ty1).unwrap();
+    pattern.is_match(ty2)
 }
 
 pub struct Looper<'a> {
@@ -157,7 +162,7 @@ impl<'a, 'b> Looper<'a> {
 
             let akind = a.kind();
             let bkind = b.kind();
-            //println!("{:?} ===== {:?}", akind, bkind);
+            //println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
             //please dont remove this line
             //helps in debugging, and I always forget where to put it
             if akind != bkind && a.wrapper.metavar.isnotmeta() {
@@ -263,7 +268,6 @@ impl<'a, 'b> Looper<'a> {
                         MetavarMatch::Fail
                     }
                 } else {
-
                     if metavar.isinherited() {
                         //If the metavar is inhertited
                         //but no bindings exist from previous rules
@@ -271,7 +275,7 @@ impl<'a, 'b> Looper<'a> {
                         println!("Comes here");
                         return MetavarMatch::Fail;
                     }
-                    println!("{}.{}", metavar.getrulename(), metavar.getname());
+                    
                     match metavar {
                         MetaVar::Exp(_info) => {
                             if node2.isexpr() {
@@ -291,17 +295,16 @@ impl<'a, 'b> Looper<'a> {
                             }
                             return MetavarMatch::Maybe(node1, node2);
                         }
-                        MetaVar::Struct(_tyname, _info) => {
-                            if let Some(_ty) = &node2.wrapper.ty {
-                                //if ty.dis
+                        MetaVar::Struct(tyname1, _info) | MetaVar::Enum(tyname1, _info) => {
+                            if let Some(tyname2) = &node2.wrapper.get_type() {
+                                if types_equal(tyname1, tyname2) {
+                                    return MetavarMatch::Match;
+                                }
                             }
-                            else {
-                                panic!("Types should be resolved prior to matching.");
-                            }
-                            MetavarMatch::Fail
-                        }
-                        MetaVar::Enum(_tyname, _info) => {
-                            MetavarMatch::Fail
+                            
+                            //Will go deeper for both other types and
+                            //Non types like blocks
+                            return MetavarMatch::Maybe(node1, node2);
                         }
                         MetaVar::NoMeta => {
                             panic!("Should never occur");
@@ -323,10 +326,7 @@ impl<'a, 'b> Looper<'a> {
         let mut matched = false;
         let dnum = disjs.len();
 
-        println!("Inhertied Bindings {:#?}", inheritedbindings);
-
-        'outer:
-        for din in 0..dnum {
+        'outer: for din in 0..dnum {
             let disj = &disjs[din];
             let mut inheritedenv = Environment::new();
             inheritedenv.addbindings(&inheritedbindings);
@@ -336,12 +336,13 @@ impl<'a, 'b> Looper<'a> {
             //(a | b) is converted into (a | (not a) and b)
             let mut ctr = 0;
             for prevdisj in &disjs[0..din] {
-                let penv = self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
+                let penv =
+                    self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
                 println!("{}", ctr);
                 if !penv.failed {
                     continue 'outer;
                 }
-                ctr+=1;
+                ctr += 1;
             }
 
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
@@ -361,7 +362,7 @@ pub fn visitrnode<'a>(
 ) -> Vec<Environment> {
     let mut environments = vec![];
     let nodebchildren = &mut nodeb.children.iter();
-    
+
     loop {
         let tmp = f(nodea, &nodebchildren.clone().collect_vec());
 
