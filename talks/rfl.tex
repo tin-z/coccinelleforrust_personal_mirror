@@ -325,6 +325,7 @@ expression tcx, arg;
 expression tcx, arg;
 @@
 
+(*@@*)
   tcx.
 -    type_of(arg)
 +    bound_type_of(arg).subst_identity()
@@ -333,6 +334,25 @@ expression tcx, arg;
 \vfill
 \textcolor{subtitlex}{Putting tcx in the context ensures any comments will
   be preserved.}
+}
+
+
+\frame[containsverbatim]{\frametitle{A refinement}
+
+\begin{lstlisting}[language=tdiff]
+@@
+TyCtxt tcx;
+expression arg;
+@@
+
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+\textcolor{subtitlex}{Specifying the types protects against changing other
+  uses of \texttt{type\_of}.}
 }
 
 \frame[containsverbatim]{\frametitle{An example: change in context}
@@ -590,6 +610,30 @@ identifier r.Ty;
 %% \textcolor{subtitlex}{Takes care of 1287 insertions(+), 1433 deletions(-) \\out of  3109 insertions(+), 3327 deletions(-)}
 }
 
+\frame[containsverbatim]{\frametitle{An example: more metavariables}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@r type@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+
+@rule type@
+identifier r.Ty;
+lifetime a, b;
+@@
+- Ty<a, b>
++ Ty<b>
+\end{lstlisting}
+
+%% \vfill
+
+%% \textcolor{subtitlex}{Takes care of 1287 insertions(+), 1433 deletions(-) \\out of  3109 insertions(+), 3327 deletions(-)}
+}
+
 \frame{\frametitle{Summary: Features seen so far}
 
 \begin{itemize}
@@ -603,6 +647,271 @@ identifier r.Ty;
 \vfill
 
 \centerline{\textcolor{subtitlex}{All of these features are implemented!}}}
+
+\frame{\frametitle{Future features: {\tt ...} in parameter lists}
+
+// tokio commit 474befd23c368a34a5f45aab0f3945212109a803
+
+\textcolor{subtitlex}{One parameter case:} (supported already)
+\begin{lstlisting}[language=tdiff]
+@@
+identifier f, P, p;
+type T1, T2;
+@@
+
+- f<P: T1>(p: P) -> T2
++ f(p: impl T1) -> T2
+{ ... }
+\end{lstlisting}
+
+}
+
+\frame{\frametitle{Future features: {\tt ...} in parameter lists}
+
+// tokio commit 474befd23c368a34a5f45aab0f3945212109a803
+
+\textcolor{subtitlex}{Multiple parameter case:}
+\begin{lstlisting}[language=tdiff]
+@@
+identifier f, P, p;
+type T1, T2;
+@@
+
+  f
+-  <P: T1>
+      (...,
+-      p: P
++      p: impl T1
+      ,...)
+  { ... }
+\end{lstlisting}
+
+\textcolor{black!2}{Likewise for function arguments.}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame{\frametitle{Future features: {\tt ...} in parameter lists}
+
+// tokio commit 474befd23c368a34a5f45aab0f3945212109a803
+
+\textcolor{subtitlex}{Multiple parameter case:}
+\begin{lstlisting}[language=tdiff]
+@@
+identifier f, P, p;
+type T1, T2;
+@@
+
+  f
+-  <P: T1>
+      (...,
+-      p: P
++      p: impl T1
+      ,...)
+  { ... }
+\end{lstlisting}
+
+\textcolor{subtitlex}{Likewise for function arguments.}
+}
+
+\frame{\frametitle{Future features: {\tt ...} across control-flow paths}
+
+\textcolor{subtitlex}{A sequence of statements:} (works already)
+\begin{lstlisting}[language=tdiff]
+@@
+identifier e;
+expression rt;
+@@
+-    let mut e = tokio_executor::enter().unwrap();
+-    e.block_on(rt.shutdown_on_idle());
++    rt.shutdown_on_idle();
+\end{lstlisting}
+}
+
+\frame{\frametitle{Future features: {\tt ...} across control-flow paths}
+
+\textcolor{subtitlex}{The statements may not be contiguous:}
+\begin{lstlisting}[language=tdiff]
+@@
+identifier e;
+expression rt;
+@@
+-    let mut e = tokio_executor::enter().unwrap();
+     ...
+-    e.block_on(rt.shutdown_on_idle());
++    rt.shutdown_on_idle();
+\end{lstlisting}
+}
+
+\frame{\frametitle{Future features: {\tt ...} across control-flow paths}
+
+\textcolor{subtitlex}{A safer variant:}
+\begin{lstlisting}[language=tdiff]
+@@
+identifier e;
+expression rt;
+expression e1;
+@@
+-    let mut e = tokio_executor::enter().unwrap();
+     ... when != e = e1
+-    e.block_on(rt.shutdown_on_idle());
++    rt.shutdown_on_idle();
+\end{lstlisting}
+}
+
+\frame{\frametitle{Future features: Isomorpshisms}
+
+\textcolor{subtitlex}{Isomorphism:} A rewrite on the semantic patch to
+match and transform essentially equivalent code.
+
+\textcolor{subtitlex}{Examples for C:}
+\begin{itemize}
+\item Explicitly defined isomorphisms:
+    \begin{columns}[onlytextwidth]
+        \begin{column}{0.4\textwidth}
+\begin{lstlisting}[language=diff]
+Expression
+@ not_ptr1 @
+expression *X;
+@@
+ !X => X == NULL
+\end{lstlisting}
+        \end{column}
+        \begin{column}{0.4\textwidth}
+\begin{lstlisting}[language=diff]
+Expression
+@ paren @
+expression E;
+@@
+ (E) => E
+\end{lstlisting}
+        \end{column}
+        \end{columns}
+
+\item Implicit isomorphisms
+\begin{itemize}
+\item[--] On a function definition the return type, {\tt static}, {\tt
+  inline}, etc. can be omitted.
+\item[--] {\tt e1 = e2} also matches a variable initialization.
+\end{itemize}
+\end{itemize}}
+
+\frame{\frametitle{Future features: An isomorpshism for Rust}
+For {\tt shutdown\_on\_idle}, the code is always written as:
+\begin{lstlisting}[language=tdiff]
+let mut e = tokio_executor::enter().unwrap();
+e.block_on(rt.shutdown_on_idle());
+\end{lstlisting}
+
+\textcolor{black!2}But it could be written as:
+\begin{lstlisting}[language=tdiff]
+(*@@*)
+\end{lstlisting}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame{\frametitle{Future features: An isomorpshism for Rust}
+For {\tt shutdown\_on\_idle}, the code is always written as:
+\begin{lstlisting}[language=tdiff]
+let mut e = tokio_executor::enter().unwrap();
+e.block_on(rt.shutdown_on_idle());
+\end{lstlisting}
+
+But it could be written as:
+\begin{lstlisting}[language=tdiff]
+tokio_executor::enter().unwrap().block_on(rt.shutdown_on_idle());
+\end{lstlisting}
+}
+
+\frame{\frametitle{Future features: An isomorpshism for Rust}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression rt;
+@@
+- tokio_executor::enter().unwrap().block_on(rt.shutdown_on_idle());
++ rt.shutdown_on_idle();
+\end{lstlisting}
+
+\textcolor{black!2}{Implicit isomorphisms:}
+\begin{itemize}
+\item[] \textcolor{black!2}{Introduce {\tt let} to name all possible subterms.}
+\item[] \textcolor{black!2}{Introduce {\tt ...} and {\tt when} to allow
+  other code between the {\tt let} definition and use.}
+\item[] \textcolor{black!2}{{Caveat:} Complexity may drastically increase if
+  the {\tt ...} crosses a loop.}
+\end{itemize}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame{\frametitle{Future features: An isomorpshism for Rust}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression rt;
+@@
+- tokio_executor::enter().unwrap().block_on(rt.shutdown_on_idle());
++ rt.shutdown_on_idle();
+\end{lstlisting}
+
+\textcolor{subtitlex}{Implicit isomorphisms:}
+\begin{itemize}
+\item Introduce {\tt let} to name all possible subterms.
+\item Introduce {\tt ...} and {\tt when} to allow other code between the
+  {\tt let} definition and use.
+\item[] \textcolor{black!2}{Caveat: Complexity may drastically increase if
+  the {\tt ...} crosses a loop.}
+\end{itemize}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame{\frametitle{Future features: An isomorpshism for Rust}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression rt;
+@@
+- tokio_executor::enter().unwrap().block_on(rt.shutdown_on_idle());
++ rt.shutdown_on_idle();
+\end{lstlisting}
+
+\textcolor{subtitlex}{Implicit isomorphisms:}
+\begin{itemize}
+\item Introduce {\tt let} to name all possible subterms.
+\item Introduce {\tt ...} and {\tt when} to allow other code between the
+   {\tt let} definition and use.
+\item \textcolor{subtitlex}{Caveat:} Complexity may drastically increase if
+  the {\tt ...} crosses a loop.
+\end{itemize}
+}
+
+\frame{\frametitle{Future features: Another isomorpshism for Rust}
+
+\textcolor{subtitlex}{Developers can use {\tt use} with more or less
+  information.
+
+\textcolor{subtitlex}{One example:}
+\begin{lstlisting}[language=tdiff]
+- use std::sync::Mutex;
++ use crate::loom::sync::Mutex;
+\end{lstlisting}
+
+\textcolor{subtitlex}{Another example:}
+\begin{lstlisting}[language=tdiff]
+-use std::sync::{Arc, Mutex};
++use crate::loom::sync::{Arc, Mutex};
+\end{lstlisting}
+
+\textcolor{subtitlex}{Options:}
+\begin{itemize}
+\item Specify changes one at a time?
+\item Merge changed code?
+\item Merge changed code with unchanged code?
+\end{itemize}
+}
 
 \frame{\frametitle{Some more Coccinelle features}
 \begin{itemize}
