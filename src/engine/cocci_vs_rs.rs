@@ -289,6 +289,14 @@ impl<'a, 'b> Looper<'a> {
                             }
                             return MetavarMatch::Maybe(node1, node2);
                         }
+                        MetaVar::Lifetime(_info) => {
+                            println!("comes here");
+                            if  node2.islifetime() {
+                                
+                                return MetavarMatch::Match
+                            }
+                            return MetavarMatch::Maybe(node1, node2);
+                        }
                         MetaVar::Type(_info) => {
                             if node2.istype() {
                                 return MetavarMatch::Match;

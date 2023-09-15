@@ -14,7 +14,7 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, vec};
 
-use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, Mcodekind};
+use super::ast0::{wrap_root, Mcodekind, MetaVar, MetavarName, Snode};
 use crate::{
     commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
     debugcocci,
@@ -61,6 +61,7 @@ fn makemetavar(
                 .unwrap_or_else(|| syntaxerror!(lino, "Unexpected Metavariable type"))
         }
         (Some(rulen), Some(var), None) => {
+            //Inherited Metavars
             let var = *var;
             let rule = getrule(rules, &rulen, lino);
             if let Some(mvar) = rule.metavars.iter().find(|x| x.getname() == var) {
@@ -96,10 +97,11 @@ impl Patch {
     fn setmetavars(&mut self, metavars: &Vec<MetaVar>) {
         fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
             let mut work = |node: &mut Snode| {
-                if node.isexpr() || node.istype() || node.isid() {
+                //The if statement below lists the types of metavariables allowed
+                if node.isexpr() || node.istype() || node.isid() || node.islifetime() {
                     let stmp = node.getstring(); //FIX ME should not convert to string before checking
                     if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
-                        //println!("MetaVar found - {:?}", mvar);
+                        debugcocci!("MetaVar found - {:?}", mvar);
                         node.wrapper.metavar = mvar.clone();
                     }
                 }
@@ -112,59 +114,58 @@ impl Patch {
     }
 
     fn setmods(&mut self) {
-        let mut tagmods = |node: &mut Snode,
-                           (lino, modifier): (usize, Mcodekind)|
-         -> (usize, Mcodekind) {
-            let (start, end) = node.wrapper.getlinenos();
+        let mut tagmods =
+            |node: &mut Snode, (lino, modifier): (usize, Mcodekind)| -> (usize, Mcodekind) {
+                let (start, end) = node.wrapper.getlinenos();
 
-            match node.wrapper.mcodekind {
-                Mcodekind::Context(_, _) => {
-                    if lino == 0 {
+                match node.wrapper.mcodekind {
+                    Mcodekind::Context(_, _) => {
+                        if lino == 0 {
+                            return (0, Mcodekind::Context(vec![], vec![]));
+                        } else if start == lino && start == end {
+                            //debugstart
+                            if node.children.len() == 0 {
+                                debugcocci!(
+                                    "Setting {}:{:?} to modifier:- {:?}",
+                                    node.getstring(),
+                                    node.kind(),
+                                    modifier
+                                );
+                            } //debugend
+
+                            node.wrapper.mcodekind = modifier.clone();
+                            return (lino, modifier);
+                            //everytime lino is not 0, modkind is
+                            //a Some value
+                        } else if start == lino && start != end {
+                            //this node spills onto the next line
+                            return (lino, modifier.clone());
+                        }
                         return (0, Mcodekind::Context(vec![], vec![]));
-                    } else if start == lino && start == end {
-                        //debugstart
-                        if node.children.len() == 0 {
-                            debugcocci!(
-                                "Setting {}:{:?} to modifier:- {:?}",
-                                node.getstring(),
-                                node.kind(),
-                                modifier
-                            );
-                        } //debugend
-
-                        node.wrapper.mcodekind = modifier.clone();
-                        return (lino, modifier);
-                        //everytime lino is not 0, modkind is
-                        //a Some value
-                    } else if start == lino && start != end {
-                        //this node spills onto the next line
-                        return (lino, modifier.clone());
                     }
-                    return (0, Mcodekind::Context(vec![], vec![]));
-                },
-                Mcodekind::Plus | Mcodekind::Minus(_) | Mcodekind::Star => {
-                    //println!("NODE - {}, {}", node.getstring());
-                    if start == end {
-                        //debugstart
-                        if node.children.len() == 0 {
-                            debugcocci!(
-                                "Setting {}:{:?} to modifier:- {:?}",
-                                node.getstring(),
-                                node.kind(),
-                                modifier
-                            );
-                        } //debugend
+                    Mcodekind::Plus | Mcodekind::Minus(_) | Mcodekind::Star => {
+                        //println!("NODE - {}, {}", node.getstring());
+                        if start == end {
+                            //debugstart
+                            if node.children.len() == 0 {
+                                debugcocci!(
+                                    "Setting {}:{:?} to modifier:- {:?}",
+                                    node.getstring(),
+                                    node.kind(),
+                                    modifier
+                                );
+                            } //debugend
 
-                        //node.wrapper.mcodekind = modifier.clone();
-                        return (start, node.wrapper.mcodekind.clone());
-                    } else {
-                        let tmpmod = node.wrapper.mcodekind.clone();
-                        node.wrapper.mcodekind = Mcodekind::Context(vec![], vec![]);
-                        return (start, tmpmod);
+                            //node.wrapper.mcodekind = modifier.clone();
+                            return (start, node.wrapper.mcodekind.clone());
+                        } else {
+                            let tmpmod = node.wrapper.mcodekind.clone();
+                            node.wrapper.mcodekind = Mcodekind::Context(vec![], vec![]);
+                            return (start, tmpmod);
+                        }
                     }
                 }
-            }
-        };
+            };
 
         worksnode(&mut self.plus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
         worksnode(&mut self.minus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
@@ -295,6 +296,7 @@ impl Patch {
             MetaVar::NoMeta => {}
             MetaVar::Exp(info)
             | MetaVar::Id(info)
+            | MetaVar::Lifetime(info)
             | MetaVar::Type(info)
             | MetaVar::Struct(_, info)
             | MetaVar::Enum(_, info) => {
@@ -326,7 +328,7 @@ pub struct Rule {
     pub patch: Patch,
     pub freevars: Vec<MetaVar>,
     pub usedafter: HashSet<MetavarName>,
-    pub hastype: bool
+    pub hastype: bool,
 }
 
 // Given the depends clause it converts it into a Dep object
@@ -639,7 +641,10 @@ pub fn handle_metavar_decl(
                 if !metavars.iter().any(|x| x.getname() == var) {
                     metavars.push(makemetavar(rules, rulename, &var, &ty, lino));
                 } else {
-                    syntaxerror!(offset + lino, format!("Redefining {:?} metavariable {}", ty, var));
+                    syntaxerror!(
+                        offset + lino,
+                        format!("Redefining {:?} metavariable {}", ty, var)
+                    );
                 }
             }
         }
@@ -733,6 +738,6 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool, bool) {
         lastruleline = lino;
     }
     setusedafter(&mut rules);
-    (rules, hastypes, hasstars)//FIXME
-    //flag_logilines(0, &mut root);
+    (rules, hastypes, hasstars) //FIXME
+                                //flag_logilines(0, &mut root);
 }

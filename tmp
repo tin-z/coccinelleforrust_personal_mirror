@@ -1,5 +1,0 @@
-Can I write the code as,
-Say for rule2 I see I need inherited variables rule1.x, rule1.y .
-I go to rule1 and gather all unique variants of (rule1.x, rule1.y), then run
-the matching on rule2 for each unique variant. I do this for all rules
-which have variables which are inherited for rule2?

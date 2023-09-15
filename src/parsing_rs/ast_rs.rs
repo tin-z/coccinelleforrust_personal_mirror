@@ -227,6 +227,10 @@ impl Rnode {
         return self.kind() == NAME || self.kind() == NAME_REF || self.ispat();
     }
 
+    pub fn islifetime(&self) -> bool {
+        return self.kind() == LIFETIME_ARG;
+    }
+
     pub fn ispat(&self) -> bool {
         match self.kind() {
             IDENT_PAT | BOX_PAT | REST_PAT | LITERAL_PAT | MACRO_PAT | OR_PAT | PAREN_PAT
