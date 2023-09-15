@@ -299,6 +299,8 @@ expression tcx, arg;
 \end{itemize}
 }
 
+\addtocounter{framenumber}{-1}
+
 \frame[containsverbatim]{\frametitle{An outlier}
 
 \begin{lstlisting}[language=tdiff]
@@ -507,6 +509,8 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 \item[] \textcolor{black!2}{And others?}
 \end{itemize}}
 
+\addtocounter{framenumber}{-1}
+
 \frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A first attempt:}
@@ -565,6 +569,8 @@ identifier Ty;
 \begin{itemize}
 \item[] \textcolor{black!2}{Want to change all uses of types that are somewhere used with {\tt 'gcx}.}
 \end{itemize}}
+
+\addtocounter{framenumber}{-1}
 
 \frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
@@ -667,7 +673,7 @@ type T1, T2;
 \end{lstlisting}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
 };
@@ -695,7 +701,7 @@ type T1, T2;
 \textcolor{black!2}{Likewise for function arguments.}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
 };
@@ -725,7 +731,7 @@ type T1, T2;
 \textcolor{subtitlex}{Likewise for function arguments.}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
 };
@@ -746,7 +752,7 @@ expression rt;
 \end{lstlisting}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 47e2ff48d9f1daac7dba9f136b24eed64c87cf40}
 };
@@ -768,7 +774,7 @@ expression rt;
 \end{lstlisting}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 47e2ff48d9f1daac7dba9f136b24eed64c87cf40}
 };
@@ -791,7 +797,7 @@ expression e1;
 \end{lstlisting}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 47e2ff48d9f1daac7dba9f136b24eed64c87cf40}
 };
@@ -966,14 +972,14 @@ expression rt;
 \end{itemize}
 
 \begin{tikzpicture}[remember picture,overlay]
-\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
 {\scriptsize tokio commit 549e89e9cd2073ffa70f1bd12022c5543343be78}
 };
 \end{tikzpicture}
 }
 
-\frame{\frametitle{Some more Coccinelle future features}
+\frame{\frametitle{Some more future Coccinelle features}
 \begin{itemize}
 \setlength{\itemsep}{2mm}
 \item Position variables.
