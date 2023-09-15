@@ -109,7 +109,7 @@
 https://gitlab.inria.fr/coccinelle/coccinelleforrust.git
 }
 \author{Julia Lawall, Tathagata Roy}
-\date{July 23, 2023\\ \mbox{}
+\date{September 17, 2023\\ \mbox{}
 }
 
 \begin{document}
@@ -226,7 +226,8 @@ diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.r
 \textcolor{black!2}{136 files changed, 385 insertions(+), 262 deletions(-)}
 }
 
-\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2:
+    pick a typical example}
 
 \begin{lstlisting}[language=tdiff]
 @@
@@ -242,7 +243,7 @@ diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.r
 \textcolor{black!2}{Updates over 200 call sites.}
 }
 
-\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 3: abstract over subterms using metavariables}
 
 \begin{lstlisting}[language=tdiff]
 @@
@@ -258,7 +259,9 @@ expression tcx, arg;
 \textcolor{black!2}{Updates over 200 call sites.}
 }
 
-\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2: abstract over subterms using metavariables}
+\addtocounter{framenumber}{-1}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 3: abstract over subterms using metavariables}
 
 \begin{lstlisting}[language=tdiff]
 @@
@@ -318,14 +321,14 @@ expression tcx, arg;
 \end{itemize}
 }
 
-\frame[containsverbatim]{\frametitle{Alternate semantic patch}
+\frame[containsverbatim]{\frametitle{An alternate semantic patch}
 
 \begin{lstlisting}[language=tdiff]
 @@
 expression tcx, arg;
 @@
 
-(*@@*)
+££
   tcx.
 -    type_of(arg)
 +    bound_type_of(arg).subst_identity()
@@ -351,9 +354,9 @@ expression arg;
 \end{lstlisting}
 
 \vfill
-\textcolor{subtitlex}{Specifying the types protects against changing other
-  uses of \texttt{type\_of}.}
-}
+
+\textcolor{subtitlex}{Specifying the type of {\tt tcx} protects against
+  changing other uses of \texttt{type\_of}.}  }
 
 \frame[containsverbatim]{\frametitle{An example: change in context}
 
@@ -484,7 +487,7 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 \textcolor{subtitlex}{341 files changed, 3109 insertions(+), 3327 deletions(-)}
 }
 
-\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A first attempt:}
 
@@ -499,12 +502,12 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 
 \textcolor{black!2}{This does part of the work, but some change sites are overlooked:}
 \begin{itemize}
-\item[] \textcolor{black!2}{{\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}}
 \item[] \textcolor{black!2}{{\tt DepNodeParams<'gcx, 'tcx>}}
+\item[] \textcolor{black!2}{{\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}}
 \item[] \textcolor{black!2}{And others?}
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A first attempt:}
 
@@ -519,12 +522,12 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 
 \textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
 \begin{itemize}
-\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
 \item {\tt DepNodeParams<'gcx, 'tcx>}
+\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
 \item[] \textcolor{black!2}{And others?}
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A first attempt:}
 
@@ -539,12 +542,12 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 
 \textcolor{subtitlex}{This does part of the work, but some change sites are overlooked:}
 \begin{itemize}
-\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
 \item {\tt DepNodeParams<'gcx, 'tcx>}
+\item {\tt TyCtxt<'tcx, 'tcx>}, {\tt TyCtxt<'\_, '\_>}
 \item And others?
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A more general attempt:}
 
@@ -563,7 +566,7 @@ identifier Ty;
 \item[] \textcolor{black!2}{Want to change all uses of types that are somewhere used with {\tt 'gcx}.}
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A more general attempt:}
 
@@ -582,7 +585,7 @@ identifier Ty;
 \item Want to change all uses of types that are somewhere used with {\tt 'gcx}.
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{An example: searching for variants}
+\frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
 \textcolor{subtitlex}{A more general attempt:}
 
@@ -610,7 +613,7 @@ identifier r.Ty;
 %% \textcolor{subtitlex}{Takes care of 1287 insertions(+), 1433 deletions(-) \\out of  3109 insertions(+), 3327 deletions(-)}
 }
 
-\frame[containsverbatim]{\frametitle{An example: more metavariables}
+\frame[t,containsverbatim]{\frametitle{An example: using more metavariables}
 
 \textcolor{subtitlex}{A more general attempt:}
 
@@ -642,15 +645,14 @@ lifetime a, b;
 \item Multiple rules/rule ordering.
 \item Inheritance.
 \item Disjuctions.
+\item Typed metavariables
 \end{itemize}
 
 \vfill
 
 \centerline{\textcolor{subtitlex}{All of these features are implemented!}}}
 
-\frame{\frametitle{Future features: {\tt ...} in parameter lists}
-
-// tokio commit 474befd23c368a34a5f45aab0f3945212109a803
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} in parameter lists}
 
 \textcolor{subtitlex}{One parameter case:} (supported already)
 \begin{lstlisting}[language=tdiff]
@@ -661,14 +663,18 @@ type T1, T2;
 
 - f<P: T1>(p: P) -> T2
 + f(p: impl T1) -> T2
-{ ... }
+     { ... }
 \end{lstlisting}
 
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
+};
+\end{tikzpicture}
 }
 
-\frame{\frametitle{Future features: {\tt ...} in parameter lists}
-
-// tokio commit 474befd23c368a34a5f45aab0f3945212109a803
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} in parameter lists}
 
 \textcolor{subtitlex}{Multiple parameter case:}
 \begin{lstlisting}[language=tdiff]
@@ -687,13 +693,18 @@ type T1, T2;
 \end{lstlisting}
 
 \textcolor{black!2}{Likewise for function arguments.}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
+};
+\end{tikzpicture}
 }
 
 \addtocounter{framenumber}{-1}
 
-\frame{\frametitle{Future features: {\tt ...} in parameter lists}
-
-// tokio commit 474befd23c368a34a5f45aab0f3945212109a803
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} in parameter lists}
 
 \textcolor{subtitlex}{Multiple parameter case:}
 \begin{lstlisting}[language=tdiff]
@@ -712,9 +723,16 @@ type T1, T2;
 \end{lstlisting}
 
 \textcolor{subtitlex}{Likewise for function arguments.}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
+};
+\end{tikzpicture}
 }
 
-\frame{\frametitle{Future features: {\tt ...} across control-flow paths}
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} across control-flow paths}
 
 \textcolor{subtitlex}{A sequence of statements:} (works already)
 \begin{lstlisting}[language=tdiff]
@@ -726,9 +744,16 @@ expression rt;
 -    e.block_on(rt.shutdown_on_idle());
 +    rt.shutdown_on_idle();
 \end{lstlisting}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 47e2ff48d9f1daac7dba9f136b24eed64c87cf40}
+};
+\end{tikzpicture}
 }
 
-\frame{\frametitle{Future features: {\tt ...} across control-flow paths}
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} across control-flow paths}
 
 \textcolor{subtitlex}{The statements may not be contiguous:}
 \begin{lstlisting}[language=tdiff]
@@ -741,9 +766,16 @@ expression rt;
 -    e.block_on(rt.shutdown_on_idle());
 +    rt.shutdown_on_idle();
 \end{lstlisting}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 47e2ff48d9f1daac7dba9f136b24eed64c87cf40}
+};
+\end{tikzpicture}
 }
 
-\frame{\frametitle{Future features: {\tt ...} across control-flow paths}
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} across control-flow paths}
 
 \textcolor{subtitlex}{A safer variant:}
 \begin{lstlisting}[language=tdiff]
@@ -757,17 +789,28 @@ expression e1;
 -    e.block_on(rt.shutdown_on_idle());
 +    rt.shutdown_on_idle();
 \end{lstlisting}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 47e2ff48d9f1daac7dba9f136b24eed64c87cf40}
+};
+\end{tikzpicture}
 }
 
-\frame{\frametitle{Future features: Isomorpshisms}
+\frame[containsverbatim]{\frametitle{Future features: Isomorpshisms}
 
 \textcolor{subtitlex}{Isomorphism:} A rewrite on the semantic patch to
 match and transform essentially equivalent code.
+
+\vspace{0.4\baselineskip}
 
 \textcolor{subtitlex}{Examples for C:}
 \begin{itemize}
 \item Explicitly defined isomorphisms:
     \begin{columns}[onlytextwidth]
+        \begin{column}{0\textwidth}
+        \end{column}
         \begin{column}{0.4\textwidth}
 \begin{lstlisting}[language=diff]
 Expression
@@ -796,37 +839,41 @@ expression E;
 \end{itemize}
 \end{itemize}}
 
-\frame{\frametitle{Future features: An isomorpshism for Rust}
-For {\tt shutdown\_on\_idle}, the code is always written as:
-\begin{lstlisting}[language=tdiff]
-let mut e = tokio_executor::enter().unwrap();
-e.block_on(rt.shutdown_on_idle());
+\frame[containsverbatim]{\frametitle{Future features: An isomorphism for Rust}
+\textcolor{subtitlex}{For {\tt shutdown\_on\_idle}, the code is always written as:}
+\begin{lstlisting}[language=diff]
+  let mut e = tokio_executor::enter().unwrap();
+  e.block_on(rt.shutdown_on_idle());
 \end{lstlisting}
 
-\textcolor{black!2}But it could be written as:
-\begin{lstlisting}[language=tdiff]
-(*@@*)
+\vspace{0.5\baselineskip}
+
+\textcolor{black!2}{But it could be written as:}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+  ££
 \end{lstlisting}
 }
 
 \addtocounter{framenumber}{-1}
 
-\frame{\frametitle{Future features: An isomorpshism for Rust}
-For {\tt shutdown\_on\_idle}, the code is always written as:
-\begin{lstlisting}[language=tdiff]
-let mut e = tokio_executor::enter().unwrap();
-e.block_on(rt.shutdown_on_idle());
+\frame[containsverbatim]{\frametitle{Future features: An isomorphism for Rust}
+\textcolor{subtitlex}{For {\tt shutdown\_on\_idle}, the code is always written as:}
+\begin{lstlisting}[language=diff]
+  let mut e = tokio_executor::enter().unwrap();
+  e.block_on(rt.shutdown_on_idle());
 \end{lstlisting}
 
-But it could be written as:
-\begin{lstlisting}[language=tdiff]
-tokio_executor::enter().unwrap().block_on(rt.shutdown_on_idle());
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{But it could be written as:}
+\begin{lstlisting}[language=diff]
+  tokio_executor::enter().unwrap().block_on(rt.shutdown_on_idle());
 \end{lstlisting}
 }
 
-\frame{\frametitle{Future features: An isomorpshism for Rust}
+\frame[containsverbatim]{\frametitle{Future features: An isomorphism for Rust}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 expression rt;
 @@
@@ -834,11 +881,13 @@ expression rt;
 + rt.shutdown_on_idle();
 \end{lstlisting}
 
-\textcolor{black!2}{Implicit isomorphisms:}
+\vspace{\baselineskip}
+
+\textcolor{black!2}{Potential implicit isomorphisms:}
 \begin{itemize}
 \item[] \textcolor{black!2}{Introduce {\tt let} to name all possible subterms.}
 \item[] \textcolor{black!2}{Introduce {\tt ...} and {\tt when} to allow
-  other code between the {\tt let} definition and use.}
+  other code between the {\tt let} and the use.}
 \item[] \textcolor{black!2}{{Caveat:} Complexity may drastically increase if
   the {\tt ...} crosses a loop.}
 \end{itemize}
@@ -846,9 +895,9 @@ expression rt;
 
 \addtocounter{framenumber}{-1}
 
-\frame{\frametitle{Future features: An isomorpshism for Rust}
+\frame[containsverbatim]{\frametitle{Future features: An isomorphism for Rust}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 expression rt;
 @@
@@ -856,11 +905,13 @@ expression rt;
 + rt.shutdown_on_idle();
 \end{lstlisting}
 
-\textcolor{subtitlex}{Implicit isomorphisms:}
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Potential implicit isomorphisms:}
 \begin{itemize}
 \item Introduce {\tt let} to name all possible subterms.
 \item Introduce {\tt ...} and {\tt when} to allow other code between the
-  {\tt let} definition and use.
+  {\tt let} and the use.
 \item[] \textcolor{black!2}{Caveat: Complexity may drastically increase if
   the {\tt ...} crosses a loop.}
 \end{itemize}
@@ -868,9 +919,9 @@ expression rt;
 
 \addtocounter{framenumber}{-1}
 
-\frame{\frametitle{Future features: An isomorpshism for Rust}
+\frame[containsverbatim]{\frametitle{Future features: An isomorphism for Rust}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 expression rt;
 @@
@@ -878,20 +929,22 @@ expression rt;
 + rt.shutdown_on_idle();
 \end{lstlisting}
 
-\textcolor{subtitlex}{Implicit isomorphisms:}
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Potential implicit isomorphisms:}
 \begin{itemize}
 \item Introduce {\tt let} to name all possible subterms.
 \item Introduce {\tt ...} and {\tt when} to allow other code between the
-   {\tt let} definition and use.
+   {\tt let} and the use.
 \item \textcolor{subtitlex}{Caveat:} Complexity may drastically increase if
   the {\tt ...} crosses a loop.
 \end{itemize}
 }
 
-\frame{\frametitle{Future features: Another isomorpshism for Rust}
+\frame[containsverbatim]{\frametitle{Future features: Another isomorpshism for Rust}
 
 \textcolor{subtitlex}{Developers can use {\tt use} with more or less
-  information.
+  information.}
 
 \textcolor{subtitlex}{One example:}
 \begin{lstlisting}[language=tdiff]
@@ -907,31 +960,34 @@ expression rt;
 
 \textcolor{subtitlex}{Options:}
 \begin{itemize}
-\item Specify changes one at a time?
+\item Specify one change at a time?
 \item Merge changed code?
 \item Merge changed code with unchanged code?
 \end{itemize}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=4.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 549e89e9cd2073ffa70f1bd12022c5543343be78}
+};
+\end{tikzpicture}
 }
 
-\frame{\frametitle{Some more Coccinelle features}
+\frame{\frametitle{Some more Coccinelle future features}
 \begin{itemize}
 \setlength{\itemsep}{2mm}
-\item {\tt ...}
-\begin{itemize}
-\item[--] {\tt A ... B}: {\tt A} can reach {\tt B} through the function control-flow.
-\item[--] {\tt <... A ...>}, {\tt <+... A ...+>}: {\tt A} occurs 0+ or 1+ times.
-\end{itemize} \pause
 \item Position variables.
-\item Script code. \pause
-\item Constraints on metavariables (types, etc.).
+\item Script code.
+\item Constraints on metavariables.
 \item Fresh identifiers.
 \item {\tt *} for matching without transformation.
 \end{itemize}
 \vfill
 
-\vspace{0.5\baselineskip}
+%\vspace{0.5\baselineskip}
 
-\centerline{\textcolor{subtitlex}{These features are coming soon...}}}
+%\centerline{\textcolor{subtitlex}{These features are coming soon...}}
+}
 
 \frame{\frametitle{Some Coccinelle internals}
 
@@ -939,7 +995,7 @@ expression rt;
 \begin{itemize}
 \setlength{\itemsep}{2mm}
 \item Used both for Rust code and for semantic patch code.
-\item Will provide type inference, when needed.
+\item Will provide type inference, when needed (currently, loses concurrency).
 \end{itemize} \pause
 
 \vspace{\baselineskip}
@@ -947,7 +1003,10 @@ expression rt;
 \textcolor{subtitlex}{Output:} Pretty printing provided by {\tt rustfmt}.
 \begin{itemize}
 \setlength{\itemsep}{2mm}
-\item Preserves comments.
+\item To avoid problems with code not originally formatted with {\tt
+  rustfmt} \newline (or formatted with a different version), the {\tt rustfmt}ed
+  changes are dropped back into the original code.
+\item Preserves comments and whitespace in the unchanged part of the code.
 \end{itemize}}
 
 \frame{\frametitle{Some Coccinelle internals}
@@ -991,8 +1050,11 @@ Options:
 \item[--] Replicating real changes on real Rust code.
 \end{itemize}
 \item Patchparse extended to Rust, to find test cases at a larger scale.
-\item Availability: https://gitlab.inria.fr/coccinelle/coccinelleforrust.git
-\end{itemize}
+\end{itemize} \pause
+
+\begin{center}
+\textcolor{red}{\bf https://gitlab.inria.fr/coccinelle/coccinelleforrust.git}
+\end{center}
 }
 
 \end{document}
