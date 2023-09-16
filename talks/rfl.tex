@@ -277,7 +277,7 @@ expression tcx, arg;
 \textcolor{subtitlex}{Updates over 200 call sites.}
 }
 
-\frame[containsverbatim]{\frametitle{An outlier}
+\frame[t,containsverbatim]{\frametitle{An outlier}
 
 \begin{lstlisting}[language=tdiff]
              let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
@@ -301,7 +301,7 @@ expression tcx, arg;
 
 \addtocounter{framenumber}{-1}
 
-\frame[containsverbatim]{\frametitle{An outlier}
+\frame[t,containsverbatim]{\frametitle{An outlier}
 
 \begin{lstlisting}[language=tdiff]
              let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
@@ -323,7 +323,7 @@ expression tcx, arg;
 \end{itemize}
 }
 
-\frame[containsverbatim]{\frametitle{An alternate semantic patch}
+\frame[t,containsverbatim]{\frametitle{An alternate semantic patch}
 
 \begin{lstlisting}[language=tdiff]
 @@
@@ -342,7 +342,7 @@ expression tcx, arg;
 }
 
 
-\frame[containsverbatim]{\frametitle{A refinement}
+\frame[t,containsverbatim]{\frametitle{A refinement}
 
 \begin{lstlisting}[language=tdiff]
 @@
@@ -358,7 +358,37 @@ expression arg;
 \vfill
 
 \textcolor{subtitlex}{Specifying the type of {\tt tcx} protects against
-  changing other uses of \texttt{type\_of}.}  }
+  changing other uses of \texttt{type\_of}.} 
+
+\vspace{0.5\baselineskip}
+
+\textcolor{black!2}{Alternative specification: {\tt struct (.*::)*TyCtxt tcx;}}
+ }
+
+\addtocounter{framenumber}{-1}
+
+\frame[t,containsverbatim]{\frametitle{A refinement}
+
+\begin{lstlisting}[language=tdiff]
+@@
+TyCtxt tcx;
+expression arg;
+@@
+
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Specifying the type of {\tt tcx} protects against
+  changing other uses of \texttt{type\_of}.}
+
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{Alternative specification:} {\tt struct (.*::)*TyCtxt tcx;}
+}
 
 \frame[containsverbatim]{\frametitle{An example: change in context}
 
@@ -651,7 +681,8 @@ lifetime a, b;
 \item Multiple rules/rule ordering.
 \item Inheritance.
 \item Disjuctions.
-\item Typed metavariables
+\item Typed metavariables.
+\item {\tt *} for matching without transformation.
 \end{itemize}
 
 \vfill
@@ -986,7 +1017,6 @@ expression rt;
 \item Script code.
 \item Constraints on metavariables.
 \item Fresh identifiers.
-\item {\tt *} for matching without transformation.
 \end{itemize}
 \vfill
 
@@ -1026,22 +1056,33 @@ expression rt;
 
 \frame[containsverbatim]{\frametitle{Practical issues}
 
-\begin{lstlisting}[language=diff]
-Usage: main [OPTIONS] --coccifile <COCCIFILE> --targetpath <TARGETPATH>
+\begin{lstlisting}[language=tdiff]
+Usage: cfr [OPTIONS] --coccifile <COCCIFILE> <TARGETPATH>
+
+Arguments:
+ <TARGETPATH>  Path of Rust Target file/folder path
 
 Options:
-  -c, --coccifile <COCCIFILE>            Path of Semantic Patch File path
-  -t, --targetpath <TARGETPATH>          Path of Rust Target file/folder path
-  -o, --output <OUTPUT>                  Path of transformed file path
-  -r, --rustfmt-config <RUSTFMT_CONFIG>  rustfmt config file path [default: rustfmt.toml]
-  -i, --ignore <IGNORE>                  [default: ]
-  -d, --debug-cocci                      
-      --apply                            
-      --suppress-diff                    
-      --suppress-formatting              
-      --no-parallel                      
-  -h, --help                             Print help
-  -V, --version                          Print version
+ -c, --coccifile <COCCIFILE>
+         Path of Semantic Patch File path
+ -o, --output <OUTPUT>
+         Path of transformed file path
+ -r, --rustfmt-config <RUSTFMT_CONFIG>
+         rustfmt config file path
+ -i, --ignore <IGNORE>
+         [default: ]
+ -d, --debug
+     --apply
+     --suppress-diff
+     --suppress-formatting
+     --no-parallel
+     --worth-trying <WORTH_TRYING>
+         strategy for identifying files that may be matched by the semantic patch
+         [default: cocci-grep] [possible values: no-scanner, grep, git-grep, cocci-grep]
+ -h, --help
+         Print help
+ -V, --version
+         Print version
 \end{lstlisting}
 }
 
