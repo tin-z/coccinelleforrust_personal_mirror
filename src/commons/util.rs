@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 
- use itertools::Itertools;
+use itertools::Itertools;
 use ra_parser::SyntaxKind;
 
-use crate::{ parsing_cocci::ast0::{Snode, Mcodekind}, parsing_rs::ast_rs::Rnode,
+use crate::{
+    parsing_cocci::ast0::{Mcodekind, Snode},
+    parsing_rs::ast_rs::Rnode,
 };
 
 #[macro_export]
@@ -135,6 +137,7 @@ pub fn workrnode(node: &mut Rnode, f: &mut dyn FnMut(&mut Rnode) -> bool) {
     //use async function to wrap the for loop
     //for other cases TODO
     let t = f(node);
+    //the bool return type specifies if worknode should go deeper
     if !t {
         return;
     }
@@ -198,22 +201,22 @@ pub fn removestmtbraces<'a>(node: &'a mut Snode) {
         .children[0]; //stmtlist
     stmtlist.children.remove(0);
     let _tmp = stmtlist.children.remove(stmtlist.children.len() - 1); //right brace
-    
+
     //I am not sure about the next part of the code
     //will keep it just in case
     //let len = stmtlist.children.len();
     //if len != 0
     //for skipping empty patches
     //{
-        //attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
+    //attachback(&mut stmtlist.children[len - 1], tmp.wrapper.plusesbef);
     //}
 }
 
-pub fn getstmtlist<'a>(node: &'a mut Snode) -> &'a Snode {
+pub fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode {
     //since the patch is wrapped in a function to be parsed
     //this function extracts the stmtlist inside it and removes the curly
     //braces from the start and end of the block
-    let stmtlist = &mut node.children[0] //function
+    let stmtlist = &node.children[0] //function
         .children[3] //blockexpr
         .children[0]; //stmtlist
     return stmtlist;
@@ -236,7 +239,7 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
             Mcodekind::Minus(a) => {
                 a.extend(plus);
             }
-            Mcodekind::Context(a , _) => {
+            Mcodekind::Context(a, _) => {
                 a.extend(plus);
             }
             _ => {}
@@ -261,7 +264,7 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
             Mcodekind::Minus(a) => {
                 a.extend(plus);
             }
-            Mcodekind::Context(_ , a) => {
+            Mcodekind::Context(_, a) => {
                 a.extend(plus);
             }
             _ => {}
@@ -270,4 +273,8 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
         //println!("deeper to {:?}", node.children[len - 1].kind());
         attachback(&mut node.children[len - 1], plus);
     }
+}
+
+pub enum TMP {
+    HEHE,
 }

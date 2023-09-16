@@ -11,7 +11,6 @@ use super::visitor_ast0::work_node;
 use itertools::Itertools;
 use ra_ide_db::line_index::{LineCol, LineIndex};
 use ra_parser::SyntaxKind;
-use ra_syntax::ast::Type;
 use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode};
 
 #[derive(PartialEq, Clone)]
@@ -75,8 +74,11 @@ impl<'a> Snode {
                 return String::new();
             }
             return self.totoken();
+        } else if self.children.len() == 1 {
+            return String::from(self.children[0].getstring());
         } else {
             let mut tokens: String = String::new();
+
             for i in &self.children {
                 tokens = format!("{} {}", tokens, i.getstring());
             }
@@ -112,6 +114,17 @@ impl<'a> Snode {
             | MACRO_TYPE | NEVER_TYPE | PAREN_TYPE | PATH_TYPE | PTR_TYPE | REF_TYPE
             | SLICE_TYPE | TUPLE_TYPE => true,
             _ => false,
+        }
+    }
+
+    pub fn islifetime(&self) -> bool {
+        return self.kind() == SyntaxKind::LIFETIME_ARG;
+    }
+
+    pub fn isparam(&self) -> bool {
+        match self.kind() {
+            SyntaxKind::PARAM | SyntaxKind::SELF_PARAM => { true }
+            _ => { false }
         }
     }
 
@@ -398,26 +411,40 @@ pub enum MetaVar {
     Exp(Minfo),
     Id(Minfo),
     Type(Minfo),
+    Lifetime(Minfo),
+    Parameter(Minfo),
+    Struct(String, Minfo), //typename, minfo
+    Enum(String, Minfo),   //typename, minfo
+                           //I have not yet added primtiive support
+                           //But it should not be hard
 }
 
 impl MetaVar {
     pub fn getname(&self) -> &str {
         match self {
-            MetaVar::NoMeta => {
+            Self::NoMeta => {
                 panic!("Should never happen");
             }
-            MetaVar::Id(minfo) => minfo.0.varname.as_str(),
-            MetaVar::Exp(minfo) => minfo.0.varname.as_str(),
-            MetaVar::Type(minfo) => minfo.0.varname.as_str(),
+            Self::Id(minfo)
+            | Self::Exp(minfo)
+            | Self::Lifetime(minfo)
+            | Self::Type(minfo)
+            | Self::Parameter(minfo)
+            | Self::Struct(_, minfo)
+            | Self::Enum(_, minfo) => minfo.0.varname.as_str(),
         }
     }
 
     pub fn gettype(&self) -> &str {
         match self {
-            MetaVar::NoMeta => "None",
-            MetaVar::Id(_minfo) => "identifier",
-            MetaVar::Exp(_minfo) => "expression",
-            MetaVar::Type(_minfo) => "type",
+            Self::NoMeta => "None",
+            Self::Id(_minfo) => "identifier",
+            Self::Exp(_minfo) => "expression",
+            Self::Lifetime(_minfo) => "lifetime",
+            Self::Type(_minfo) => "type",
+            Self::Parameter(_minfo) => "parameter",
+            Self::Struct(_, _minfo) => "struct",
+            Self::Enum(_, _minfo) => "enum",
         }
     }
 
@@ -426,13 +453,14 @@ impl MetaVar {
             Self::NoMeta => {
                 panic!("Should not occur.");
             }
-            Self::Exp(minfo) => {
+            Self::Exp(minfo)
+            | Self::Id(minfo)
+            | Self::Type(minfo)
+            | Self::Lifetime(minfo)
+            | Self::Parameter(minfo) => {
                 minfo.1 = binding;
             }
-            Self::Id(minfo) => {
-                minfo.1 = binding;
-            }
-            Self::Type(minfo) => {
+            Self::Struct(_, minfo) | Self::Enum(_, minfo) => {
                 minfo.1 = binding;
             }
         }
@@ -443,9 +471,12 @@ impl MetaVar {
             Self::NoMeta => {
                 panic!("Should not occur.");
             }
-            Self::Exp(minfo) => &minfo,
-            Self::Id(minfo) => &minfo,
-            MetaVar::Type(minfo) => &minfo,
+            Self::Exp(minfo)
+            | Self::Id(minfo)
+            | Self::Type(minfo)
+            | Self::Lifetime(minfo)
+            | Self::Parameter(minfo) => &minfo,
+            Self::Struct(_, minfo) | Self::Enum(_, minfo) => &minfo,
         }
     }
 
@@ -454,23 +485,29 @@ impl MetaVar {
             Self::NoMeta => {
                 panic!("Should not occur.");
             }
-            Self::Exp(minfo) => &minfo.0.rulename.as_str(),
-            Self::Id(minfo) => &minfo.0.rulename.as_str(),
-            Self::Type(minfo) => &minfo.0.rulename.as_str(),
+            Self::Exp(minfo)
+            | Self::Id(minfo)
+            | Self::Type(minfo)
+            | Self::Lifetime(minfo)
+            | Self::Parameter(minfo) => &minfo.0.rulename.as_str(),
+            Self::Struct(_, minfo) | Self::Enum(_, minfo) => &minfo.0.rulename.as_str(),
         }
     }
 
-    pub fn new(rulename: &str, name: &str, ty: &str, isinherited: bool) -> Option<MetaVar> {
+    pub fn new(rulename: &str, name: &str, ty: &MetavarType, isinherited: bool) -> Option<MetaVar> {
         let minfo = (
             MetavarName { rulename: rulename.to_string(), varname: name.to_string() },
             KeepBinding::UNITARY,
             isinherited,
         );
         match ty {
-            "expression" => Some(MetaVar::Exp(minfo)),
-            "identifier" => Some(MetaVar::Id(minfo)),
-            "type" => Some(MetaVar::Type(minfo)),
-            _ => None,
+            MetavarType::Expression => Some(Self::Exp(minfo)),
+            MetavarType::Identifier => Some(Self::Id(minfo)),
+            MetavarType::Type => Some(Self::Type(minfo)),
+            MetavarType::Lifetime => Some(Self::Lifetime(minfo)),
+            MetavarType::Parameter => Some(Self::Parameter(minfo)),
+            MetavarType::Struct(tyname) => Some(Self::Struct(tyname.clone(), minfo)),
+            MetavarType::Enum(tyname) => Some(Self::Enum(tyname.clone(), minfo)),
         }
     }
 
@@ -481,17 +518,18 @@ impl MetaVar {
         }
     }
 
-    pub fn makeinherited(&self) -> MetaVar{
+    pub fn makeinherited(&self) -> MetaVar {
         let mut inhertited = self.clone();
         match &mut inhertited {
             MetaVar::NoMeta => {}
-            MetaVar::Exp(minfo) => {
+            MetaVar::Exp(minfo)
+            | MetaVar::Id(minfo)
+            | MetaVar::Type(minfo)
+            | MetaVar::Lifetime(minfo)
+            | MetaVar::Parameter(minfo) => {
                 minfo.2 = true;
             }
-            MetaVar::Id(minfo) => {
-                minfo.2 = true;
-            }
-            MetaVar::Type(minfo) => {
+            MetaVar::Struct(_, minfo) | MetaVar::Enum(_, minfo) => {
                 minfo.2 = true;
             }
         }
@@ -502,9 +540,12 @@ impl MetaVar {
     pub fn isinherited(&self) -> bool {
         match self {
             MetaVar::NoMeta => false,
-            MetaVar::Exp(minfo) => minfo.2,
-            MetaVar::Id(minfo) => minfo.2,
-            MetaVar::Type(minfo) => minfo.2
+            MetaVar::Exp(minfo)
+            | MetaVar::Id(minfo)
+            | MetaVar::Type(minfo)
+            | MetaVar::Lifetime(minfo)
+            | MetaVar::Parameter(minfo) => minfo.2,
+            MetaVar::Struct(_, minfo) | MetaVar::Enum(_, minfo) => minfo.2,
         }
     }
 }
@@ -515,11 +556,48 @@ impl PartialEq for MetaVar {
     }
 }
 
+#[derive(Debug)]
+pub enum MetavarType {
+    Expression,
+    Identifier,
+    Type,
+    Lifetime,
+    Parameter,
+    Struct(String),
+    Enum(String),
+}
+
+impl MetavarType {
+    pub fn build(ty: &str, tyname: Option<&str>) -> MetavarType {
+        match tyname {
+            //VERY IMP
+            //this match should have a string for each MetavarType variant
+            None => match ty {
+                "expression" => MetavarType::Expression,
+                "identifier" => MetavarType::Identifier,
+                "type" => MetavarType::Type,
+                "lifetime" => MetavarType::Lifetime,
+                "parameter" => MetavarType::Parameter,
+                _ => {
+                    panic!("Unexpected Type")
+                }
+            },
+            Some(tyname) => match ty {
+                "struct" => MetavarType::Struct(tyname.to_string()),
+                "enum" => MetavarType::Enum(tyname.to_string()),
+                _ => {
+                    panic!("Unexpected type.")
+                }
+            },
+        }
+    }
+}
+
 #[derive(PartialEq, Clone)]
 pub struct Wrap {
     info: Info,
     index: usize,
-    exp_ty: Option<Type>,
+    exp_ty: Option<String>,
     pub metavar: MetaVar,
     true_if_arg: bool,
     pub true_if_test: bool,
@@ -533,7 +611,7 @@ impl Wrap {
     pub fn new(
         info: Info,
         index: usize,
-        exp_ty: Option<Type>,
+        exp_ty: Option<String>,
         metavar: MetaVar,
         true_if_arg: bool,
         true_if_test: bool,
@@ -646,6 +724,20 @@ pub fn wrap_root(contents: &str) -> Snode {
     if errors.len() > 0 {
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
+            
+            // To Note:
+            // Skipping the next error is a hack to be able to parse
+            // fn func(param) { ... } as the compiler needs param to have
+            // type specified but the [Rust CFG] https://github.com/rust-lang/rust-analyzer/blob/master/crates/syntax/rust.ungram
+            // for param without type. This is for accomodating the parameter
+            // metavariable in the semantic patch. This will cause problems
+            // when someone actually makes this mistake and param is not a metavar
+            // Have to find a more elegant solution to this
+
+            if error.to_string().contains("missing type for function parameter") {
+                break;
+            }
+
             println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
             println!("{}", parse.syntax_node().to_string());
             exit(1);

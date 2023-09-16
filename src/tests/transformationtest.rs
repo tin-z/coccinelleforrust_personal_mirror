@@ -3,7 +3,7 @@ use std::fs;
 
 use crate::{
     engine::transformation,
-    parsing_rs::{ast_rs::Rnode, parse_rs::processrs},
+    parsing_rs::{ast_rs::Rnode, parse_rs::processrs}, parsing_cocci::parse_cocci::processcocci,
 };
 
 pub struct TransformTest<'a> {
@@ -16,7 +16,8 @@ impl<'a> TransformTest<'a> {
         let rustcode = fs::read_to_string(format!("{}{}", &self.prefix, rsfile))
             .expect("This shouldnt be empty.");
 
-        let (transformedcode, _) = transformation::transformfile(patchstring, rustcode).ok().unwrap();
+        let (rules, _, _) = processcocci(&patchstring);
+        let transformedcode = transformation::transformfile(&rules, rustcode).ok().unwrap();
         let rnode = processrs(&transformedcode.gettokenstream()).unwrap();
         return rnode;
     }

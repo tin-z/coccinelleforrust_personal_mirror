@@ -15,18 +15,22 @@ use crate::{
     engine::cocci_vs_rs::{visitrnode, MetavarBinding},
     parsing_cocci::{
         ast0::{MetaVar, MetavarName, Snode},
-        parse_cocci::processcocci,
+        parse_cocci::Rule,
     },
     parsing_rs::{
         ast_rs::{Rnode, Wrap},
         parse_rs::processrs,
-    },
+    }, debugcocci,
 };
 
 use super::{
     cocci_vs_rs::{Environment, Looper},
     disjunctions::{getdisjunctions, Disjunction},
 };
+
+fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
+    vec![]
+}
 
 fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
@@ -37,12 +41,13 @@ fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
             panic!("Metavariable should already be present in environment.");
         }
     }
-    let mut rnode = Rnode {
-        wrapper: Wrap::dummy(snode.children.len()),
-        kind: snode.kind(),
-        asttoken: snode.asttoken,
-        children: vec![],
-    };
+    let kind = snode.kind();
+    let mut rnode = Rnode::new(
+        Wrap::dummy(snode.children.len()),
+        snode.asttoken,
+        kind,
+        vec![],
+    );
     for child in snode.children {
         rnode.children.push(copytornodewithenv(child, env));
     }
@@ -76,11 +81,11 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
         for (pluspos, isbef, pluses) in env.modifiers.pluses.clone() {
             if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
-                println!("TESTIG bef {}", x.totoken());
+                //println!("TESTIG bef {}", x.totoken());
                 //println!("======================== {:?}", x);
             } else if pos.1 == pluspos && x.children.len() == 0 && !isbef {
                 x.wrapper.plussed.1 = snodetornode(pluses, env);
-                println!("TESTIG aft {}", x.totoken());
+                //println!("TESTIG aft {}", x.totoken());
             } else if pluspos >= pos.0 && pluspos <= pos.1 {
                 shouldgodeeper = true;
             }
@@ -92,7 +97,7 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
 
 fn trimpatchbindings(
     patchbindings: &mut Vec<Vec<MetavarBinding>>,
-    usedafter: HashSet<MetavarName>,
+    usedafter: &HashSet<MetavarName>,
 ) {
     for bindings in patchbindings.iter_mut() {
         //this only retains elements which are used later, but this may form duplicares
@@ -143,30 +148,18 @@ pub fn getfiltered(
     return toret;
 }
 
-pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bool), ParseError> {
-    fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
-        vec![]
-    }
+pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseError>{
 
-    let (rules, hasstars) = processcocci(&patchstring);
-
-    let parsedrnode = processrs(&rustcode);
-    let mut transformedcode = match parsedrnode {
-        Ok(node) => node,
-        Err(errors) => {
-            return Err(ParseError::TARGETERROR(errors, rustcode));
-        }
-    };
-    //If this passes then The rnode has been parsed successfully
+    let mut transformedcode = rnode;
 
     let mut savedbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
-    for mut rule in rules {
-        println!("Rule: {}, freevars: {:?}", rule.name, rule.freevars);
+    for rule in rules {
+        debugcocci!("Rule: {}, freevars: {:?}", rule.name, rule.freevars);
         let a: Disjunction =
-            getdisjunctions(Disjunction(vec![getstmtlist(&mut rule.patch.minus).clone().children]));
-        println!("filtered bindings : {:?}", getfiltered(&rule.freevars, &savedbindings));
+            getdisjunctions(Disjunction(vec![getstmtlist(&rule.patch.minus).clone().children]));
+        debugcocci!("filtered bindings : {:?}", getfiltered(&rule.freevars, &savedbindings));
         let expandedbindings = getexpandedbindings(getfiltered(&rule.freevars, &savedbindings));
-        println!("Expanded bindings: {:?}", expandedbindings);
+        debugcocci!("Expanded bindings: {:?}", expandedbindings);
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for gbindings in expandedbindings {
@@ -186,7 +179,7 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
                 continue;
             }
             */
-            println!("For rule {}, inherited: {:#?}", rule.name, gbindings);
+            debugcocci!("For rule {}, inherited: {:#?}", rule.name, gbindings);
             let looper = Looper::new(tokenf);
             let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
                 looper.handledisjunctions(k, l, gbindings.iter().collect_vec())
@@ -200,9 +193,9 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         }
         //patchbindings.extend(tmpbindings);
         savedbindings.extend(tmpbindings);
-        println!("usedafter : {:#?}", rule.usedafter);
-        trimpatchbindings(&mut savedbindings, rule.usedafter);
-        println!("After trimming {:?}", savedbindings);
+        debugcocci!("usedafter : {:#?}", rule.usedafter);
+        trimpatchbindings(&mut savedbindings, &rule.usedafter);
+        debugcocci!("After trimming {:?}", savedbindings);
 
         let transformedstring = transformedcode.getunformatted();
 
@@ -221,5 +214,19 @@ pub fn transformfile(patchstring: String, rustcode: String) -> Result<(Rnode, bo
         //updating them in the new code for the minuses to work
         //removes unneeded and duplicate bindings
     }
-    return Ok((transformedcode, hasstars));
+    return Ok(transformedcode);
+}
+
+pub fn transformfile(rules: &Vec<Rule>, rustcode: String) -> Result<Rnode, ParseError> {
+
+    let parsedrnode = processrs(&rustcode);
+    let transformedcode: Rnode = match parsedrnode {
+        Ok(node) => node,
+        Err(errors) => {
+            return Err(ParseError::TARGETERROR(errors, rustcode));
+        }
+    };
+    //If this passes then The rnode has been parsed successfully
+
+    return transformrnode(rules, transformedcode);
 }

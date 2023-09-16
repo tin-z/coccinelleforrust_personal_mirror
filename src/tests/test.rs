@@ -1,3 +1,3 @@
-fn main () {
-    f(0);
-  }
+fn func (&self) {
+    let a = 10;
+}

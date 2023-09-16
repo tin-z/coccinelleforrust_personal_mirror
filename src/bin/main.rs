@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use clap::Parser;
-use coccinelleforrust::commons::info::ParseError::{self, *};
-use coccinelleforrust::parsing_rs::parse_rs::processrs;
+use coccinelleforrust::commons::info::ParseError::*;
+use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
+use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
+use coccinelleforrust::parsing_rs::type_inference::{gettypedb, set_types};
 use coccinelleforrust::{
     engine::cocci_vs_rs::MetavarBinding, engine::transformation,
     interface::interface::CoccinelleForRust, parsing_cocci::ast0::Snode, parsing_rs::ast_rs::Rnode,
 };
 use env_logger::{Builder, Env};
-use itertools::{Itertools, izip};
+use itertools::{izip, Itertools};
+use ra_hir::Semantics;
+use ra_vfs::VfsPath;
 use rand::Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::fs::DirEntry;
+use std::fs::{canonicalize, DirEntry};
 use std::io;
 use std::io::Write;
 use std::process::Command;
@@ -46,9 +50,7 @@ fn init_logger(args: &CoccinelleForRust) {
         .init();
 }
 
-
 pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -> Option<usize> {
-    
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
 
@@ -56,11 +58,10 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
     }
 
     for (childa, childb) in izip!(&mut node1.children, &node2.children) {
-        line.map(|sline|{
-            if childa.wrapper.info.eline==sline {
+        line.map(|sline| {
+            if childa.wrapper.info.eline == sline {
                 childa.wrapper.wspaces = childb.wrapper.wspaces.clone();
-            }
-            else {
+            } else {
                 line = None;
             }
         });
@@ -69,7 +70,6 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
     }
 
     return line;
-
 }
 
 /// Get the formatted contents and diff of a file
@@ -116,15 +116,15 @@ fn getformattedfile(
             .stderr(std::process::Stdio::null());
 
         if let Some(fmtconfig_path) = &cfr.rustfmt_config {
-            fcommand = fcommand.arg("--config-path")
-                .arg(fmtconfig_path.as_str());
+            fcommand = fcommand.arg("--config-path").arg(fmtconfig_path.as_str());
         }
 
         if fcommand.spawn().expect("rustfmt failed").wait().is_err() {
             println!("Formatting failed.");
         }
 
-        let formattednode = processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
+        let formattednode =
+            processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
         adjustformat(transformedcode, &formattednode, None);
         transformedcode.writetreetofile(&randrustfile);
 
@@ -148,121 +148,25 @@ fn getformattedfile(
 
     let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
 
-    //fs::write(targetpath, original).expect("Could not write file.");
     fs::remove_file(&randrustfile).expect("No file found.");
-
-    //}
-
-    //transformedcode.writetreetofile(&randrustfile);
-    //let transformed = fs::read_to_string(&randrustfile).expect("Could not read generated file");
-    //fs::remove_file(randrustfile).expect("Could not reove file");
 
     (formatted, diffed)
 }
 
-fn transformfiles(args: &CoccinelleForRust, files: Vec<String>) {
-    let failedfiles: Vec<(ParseError, usize)> = vec![];
-
-    let transform = &|targetpath: &String| {
-        println!("Processing: {}", targetpath);
-
-        let patchstring =
-            fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
-        let rustcode = fs::read_to_string(targetpath.as_str()).expect("This shouldnt be empty");
-
-        let transformedcode = transformation::transformfile(patchstring, rustcode);
-
-        let (mut transformedcode, hasstars) = match transformedcode {
-            Ok(node) => node,
-            Err(_error) => {
-                //failedfiles.push((error, targetpath));
-                println!("Failed to transform {}", targetpath);
-                return;
-            }
-        };
-        let (data, diff) = getformattedfile(&args, &mut transformedcode, &targetpath);
-        if !hasstars {
-            if !args.suppress_diff {
-                println!("{}", diff);
-            }
-
-            if args.apply {
-                fs::write(targetpath, data).expect("Unable to write")
-            } else {
-                if let Some(outputfile) = &args.output {
-                    if let Err(written) = fs::write(outputfile, data) {
-                        eprintln!("Error in writing file.\n{:?}", written);
-                    }
-                }
-            }
-        } else {
-            println!("Code highlighted with *");
-            for line in diff.split("\n").collect_vec() {
-                if line.len() != 0 && line.chars().next().unwrap() == '-' {
-                    print!("*{}\n", &line[1..]);
-                } else {
-                    print!("{}\n", line)
-                }
-            }
-        }
-    };
-
-    if args.no_parallel {
-        files.iter().for_each(transform);
-    } else {
-        files.par_iter().for_each(transform);
-    }
-
-    if failedfiles.len() == 0 {
-        return;
-    }
-
-    println!("Failed transformations :- ");
-    for (error, targetpath) in failedfiles {
-        match error {
-            TARGETERROR(errors, _) => {
-                println!("Error in reading target file.\n{}", errors);
-                println!("Unparsable file:\n{}", targetpath);
-            }
-            RULEERROR(rulename, errors, _) => {
-                println!("Error in applying rule {}", rulename);
-                println!("Error:\n{}", errors);
-                println!("Unparsable file:\n{}", targetpath);
-            }
-        }
-
-        println!();
-    }
-}
-
-fn transformfile(args: &CoccinelleForRust) {
-    let patchstring = fs::read_to_string(args.coccifile.as_str()).expect("This shouldnt be empty");
-    let rustcode = fs::read_to_string(args.targetpath.as_str()).expect("This shouldnt be empty");
-
-    let transformedcode = transformation::transformfile(patchstring, rustcode);
-
-    let (mut transformedcode, hasstars) = match transformedcode {
-        Ok(node) => node,
-        Err(TARGETERROR(errors, _)) => {
-            eprintln!("Error in reading target file.\n{}", errors);
-            eprintln!("Unparsable file:\n{}", args.targetpath);
-            panic!();
-        }
-        Err(RULEERROR(rulename, errors, _)) => {
-            eprintln!("Error in applying rule {}", rulename);
-            eprintln!("Error:\n{}", errors);
-            eprintln!("Unparsable file:\n{}", args.targetpath);
-            panic!();
-        }
-    };
-    let (data, diff) = getformattedfile(&args, &mut transformedcode, &args.targetpath);
+fn showdiff(
+    args: &CoccinelleForRust,
+    transformedcode: &mut Rnode,
+    targetpath: &str,
+    hasstars: bool,
+) {
+    let (data, diff) = getformattedfile(&args, transformedcode, &targetpath);
     if !hasstars {
         if !args.suppress_diff {
             println!("{}", diff);
         }
 
         if args.apply {
-            fs::write(&args.targetpath, data).expect("Unable to write")
+            fs::write(targetpath, data).expect("Unable to write")
         } else {
             if let Some(outputfile) = &args.output {
                 if let Err(written) = fs::write(outputfile, data) {
@@ -280,6 +184,91 @@ fn transformfile(args: &CoccinelleForRust) {
             }
         }
     }
+}
+
+fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
+    let patchstring = fs::read_to_string(&args.coccifile).expect("Could not read file.");
+    let (_, needsti, _) = processcocci(&patchstring);
+
+    if !needsti {
+        let transform = |targetpath: &String| {
+            let (rules, _, hasstars) = processcocci(&patchstring);
+            //Currently have to parse cocci again because Rule has SyntaxNode which which has
+            //rowan `NonNull<rowan::cursor::NodeData>` which cannot be shared between threads safely
+
+            let rcode = fs::read_to_string(&targetpath).expect("Could not read file");
+            let transformedcode = transformation::transformfile(&rules, rcode);
+
+            let mut transformedcode = match transformedcode {
+                Ok(node) => node,
+                Err(error) => {
+                    //failedfiles.push((error, targetpath));
+                    match error {
+                        TARGETERROR(msg, _) => println!("{}", msg),
+                        RULEERROR(msg, error, _) => println!("{}:{}", msg, error),
+                    }
+                    println!("Failed to transform {}", targetpath);
+                    return;
+                }
+            };
+
+            showdiff(args, &mut transformedcode, targetpath, hasstars);
+        };
+
+        if !args.no_parallel {
+            files.par_iter().for_each(transform);
+        } else {
+            files.iter().for_each(transform);
+        }
+    } else {
+        if files.len() == 0 {
+            return;
+        }
+
+        let (host, vfs) = gettypedb(&files[0]);
+        let db = host.raw_database();
+        //let semantics = &mut Semantics::new(db);
+        let semantics = &Semantics::new(db);
+
+        let transform = |targetpath: &String| {
+            let (rules, _needsti, hasstars) = processcocci(&patchstring);
+            let fileid = vfs
+                .file_id(&VfsPath::new_real_path(targetpath.clone()))
+                .expect(&format!("Could not get FileId for file {}", &targetpath));
+            let syntaxnode = semantics.parse_or_expand(fileid.into());
+            let rcode = fs::read_to_string(targetpath).expect("Could not read file");
+
+            let mut rnode = processrswithsemantics(&rcode, syntaxnode)
+                .expect("Could not convert SyntaxNode to Rnode");
+            
+            set_types(&mut rnode, semantics, db);
+
+            let transformedcode = transformation::transformrnode(&rules, rnode);
+
+            let mut transformedcode = match transformedcode {
+                Ok(node) => node,
+                Err(error) => {
+                    //failedfiles.push((error, targetpath));
+                    match error {
+                        TARGETERROR(msg, _) => println!("{}", msg),
+                        RULEERROR(msg, error, _) => println!("{}:{}", msg, error),
+                    }
+                    println!("Failed to transform {}", targetpath);
+                    return;
+                }
+            };
+
+            showdiff(args, &mut transformedcode, targetpath, hasstars);
+            //transformrnode(&rules, rnode);
+        };
+
+        if !args.no_parallel {
+            todo!("Parallel for type inference has not been implemented.");
+            //files.par_iter().for_each(transform);
+        } else {
+            files.iter().for_each(transform);
+        }
+    };
 }
 
 fn makechecks(args: &CoccinelleForRust) {
@@ -339,14 +328,14 @@ fn main() {
     makechecks(&args);
     let targetpath = Path::new(&args.targetpath);
     if targetpath.is_file() {
-        transformfile(&args);
+        transformfiles(&args, &[String::from(canonicalize(targetpath).unwrap().to_str().unwrap())]);
     } else {
         let mut files = vec![];
-        let _ = visit_dirs(targetpath, &args.ignore, &mut |file: &DirEntry| {
-            if file.file_name().to_str().unwrap().ends_with(".rs") {
-                files.push(String::from(file.path().to_str().unwrap()));
+        let _ = visit_dirs(targetpath, &args.ignore, &mut |f: &DirEntry| {
+            if f.file_name().to_str().unwrap().ends_with(".rs") {
+                files.push(String::from(canonicalize(f.path()).unwrap().to_str().unwrap()));
             }
         });
-        transformfiles(&args, files);
+        transformfiles(&args, &files[..]);
     }
 }

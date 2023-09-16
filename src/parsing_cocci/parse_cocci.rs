@@ -14,17 +14,19 @@ use core::panic;
 /// (+/-) code
 use std::{collections::HashSet, vec};
 
-use super::ast0::{wrap_root, MetaVar, MetavarName, Snode, Mcodekind};
+use super::ast0::{wrap_root, Mcodekind, MetaVar, MetavarName, Snode};
 use crate::{
     commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
-    debugcocci, syntaxerror,
+    debugcocci,
+    parsing_cocci::ast0::MetavarType,
+    syntaxerror,
 };
 use ra_parser::SyntaxKind;
 
 type Tag = SyntaxKind;
 type Name = String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Dep {
     NoDep,
     FailDep,
@@ -48,7 +50,7 @@ fn makemetavar(
     rules: &Vec<Rule>,
     rulename: &Name,
     varname: &Name,
-    metatype: &str,
+    metatype: &MetavarType,
     lino: usize,
 ) -> MetaVar {
     let split = varname.split(".").collect::<Vec<&str>>();
@@ -59,6 +61,7 @@ fn makemetavar(
                 .unwrap_or_else(|| syntaxerror!(lino, "Unexpected Metavariable type"))
         }
         (Some(rulen), Some(var), None) => {
+            //Inherited Metavars
             let var = *var;
             let rule = getrule(rules, &rulen, lino);
             if let Some(mvar) = rule.metavars.iter().find(|x| x.getname() == var) {
@@ -84,6 +87,7 @@ fn makemetavar(
     }
 }
 
+#[derive(Clone)]
 pub struct Patch {
     pub minus: Snode,
     pub plus: Snode,
@@ -93,10 +97,11 @@ impl Patch {
     fn setmetavars(&mut self, metavars: &Vec<MetaVar>) {
         fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
             let mut work = |node: &mut Snode| {
-                if node.isexpr() || node.istype() || node.isid() {
+                //The if statement below lists the types of metavariables allowed
+                if node.isexpr() || node.istype() || node.isid() || node.islifetime() || node.isparam() {
                     let stmp = node.getstring(); //FIX ME should not convert to string before checking
                     if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
-                        //println!("MetaVar found - {:?}", mvar);
+                        debugcocci!("MetaVar found - {:?}", mvar);
                         node.wrapper.metavar = mvar.clone();
                     }
                 }
@@ -109,59 +114,58 @@ impl Patch {
     }
 
     fn setmods(&mut self) {
-        let mut tagmods = |node: &mut Snode,
-                           (lino, modifier): (usize, Mcodekind)|
-         -> (usize, Mcodekind) {
-            let (start, end) = node.wrapper.getlinenos();
+        let mut tagmods =
+            |node: &mut Snode, (lino, modifier): (usize, Mcodekind)| -> (usize, Mcodekind) {
+                let (start, end) = node.wrapper.getlinenos();
 
-            match node.wrapper.mcodekind {
-                Mcodekind::Context(_, _) => {
-                    if lino == 0 {
+                match node.wrapper.mcodekind {
+                    Mcodekind::Context(_, _) => {
+                        if lino == 0 {
+                            return (0, Mcodekind::Context(vec![], vec![]));
+                        } else if start == lino && start == end {
+                            //debugstart
+                            if node.children.len() == 0 {
+                                debugcocci!(
+                                    "Setting {}:{:?} to modifier:- {:?}",
+                                    node.getstring(),
+                                    node.kind(),
+                                    modifier
+                                );
+                            } //debugend
+
+                            node.wrapper.mcodekind = modifier.clone();
+                            return (lino, modifier);
+                            //everytime lino is not 0, modkind is
+                            //a Some value
+                        } else if start == lino && start != end {
+                            //this node spills onto the next line
+                            return (lino, modifier.clone());
+                        }
                         return (0, Mcodekind::Context(vec![], vec![]));
-                    } else if start == lino && start == end {
-                        //debugstart
-                        if node.children.len() == 0 {
-                            debugcocci!(
-                                "Setting {}:{:?} to modifier:- {:?}",
-                                node.getstring(),
-                                node.kind(),
-                                modifier
-                            );
-                        } //debugend
-
-                        node.wrapper.mcodekind = modifier.clone();
-                        return (lino, modifier);
-                        //everytime lino is not 0, modkind is
-                        //a Some value
-                    } else if start == lino && start != end {
-                        //this node spills onto the next line
-                        return (lino, modifier.clone());
                     }
-                    return (0, Mcodekind::Context(vec![], vec![]));
-                },
-                Mcodekind::Plus | Mcodekind::Minus(_) | Mcodekind::Star => {
-                    //println!("NODE - {}, {}", node.getstring());
-                    if start == end {
-                        //debugstart
-                        if node.children.len() == 0 {
-                            debugcocci!(
-                                "Setting {}:{:?} to modifier:- {:?}",
-                                node.getstring(),
-                                node.kind(),
-                                modifier
-                            );
-                        } //debugend
+                    Mcodekind::Plus | Mcodekind::Minus(_) | Mcodekind::Star => {
+                        //println!("NODE - {}, {}", node.getstring());
+                        if start == end {
+                            //debugstart
+                            if node.children.len() == 0 {
+                                debugcocci!(
+                                    "Setting {}:{:?} to modifier:- {:?}",
+                                    node.getstring(),
+                                    node.kind(),
+                                    modifier
+                                );
+                            } //debugend
 
-                        //node.wrapper.mcodekind = modifier.clone();
-                        return (start, node.wrapper.mcodekind.clone());
-                    } else {
-                        let tmpmod = node.wrapper.mcodekind.clone();
-                        node.wrapper.mcodekind = Mcodekind::Context(vec![], vec![]);
-                        return (start, tmpmod);
+                            //node.wrapper.mcodekind = modifier.clone();
+                            return (start, node.wrapper.mcodekind.clone());
+                        } else {
+                            let tmpmod = node.wrapper.mcodekind.clone();
+                            node.wrapper.mcodekind = Mcodekind::Context(vec![], vec![]);
+                            return (start, tmpmod);
+                        }
                     }
                 }
-            }
-        };
+            };
 
         worksnode(&mut self.plus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
         worksnode(&mut self.minus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
@@ -290,7 +294,13 @@ impl Patch {
     pub fn getunusedmetavars(&self, mut bindings: Vec<MetaVar>) -> Vec<MetaVar> {
         let mut f = |x: &Snode| match &x.wrapper.metavar {
             MetaVar::NoMeta => {}
-            MetaVar::Exp(info) | MetaVar::Id(info) | MetaVar::Type(info) => {
+            MetaVar::Exp(info)
+            | MetaVar::Id(info)
+            | MetaVar::Lifetime(info)
+            | MetaVar::Type(info)
+            | MetaVar::Parameter(info)
+            | MetaVar::Struct(_, info)
+            | MetaVar::Enum(_, info) => {
                 if let Some(index) =
                     bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but
@@ -310,6 +320,7 @@ impl Patch {
     }
 }
 
+#[derive(Clone)]
 pub struct Rule {
     pub name: Name,
     pub dependson: Dep,
@@ -456,7 +467,7 @@ fn buildrule(
     pbufmod: &String,
     mbufmod: &String,
     lastruleline: usize,
-    hastype: bool,
+    istype: bool,
 ) -> Rule {
     //end of the previous rule
     let mut plusbuf = String::new();
@@ -467,7 +478,7 @@ fn buildrule(
     plusbuf.push_str(&"\n".repeat(blanks));
     minusbuf.push_str(&"\n".repeat(blanks));
 
-    if hastype {
+    if istype {
         let pbufmod = if pbufmod.trim() != "" {
             format!("let COCCIVAR: \n{}\n;", pbufmod)
         } else {
@@ -490,7 +501,7 @@ fn buildrule(
     plusbuf.push_str("}");
     minusbuf.push_str("}");
 
-    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars, hastype);
+    let currpatch = getpatch(&plusbuf, &minusbuf, lastruleline, &metavars, istype);
     let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 
     for metavar in &unusedmetavars {
@@ -517,7 +528,7 @@ fn buildrule(
         patch: currpatch,
         freevars: freevars,
         usedafter: HashSet::new(),
-        hastype: hastype,
+        hastype: istype,
     };
     rule
 }
@@ -600,10 +611,11 @@ pub fn handle_metavar_decl(
     block: &Vec<&str>,
     rulename: &Name,
     lino: usize,
-) -> (Vec<MetaVar>, usize) {
+) -> (Vec<MetaVar>, usize, bool) {
     let mut offset: usize = 0;
     let mut blanks: usize = 0;
     let mut metavars: Vec<MetaVar> = vec![]; //stores the mvars encounteres as of now
+    let mut hastypes = false;
 
     for line in block {
         offset += 1;
@@ -613,19 +625,33 @@ pub fn handle_metavar_decl(
         }
         let mut tokens = line.split(&[',', ' ', ';'][..]);
         let ty = tokens.next().unwrap().trim();
+        let ty: MetavarType = match ty {
+            "struct" | "enum" => {
+                let tyname = tokens
+                    .next()
+                    .unwrap_or_else(|| syntaxerror!(offset + lino, "Incomplete Typename"));
+                hastypes = true;
+                MetavarType::build(ty, Some(tyname))
+            }
+            _ => MetavarType::build(ty, None),
+        };
+
         for var in tokens {
             let var = var.trim().to_string();
             if var != "" {
                 if !metavars.iter().any(|x| x.getname() == var) {
-                    metavars.push(makemetavar(rules, rulename, &var, ty, lino));
+                    metavars.push(makemetavar(rules, rulename, &var, &ty, lino));
                 } else {
-                    syntaxerror!(offset + lino, format!("Redefining {} metavariable {}", ty, var));
+                    syntaxerror!(
+                        offset + lino,
+                        format!("Redefining {:?} metavariable {}", ty, var)
+                    );
                 }
             }
         }
         blanks += 1;
     }
-    (metavars, blanks)
+    (metavars, blanks, hastypes)
 }
 
 fn handleprepatch(contents: &str) {
@@ -647,7 +673,7 @@ fn setusedafter(rules: &mut Vec<Rule>) {
     }
 }
 
-pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
+pub fn processcocci(contents: &str) -> (Vec<Rule>, bool, bool) {
     debugcocci!("{}", "Started Parsing");
     let mut blocks: Vec<&str> = contents.split("@").collect();
     let mut lino = 0; //stored line numbers
@@ -656,7 +682,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
     let mut rules: Vec<Rule> = vec![];
     //check for empty
     if blocks.len() == 0 {
-        return (vec![], false);
+        return (vec![], false, false);
     }
     //handleprepatch(blocks.swap_remove(0)); //throwing away the first part before the first @
     handleprepatch(blocks.remove(0));
@@ -666,18 +692,20 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
     let mut lastruleline = 0;
     let mut hasstars = false; //this does not ensure that all rules have only * or none
                               //TODO enforce that
+    let mut hastypes = false;
     for i in 0..nrules {
         debugcocci!("Processing rule {}", i);
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
         let block2: Vec<&str> = blocks[i * 4 + 1].lines().collect(); //metavars
         let block3: Vec<&str> = blocks[i * 4 + 2].lines().collect(); //empty
-        let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //mods
+        let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //actual patch and mods
 
         //getting rule info
-        let (currrulename, currdepends, hastype) = handlerules(&rules, block1, lino);
+        let (currrulename, currdepends, istype) = handlerules(&rules, block1, lino);
         debugcocci!("Rulename: {} Depends on: {:?}", currrulename, currdepends);
         lino += 1;
-        let (metavars, blanks) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
+        let (metavars, blanks, hastype) = handle_metavar_decl(&rules, &block2, &currrulename, lino);
+        hastypes = hastypes || hastype;
         //metavars
         lino += block2.len();
 
@@ -704,13 +732,13 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool) {
             &pbufmod,
             &mbufmod,
             lastruleline,
-            hastype,
+            istype,
         );
         rules.push(rule);
 
         lastruleline = lino;
     }
     setusedafter(&mut rules);
-    (rules, hasstars)
-    //flag_logilines(0, &mut root);
+    (rules, hastypes, hasstars) //FIXME
+                                //flag_logilines(0, &mut root);
 }

@@ -2,10 +2,11 @@
 
 use std::fmt::Debug;
 use std::fs;
+use std::hash::{Hash, Hasher};
 
 use itertools::izip;
 use ra_parser::SyntaxKind;
-use ra_syntax::SyntaxElement;
+use ra_syntax::{SyntaxElement, SyntaxNode};
 use SyntaxKind::*;
 
 use crate::commons::info;
@@ -29,7 +30,7 @@ pub enum Danger {
     NoDanger,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Eq, PartialEq, Clone)]
 pub struct Wrap {
     pub info: info::ParseInfo,
     index: usize,
@@ -38,6 +39,17 @@ pub struct Wrap {
     pub wspaces: (String, String),
     pub isremoved: bool,
     pub plussed: (Vec<Rnode>, Vec<Rnode>),
+    pub(crate) exp_ty: Option<String>,
+}
+
+impl Hash for Wrap {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.info.hash(state);
+        self.index.hash(state);
+        self.danger.hash(state);
+        self.wspaces.hash(state);
+        self.plussed.hash(state)
+    }
 }
 
 impl Wrap {
@@ -55,7 +67,16 @@ impl Wrap {
             wspaces: (String::new(), String::new()),
             isremoved: false,
             plussed: (vec![], vec![]),
+            exp_ty: None,
         }
+    }
+
+    pub fn set_type(&mut self, ty: Option<String>) {
+        self.exp_ty = ty;
+    }
+
+    pub fn get_type(&self) -> Option<&String> {
+        return self.exp_ty.as_ref()
     }
 
     pub fn dummy(nc: usize) -> Wrap {
@@ -72,6 +93,7 @@ impl Wrap {
             wspaces: wp,
             isremoved: false,
             plussed: (vec![], vec![]),
+            exp_ty: None,
         }
     }
 }
@@ -79,7 +101,7 @@ impl Wrap {
 #[derive(Eq, Hash, Clone)]
 pub struct Rnode {
     pub wrapper: Wrap,
-    pub asttoken: Option<SyntaxElement>, //Not SyntaxNode because we need to take
+    astnode: Option<SyntaxElement>, //Not SyntaxNode because we need to take
     pub kind: SyntaxKind,
     //care of the whitespaces
     pub children: Vec<Rnode>,
@@ -92,8 +114,21 @@ impl PartialEq for Rnode {
 }
 
 impl Rnode {
+    pub fn new(
+        wrapper: Wrap,
+        astnode: Option<SyntaxElement>,
+        kind: SyntaxKind,
+        children: Vec<Rnode>,
+    ) -> Rnode {
+        return Rnode { wrapper, astnode, kind, children };
+    }
+
+    pub fn astnode(&self) -> Option<&SyntaxNode> {
+        return self.astnode.as_ref().and_then(|x| x.as_node());
+    }
+
     pub fn totoken(&self) -> String {
-        self.asttoken.as_ref().unwrap().to_string()
+        self.astnode.as_ref().unwrap().to_string()
     }
 
     pub fn kind(&self) -> SyntaxKind {
@@ -190,6 +225,17 @@ impl Rnode {
 
     pub fn isid(&self) -> bool {
         return self.kind() == NAME || self.kind() == NAME_REF || self.ispat();
+    }
+
+    pub fn islifetime(&self) -> bool {
+        return self.kind() == LIFETIME_ARG;
+    }
+
+    pub fn isparam(&self) -> bool {
+        match self.kind() {
+            PARAM | SELF_PARAM => { true }
+            _ => { false }
+        }
     }
 
     pub fn ispat(&self) -> bool {
