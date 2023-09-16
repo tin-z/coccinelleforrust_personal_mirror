@@ -1,0 +1,2 @@
+fn func(a: usize){
+}

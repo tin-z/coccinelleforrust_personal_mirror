@@ -263,6 +263,7 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
         };
 
         if !args.no_parallel {
+            todo!("Parallel for type inference has not been implemented.");
             //files.par_iter().for_each(transform);
         } else {
             files.iter().for_each(transform);

@@ -13,6 +13,7 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding {
     pub metavarinfo: MetavarName,
@@ -203,6 +204,8 @@ impl<'a, 'b> Looper<'a> {
                         minfo.0.varname.to_string(),
                         b.clone(),
                     );
+
+
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
@@ -214,11 +217,11 @@ impl<'a, 'b> Looper<'a> {
                     env.addbinding(binding);
                 }
                 MetavarMatch::Exists => {
+                    //No bindings are created
                     addplustoenv(a, b, &mut env);
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
-                            println!("But ive got it wrong again");
                         }
                         Mcodekind::Plus => {}
                         Mcodekind::Context(_, _) => {}
@@ -272,7 +275,6 @@ impl<'a, 'b> Looper<'a> {
                         //If the metavar is inhertited
                         //but no bindings exist from previous rules
                         //then fail matching
-                        println!("Comes here");
                         return MetavarMatch::Fail;
                     }
                     
@@ -290,7 +292,6 @@ impl<'a, 'b> Looper<'a> {
                             return MetavarMatch::Maybe(node1, node2);
                         }
                         MetaVar::Lifetime(_info) => {
-                            println!("comes here");
                             if  node2.islifetime() {
                                 
                                 return MetavarMatch::Match
@@ -299,6 +300,13 @@ impl<'a, 'b> Looper<'a> {
                         }
                         MetaVar::Type(_info) => {
                             if node2.istype() {
+                                return MetavarMatch::Match;
+                            }
+                            return MetavarMatch::Maybe(node1, node2);
+                        }
+                        MetaVar::Parameter(_info) => {
+                            println!("poverty");
+                            if node2.isparam() {
                                 return MetavarMatch::Match;
                             }
                             return MetavarMatch::Maybe(node1, node2);

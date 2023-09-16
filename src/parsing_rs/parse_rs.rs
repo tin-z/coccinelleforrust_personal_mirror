@@ -79,5 +79,6 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
         );
         rnode
     };
+
     Ok(work_node(wrap_node, String::new(), SyntaxElement::Node(root)))
 }

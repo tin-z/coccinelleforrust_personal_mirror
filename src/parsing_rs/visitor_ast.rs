@@ -9,11 +9,11 @@ use super::ast_rs::Rnode;
 type Tag = SyntaxKind;
 
 pub fn work_node<'a>(
-    do_stuff: &dyn Fn(SyntaxElement, String, &dyn Fn(&SyntaxElement) -> Vec<Rnode>) -> Rnode,
+    wrap_node: &dyn Fn(SyntaxElement, String, &dyn Fn(&SyntaxElement) -> Vec<Rnode>) -> Rnode,
     estrings: String,
     node: SyntaxElement,
 ) -> Rnode {
-    do_stuff(node, estrings.clone(), &|node| -> Vec<Rnode> {
+    wrap_node(node, estrings.clone(), &|node| -> Vec<Rnode> {
         let mut children = vec![];
         let mut estrings: String = String::new();
         //let mut children = vec![];
@@ -25,7 +25,7 @@ pub fn work_node<'a>(
                             estrings.push_str(child.to_string().as_str());
                         }
                         _ => {
-                            children.push(work_node(do_stuff, estrings, child));
+                            children.push(work_node(wrap_node, estrings, child));
                             estrings = String::new();
                         }
                     }

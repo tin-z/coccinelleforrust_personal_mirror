@@ -74,7 +74,6 @@ pub fn set_types(rnode: &mut Rnode, semantics: &Semantics<'_, RootDatabase>, db:
                         node.wrapper.set_type(Some(typename));
                     }
                     else {
-                        println!("SETTING - {}", node.getunformatted());
                         node.wrapper.set_type(Some(format!("{}::{}", namespace, typename)));
                     }
                 }
@@ -94,7 +93,6 @@ pub fn set_types(rnode: &mut Rnode, semantics: &Semantics<'_, RootDatabase>, db:
 
         //This is for debugging types
         node.wrapper.get_type().is_some_and(|x| {
-            println!("{}:{:?} ---> {}", node.gettokenstream(), node.kind(), x);
             true
         });
 

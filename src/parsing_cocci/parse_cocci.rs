@@ -98,7 +98,7 @@ impl Patch {
         fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
             let mut work = |node: &mut Snode| {
                 //The if statement below lists the types of metavariables allowed
-                if node.isexpr() || node.istype() || node.isid() || node.islifetime() {
+                if node.isexpr() || node.istype() || node.isid() || node.islifetime() || node.isparam() {
                     let stmp = node.getstring(); //FIX ME should not convert to string before checking
                     if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                         debugcocci!("MetaVar found - {:?}", mvar);
@@ -298,6 +298,7 @@ impl Patch {
             | MetaVar::Id(info)
             | MetaVar::Lifetime(info)
             | MetaVar::Type(info)
+            | MetaVar::Parameter(info)
             | MetaVar::Struct(_, info)
             | MetaVar::Enum(_, info) => {
                 if let Some(index) =
@@ -697,7 +698,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool, bool) {
         let block1: Vec<&str> = blocks[i * 4].trim().lines().collect(); //rule
         let block2: Vec<&str> = blocks[i * 4 + 1].lines().collect(); //metavars
         let block3: Vec<&str> = blocks[i * 4 + 2].lines().collect(); //empty
-        let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //mods
+        let block4: Vec<&str> = blocks[i * 4 + 3].lines().collect(); //actual patch and mods
 
         //getting rule info
         let (currrulename, currdepends, istype) = handlerules(&rules, block1, lino);
