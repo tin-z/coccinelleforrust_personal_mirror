@@ -311,7 +311,7 @@ impl<'a, 'b> Looper<'a> {
                             }
                             return MetavarMatch::Maybe(node1, node2);
                         }
-                        MetaVar::Struct(tyname1, _info) | MetaVar::Enum(tyname1, _info) => {
+                        MetaVar::Adt(tyname1, _info) => {
                             if let Some(tyname2) = &node2.wrapper.get_type() {
                                 if types_equal(tyname1, tyname2) {
                                     return MetavarMatch::Match;

@@ -1,3 +1,5 @@
 fn func (&self) {
-    let a = 10;
+    let a = HEH {
+        node: node
+    };
 }

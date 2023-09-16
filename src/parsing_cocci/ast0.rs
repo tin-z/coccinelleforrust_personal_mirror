@@ -123,8 +123,8 @@ impl<'a> Snode {
 
     pub fn isparam(&self) -> bool {
         match self.kind() {
-            SyntaxKind::PARAM | SyntaxKind::SELF_PARAM => { true }
-            _ => { false }
+            SyntaxKind::PARAM | SyntaxKind::SELF_PARAM => true,
+            _ => false,
         }
     }
 
@@ -413,10 +413,11 @@ pub enum MetaVar {
     Type(Minfo),
     Lifetime(Minfo),
     Parameter(Minfo),
-    Struct(String, Minfo), //typename, minfo
-    Enum(String, Minfo),   //typename, minfo
-                           //I have not yet added primtiive support
-                           //But it should not be hard
+    Adt(String, Minfo), //typename, minfo
+                        //Adt stands for A DataType as used in RA for
+                        //Struct, enum and union
+                        //I have not yet added primtiive support
+                        //But it should not be hard
 }
 
 impl MetaVar {
@@ -430,8 +431,7 @@ impl MetaVar {
             | Self::Lifetime(minfo)
             | Self::Type(minfo)
             | Self::Parameter(minfo)
-            | Self::Struct(_, minfo)
-            | Self::Enum(_, minfo) => minfo.0.varname.as_str(),
+            | Self::Adt(_, minfo) => minfo.0.varname.as_str(),
         }
     }
 
@@ -443,8 +443,7 @@ impl MetaVar {
             Self::Lifetime(_minfo) => "lifetime",
             Self::Type(_minfo) => "type",
             Self::Parameter(_minfo) => "parameter",
-            Self::Struct(_, _minfo) => "struct",
-            Self::Enum(_, _minfo) => "enum",
+            Self::Adt(_, _minfo) => "adt",
         }
     }
 
@@ -460,7 +459,7 @@ impl MetaVar {
             | Self::Parameter(minfo) => {
                 minfo.1 = binding;
             }
-            Self::Struct(_, minfo) | Self::Enum(_, minfo) => {
+            Self::Adt(_, minfo) => {
                 minfo.1 = binding;
             }
         }
@@ -476,7 +475,7 @@ impl MetaVar {
             | Self::Type(minfo)
             | Self::Lifetime(minfo)
             | Self::Parameter(minfo) => &minfo,
-            Self::Struct(_, minfo) | Self::Enum(_, minfo) => &minfo,
+            Self::Adt(_, minfo) => &minfo,
         }
     }
 
@@ -490,7 +489,7 @@ impl MetaVar {
             | Self::Type(minfo)
             | Self::Lifetime(minfo)
             | Self::Parameter(minfo) => &minfo.0.rulename.as_str(),
-            Self::Struct(_, minfo) | Self::Enum(_, minfo) => &minfo.0.rulename.as_str(),
+            Self::Adt(_, minfo) => &minfo.0.rulename.as_str(),
         }
     }
 
@@ -506,8 +505,7 @@ impl MetaVar {
             MetavarType::Type => Some(Self::Type(minfo)),
             MetavarType::Lifetime => Some(Self::Lifetime(minfo)),
             MetavarType::Parameter => Some(Self::Parameter(minfo)),
-            MetavarType::Struct(tyname) => Some(Self::Struct(tyname.clone(), minfo)),
-            MetavarType::Enum(tyname) => Some(Self::Enum(tyname.clone(), minfo)),
+            MetavarType::Adt(tyname) => Some(Self::Adt(tyname.clone(), minfo)),
         }
     }
 
@@ -529,7 +527,7 @@ impl MetaVar {
             | MetaVar::Parameter(minfo) => {
                 minfo.2 = true;
             }
-            MetaVar::Struct(_, minfo) | MetaVar::Enum(_, minfo) => {
+            MetaVar::Adt(_, minfo) => {
                 minfo.2 = true;
             }
         }
@@ -545,7 +543,7 @@ impl MetaVar {
             | MetaVar::Type(minfo)
             | MetaVar::Lifetime(minfo)
             | MetaVar::Parameter(minfo) => minfo.2,
-            MetaVar::Struct(_, minfo) | MetaVar::Enum(_, minfo) => minfo.2,
+            MetaVar::Adt(_, minfo) => minfo.2,
         }
     }
 }
@@ -563,32 +561,30 @@ pub enum MetavarType {
     Type,
     Lifetime,
     Parameter,
-    Struct(String),
-    Enum(String),
+    Adt(String),
 }
 
 impl MetavarType {
-    pub fn build(ty: &str, tyname: Option<&str>) -> MetavarType {
-        match tyname {
-            //VERY IMP
-            //this match should have a string for each MetavarType variant
-            None => match ty {
-                "expression" => MetavarType::Expression,
-                "identifier" => MetavarType::Identifier,
-                "type" => MetavarType::Type,
-                "lifetime" => MetavarType::Lifetime,
-                "parameter" => MetavarType::Parameter,
-                _ => {
-                    panic!("Unexpected Type")
-                }
-            },
-            Some(tyname) => match ty {
-                "struct" => MetavarType::Struct(tyname.to_string()),
-                "enum" => MetavarType::Enum(tyname.to_string()),
-                _ => {
-                    panic!("Unexpected type.")
-                }
-            },
+    pub fn build(ty: &str) -> MetavarType {
+        //VERY IMP
+        //this match should have a string for each MetavarType variant
+        match ty {
+            //TODO add spellchecks
+            //It is common to misspell one of these
+            //And then it will be treated as a type
+            "expression" => MetavarType::Expression,
+            "identifier" => MetavarType::Identifier,
+            "type" => MetavarType::Type,
+            "lifetime" => MetavarType::Lifetime,
+            "parameter" => MetavarType::Parameter,
+            datatype => MetavarType::Adt(datatype.to_string()),
+        }
+    }
+
+    pub fn is_adt(&self) -> bool {
+        match self {
+            Self::Adt(_) => true,
+            _ => false
         }
     }
 }
@@ -724,7 +720,7 @@ pub fn wrap_root(contents: &str) -> Snode {
     if errors.len() > 0 {
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
-            
+
             // To Note:
             // Skipping the next error is a hack to be able to parse
             // fn func(param) { ... } as the compiler needs param to have

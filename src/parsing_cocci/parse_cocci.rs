@@ -98,7 +98,12 @@ impl Patch {
         fn setmetavars_aux(node: &mut Snode, metavars: &Vec<MetaVar>) {
             let mut work = |node: &mut Snode| {
                 //The if statement below lists the types of metavariables allowed
-                if node.isexpr() || node.istype() || node.isid() || node.islifetime() || node.isparam() {
+                if node.isexpr()
+                    || node.istype()
+                    || node.isid()
+                    || node.islifetime()
+                    || node.isparam()
+                {
                     let stmp = node.getstring(); //FIX ME should not convert to string before checking
                     if let Some(mvar) = metavars.iter().find(|x| x.getname() == stmp) {
                         debugcocci!("MetaVar found - {:?}", mvar);
@@ -299,8 +304,7 @@ impl Patch {
             | MetaVar::Lifetime(info)
             | MetaVar::Type(info)
             | MetaVar::Parameter(info)
-            | MetaVar::Struct(_, info)
-            | MetaVar::Enum(_, info) => {
+            | MetaVar::Adt(_, info) => {
                 if let Some(index) =
                     bindings.iter().position(|node| node.getname() == info.0.varname)
                 //only varname is checked because a rule cannot have two metavars with same name but
@@ -625,17 +629,11 @@ pub fn handle_metavar_decl(
         }
         let mut tokens = line.split(&[',', ' ', ';'][..]);
         let ty = tokens.next().unwrap().trim();
-        let ty: MetavarType = match ty {
-            "struct" | "enum" => {
-                let tyname = tokens
-                    .next()
-                    .unwrap_or_else(|| syntaxerror!(offset + lino, "Incomplete Typename"));
-                hastypes = true;
-                MetavarType::build(ty, Some(tyname))
-            }
-            _ => MetavarType::build(ty, None),
-        };
-
+        let ty = MetavarType::build(ty);
+        if ty.is_adt() {
+            hastypes = true;
+        }
+        
         for var in tokens {
             let var = var.trim().to_string();
             if var != "" {
