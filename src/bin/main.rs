@@ -242,7 +242,6 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
                 .expect("Could not convert SyntaxNode to Rnode");
             
             set_types(&mut rnode, semantics, db);
-            println!("Types set");
 
             let transformedcode = transformation::transformrnode(&rules, rnode);
 

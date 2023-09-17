@@ -653,8 +653,12 @@ pub fn handle_metavar_decl(
 }
 
 fn handleprepatch(contents: &str) {
-    if contents.trim() != "" {
-        syntaxerror!(0, "SyntaxError");
+    let lines = contents.lines();
+
+    for line in lines {
+        if !line.starts_with("//") && line.trim()!=""{
+            syntaxerror!(0, "SyntaxError");
+        }
     }
 }
 
@@ -682,7 +686,7 @@ pub fn processcocci(contents: &str) -> (Vec<Rule>, bool, bool) {
     if blocks.len() == 0 {
         return (vec![], false, false);
     }
-    //handleprepatch(blocks.swap_remove(0)); //throwing away the first part before the first @
+    //throwing away the first part before the first @
     handleprepatch(blocks.remove(0));
     let nrules = blocks.len() / 4; //this should always be an integer if case of a proper cocci file
                                    //if it fails we will find out in the next for loop
