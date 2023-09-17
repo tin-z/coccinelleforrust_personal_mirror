@@ -637,7 +637,7 @@ identifier Ty;
 
 \frame[t,containsverbatim]{\frametitle{An example: searching for variants}
 
-\textcolor{subtitlex}{A more general attempt:}
+\textcolor{subtitlex}{Fixing other uses in the same file:}
 
 \begin{lstlisting}[language=tdiff]
 @r type@
@@ -682,9 +682,35 @@ lifetime a, b;
 + Ty<b>
 \end{lstlisting}
 
-%% \vfill
+\vfill
 
-%% \textcolor{subtitlex}{Takes care of 1287 insertions(+), 1433 deletions(-) \\out of  3109 insertions(+), 3327 deletions(-)}
+\textcolor{black!2}{Should lifetime metavariables have {\tt '} ?}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame[t,containsverbatim]{\frametitle{An example: using more metavariables}
+
+\textcolor{subtitlex}{A more general attempt:}
+
+\begin{lstlisting}[language=tdiff]
+@r type@
+identifier Ty;
+@@
+- Ty<'gcx, 'tcx>
++ Ty<'tcx>
+
+@type@
+identifier r.Ty;
+lifetime a, b;
+@@
+- Ty<a, b>
++ Ty<b>
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Should lifetime metavariables have {\tt '} ?}
 }
 
 \frame{\frametitle{Summary: Features seen so far}
