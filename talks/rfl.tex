@@ -538,7 +538,7 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 \textcolor{subtitlex}{A first attempt:}
 
 \begin{lstlisting}[language=tdiff]
-@rule type@
+@type@
 @@
 - TyCtxt<'gcx, 'tcx>
 + TyCtxt<'tcx>
@@ -560,7 +560,7 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 \textcolor{subtitlex}{A first attempt:}
 
 \begin{lstlisting}[language=tdiff]
-@rule type@
+@type@
 @@
 - TyCtxt<'gcx, 'tcx>
 + TyCtxt<'tcx>
@@ -580,7 +580,7 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 \textcolor{subtitlex}{A first attempt:}
 
 \begin{lstlisting}[language=tdiff]
-@rule type@
+@type@
 @@
 - TyCtxt<'gcx, 'tcx>
 + TyCtxt<'tcx>
@@ -600,7 +600,7 @@ diff --git a/src/librustc/infer/error_reporting/mod.rs b/src/librustc/infer/erro
 \textcolor{subtitlex}{A more general attempt:}
 
 \begin{lstlisting}[language=tdiff]
-@rule type@
+@type@
 identifier Ty;
 @@
 - Ty<'gcx, 'tcx>
@@ -621,7 +621,7 @@ identifier Ty;
 \textcolor{subtitlex}{A more general attempt:}
 
 \begin{lstlisting}[language=tdiff]
-@rule type@
+@type@
 identifier Ty;
 @@
 - Ty<'gcx, 'tcx>
@@ -646,7 +646,7 @@ identifier Ty;
 - Ty<'gcx, 'tcx>
 + Ty<'tcx>
 
-@rule type@
+@type@
 identifier r.Ty;
 @@
 (
@@ -674,7 +674,7 @@ identifier Ty;
 - Ty<'gcx, 'tcx>
 + Ty<'tcx>
 
-@rule type@
+@type@
 identifier r.Ty;
 lifetime a, b;
 @@
