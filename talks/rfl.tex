@@ -891,7 +891,7 @@ expression rt;
 expression e1;
 @@
 -    let mut e = tokio_executor::enter().unwrap();
-     ... when != e = e1
+     ... when != e
 -    e.block_on(rt.shutdown_on_idle());
 +    rt.shutdown_on_idle();
 \end{lstlisting}
