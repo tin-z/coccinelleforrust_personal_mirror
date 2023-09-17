@@ -404,54 +404,54 @@ expression arg;
 \end{itemize}
 }
 
-\frame[containsverbatim]{\frametitle{An example: change in context}
+%% \frame[containsverbatim]{\frametitle{An example: change in context}
 
-\begin{lstlisting}[language=tdiff]
-commit 1ce80e210d152619caa99b1bc030f57a352b657a
-Author: Oliver Scherer <oli-obk@users.noreply.github.com>
-Date:   Thu Feb 16 09:25:11 2023 +0000
+%% \begin{lstlisting}[language=tdiff]
+%% commit 1ce80e210d152619caa99b1bc030f57a352b657a
+%% Author: Oliver Scherer <oli-obk@users.noreply.github.com>
+%% Date:   Thu Feb 16 09:25:11 2023 +0000
 
-    Allow `LocalDefId` as the argument to `def_path_str`
+%%     Allow `LocalDefId` as the argument to `def_path_str`
 
-diff --git a/compiler/rustc_borrowck/src/lib.rs b/compiler/rustc_borrowck/src/lib.rs
-@@ -124,3 +124,3 @@ pub fn provide(providers: &mut Providers) {
- fn mir_borrowck(tcx: TyCtxt<'_>, def: LocalDefId) -> &BorrowCheckResult<'_> {
-     let (input_body, promoted) = tcx.mir_promoted(def);
--    debug!("run query mir_borrowck: {}", tcx.def_path_str(def.to_def_id()));
-+    debug!("run query mir_borrowck: {}", tcx.def_path_str(def));
-diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
-@@ -494,5 +494,5 @@ fn check_item_type(tcx: TyCtxt<'_>, id: hir::ItemId) {
-     debug!(
-         "check_item_type(it.def_id={:?}, it.name={})",
-         id.owner_id,
--        tcx.def_path_str(id.owner_id.to_def_id())
-+        tcx.def_path_str(id.owner_id)
-     );
-...
-\end{lstlisting}
+%% diff --git a/compiler/rustc_borrowck/src/lib.rs b/compiler/rustc_borrowck/src/lib.rs
+%% @@ -124,3 +124,3 @@ pub fn provide(providers: &mut Providers) {
+%%  fn mir_borrowck(tcx: TyCtxt<'_>, def: LocalDefId) -> &BorrowCheckResult<'_> {
+%%      let (input_body, promoted) = tcx.mir_promoted(def);
+%% -    debug!("run query mir_borrowck: {}", tcx.def_path_str(def.to_def_id()));
+%% +    debug!("run query mir_borrowck: {}", tcx.def_path_str(def));
+%% diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+%% @@ -494,5 +494,5 @@ fn check_item_type(tcx: TyCtxt<'_>, id: hir::ItemId) {
+%%      debug!(
+%%          "check_item_type(it.def_id={:?}, it.name={})",
+%%          id.owner_id,
+%% -        tcx.def_path_str(id.owner_id.to_def_id())
+%% +        tcx.def_path_str(id.owner_id)
+%%      );
+%% ...
+%% \end{lstlisting}
 
-\textcolor{subtitlex}{18 files changed, 68 insertions(+), 54 deletions(-)}
-}
+%% \textcolor{subtitlex}{18 files changed, 68 insertions(+), 54 deletions(-)}
+%% }
 
-\frame[containsverbatim]{\frametitle{An example: change in context}
+%% \frame[containsverbatim]{\frametitle{An example: change in context}
 
-\textcolor{subtitlex}{Want to drop {\tt .to\_def\_id()} but only in an
-  argument to {\tt tcx.def\_path\_str}:}
+%% \textcolor{subtitlex}{Want to drop {\tt .to\_def\_id()} but only in an
+%%   argument to {\tt tcx.def\_path\_str}:}
 
-\vspace{0.5\baselineskip}
+%% \vspace{0.5\baselineskip}
 
-\begin{lstlisting}[language=tdiff]
-@@
-expression tcx, arg;
-@@
+%% \begin{lstlisting}[language=tdiff]
+%% @@
+%% expression tcx, arg;
+%% @@
 
--        tcx.def_path_str(arg.to_def_id())
-+        tcx.def_path_str(arg)
-\end{lstlisting}
+%% -        tcx.def_path_str(arg.to_def_id())
+%% +        tcx.def_path_str(arg)
+%% \end{lstlisting}
 
-\vfill
+%% \vfill
 
-Updates 48 call sites in 18 files.}
+%% Updates 48 call sites in 18 files.}
 
 \frame[containsverbatim]{\frametitle{An example: multiple cases}
 \begin{lstlisting}[language=tdiff]
