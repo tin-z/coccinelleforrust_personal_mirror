@@ -743,6 +743,9 @@ type T1, T2;
      { ... }
 \end{lstlisting}
 
+\vfill
+\textcolor{black!2}{Maybe this should also modify the case of {\tt where}?}
+
 \begin{tikzpicture}[remember picture,overlay]
 \node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
 {
@@ -750,6 +753,32 @@ type T1, T2;
 };
 \end{tikzpicture}
 }
+
+\frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} in parameter lists}
+
+\textcolor{subtitlex}{One parameter case:} (supported already)
+\begin{lstlisting}[language=tdiff]
+@@
+identifier f, P, p;
+type T1, T2;
+@@
+
+- f<P: T1>(p: P) -> T2
++ f(p: impl T1) -> T2
+     { ... }
+\end{lstlisting}
+
+\vfill
+\textcolor{subtitlex}{Maybe this should also modify the case of {\tt where}?}
+
+\begin{tikzpicture}[remember picture,overlay]
+\node [xshift=3.4cm,yshift=-4.0cm] at (current page.center)
+{
+{\scriptsize tokio commit 474befd23c368a34a5f45aab0f3945212109a803}
+};
+\end{tikzpicture}
+}
+
 
 \frame[t,containsverbatim]{\frametitle{Future features: {\tt ...} in parameter lists}
 
