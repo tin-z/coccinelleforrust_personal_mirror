@@ -290,6 +290,8 @@ expression tcx, arg;
                      "`extern` static `{name}` from crate `{krate}` has been declared \
 \end{lstlisting}
 
+\vspace{0.5\baselineskip}
+
 \textcolor{black!2}{The developer has created a new name to avoid a long
   line.}
 \begin{itemize}
@@ -313,6 +315,8 @@ expression tcx, arg;
                  throw_unsup_format!(
                      "`extern` static `{name}` from crate `{krate}` has been declared \
 \end{lstlisting}
+
+\vspace{0.5\baselineskip}
 
 \textcolor{subtitlex}{The developer has created a new name to avoid a long
   line.}
@@ -389,7 +393,10 @@ expression arg;
 
 \vspace{0.5\baselineskip}
 
-\textcolor{subtitlex}{Alternative specification:} {\tt struct (.*::)*TyCtxt tcx;}
+\textcolor{subtitlex}{Alternative specification:}
+\textcolor{black!2}{Alternative specifications: {\tt (.*::)*TyCtxt tcx;}?,
+{\tt *::TyCtxt tcx;}?,
+  {\tt struct TyCtxt tcx;}?}
 }
 
 \frame[containsverbatim]{\frametitle{An example: change in context}
