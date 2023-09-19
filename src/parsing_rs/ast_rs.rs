@@ -157,6 +157,7 @@ impl Rnode {
         let mut data = String::new();
 
         if self.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
+            println!("comes spaces");
             data.push_str(" ");
         } else {
             data.push_str(&format!("{}", self.wrapper.wspaces.0));
@@ -186,12 +187,15 @@ impl Rnode {
     }
 
     pub fn getunformatted(&self) -> String {
+        // Note
+        // All consecuting pluses are printed in one line
+        // seperated by only spaces
+
         let mut data = String::new();
         data.push_str(&format!("{}", self.wrapper.wspaces.0));
         //pluses before current node
         if self.wrapper.plussed.0.len() != 0 {
             data.push_str("/*COCCIVAR*/");
-
             for plusbef in &self.wrapper.plussed.0 {
                 data.push_str(&plusbef.getunformatted());
                 data.push(' ');
@@ -199,12 +203,12 @@ impl Rnode {
         }
         if self.children.len() == 0 && !self.wrapper.isremoved {
             data.push_str(&format!("{}", self.totoken()));
-        } else {
+        }
+         else {
             for i in &self.children {
                 data.push_str(&i.getunformatted());
             }
         }
-        //println!("modprogress2 - {}", data);
         //plusses after current node
         if self.wrapper.plussed.1.len() != 0 {
             data.push_str("/*COCCIVAR*/");

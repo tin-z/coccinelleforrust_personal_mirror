@@ -1,5 +1,5 @@
 fn func (&self) {
-    let a = HEH {
-        node: node
-    };
+    tcx.//comment
+        type_of()//checks this
+        ;
 }

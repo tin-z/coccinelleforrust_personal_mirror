@@ -1,6 +1,6 @@
 @@
-.*::Snode nodei;
 @@
 
--nodei
-+snodei
+tcx.
+-type_of()
++bound()

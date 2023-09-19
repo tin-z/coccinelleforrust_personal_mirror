@@ -325,9 +325,9 @@ type Minfo = (MetavarName, KeepBinding, bool); //rulename, metavar name, keepbin
 
 #[derive(Clone, Hash, Debug, PartialEq)]
 pub enum Mcodekind {
-    Minus(Vec<Snode>),
+    Minus(Vec<Snode>),//Argument is the replacement
     Plus,
-    Context(Vec<Snode>, Vec<Snode>),
+    Context(Vec<Snode>, Vec<Snode>),//pluses before and after context
     Star,
 }
 

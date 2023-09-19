@@ -51,9 +51,11 @@ fn init_logger(args: &CoccinelleForRust) {
 }
 
 pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -> Option<usize> {
+    
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
+        println!("found");
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
-
+        println!("{:?}", node1.wrapper.wspaces);
         line = Some(node1.wrapper.info.sline);
     }
 

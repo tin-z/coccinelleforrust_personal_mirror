@@ -30,17 +30,15 @@ pub fn processrswithsemantics(contents: &str, rnode: SyntaxNode) -> Result<Rnode
     let lindex = LineIndex::new(contents);
 
     let wrap_node = &|node: SyntaxElement,
-                      estring: String,
                       df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
      -> Rnode {
-        let mut wrapped = fill_wrap(&lindex, &node);
-        wrapped.wspaces.0 = estring;
+        let wrapped = fill_wrap(&lindex, &node);
         let kind = node.kind();
         let children = df(&node);
         let rnode = Rnode::new(wrapped, Some(node), kind, children);
         rnode
     };
-    Ok(work_node(wrap_node, String::new(), SyntaxElement::Node(rnode)))
+    Ok(work_node(wrap_node, SyntaxElement::Node(rnode)))
 }
 
 pub fn processrs(contents: &str) -> Result<Rnode, String> {
@@ -65,11 +63,9 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
     let root = parse.syntax_node();
 
     let wrap_node = &|node: SyntaxElement,
-                      estring: String,
                       df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
      -> Rnode {
-        let mut wrapped = fill_wrap(&lindex, &node);
-        wrapped.wspaces.0 = estring;
+        let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
         let kind = node.kind();
         let node = if children.len() == 0 { Some(node) } else { None };
@@ -80,5 +76,5 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
         rnode
     };
 
-    Ok(work_node(wrap_node, String::new(), SyntaxElement::Node(root)))
+    Ok(work_node(wrap_node,  SyntaxElement::Node(root)))
 }
