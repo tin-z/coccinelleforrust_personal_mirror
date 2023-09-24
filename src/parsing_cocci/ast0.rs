@@ -118,7 +118,13 @@ impl<'a> Snode {
     }
 
     pub fn islifetime(&self) -> bool {
-        return self.kind() == SyntaxKind::LIFETIME_ARG;
+        //NOTE: TYPE_ARG is used because we use the lifetime metavariables
+        //may not have a '(quote) so for the semantic patch A<a, b>, a and b
+        //can be lifetimes if defined so in the metavar declaration
+        match self.kind() {
+            SyntaxKind::LIFETIME_ARG | SyntaxKind::TYPE_ARG => true,
+            _ => false,
+        }
     }
 
     pub fn isparam(&self) -> bool {
@@ -282,11 +288,22 @@ impl PositionInfo {
             offset: offset,
         }
     }
+
+    pub fn subtract(&mut self, info: Self) {
+        self.line_start -= info.line_start;
+        self.line_end -= info.line_end;
+    }
+
+    pub fn add(&mut self, info: Self) {
+        self.line_start += info.line_start;
+        self.line_end += info.line_end;
+    }
+
 }
 
 #[derive(PartialEq, Clone)]
 pub struct Info {
-    pos_info: PositionInfo,
+    pub pos_info: PositionInfo,
     attachable_start: bool,
     attachable_end: bool,
     strings_before: Vec<(Dummy, PositionInfo)>,
@@ -325,9 +342,9 @@ type Minfo = (MetavarName, KeepBinding, bool); //rulename, metavar name, keepbin
 
 #[derive(Clone, Hash, Debug, PartialEq)]
 pub enum Mcodekind {
-    Minus(Vec<Snode>),//Argument is the replacement
+    Minus(Vec<Snode>), //Argument is the replacement
     Plus,
-    Context(Vec<Snode>, Vec<Snode>),//pluses before and after context
+    Context(Vec<Snode>, Vec<Snode>), //pluses before and after context
     Star,
 }
 
@@ -584,14 +601,14 @@ impl MetavarType {
     pub fn is_adt(&self) -> bool {
         match self {
             Self::Adt(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
 
 #[derive(PartialEq, Clone)]
 pub struct Wrap {
-    info: Info,
+    pub info: Info,
     index: usize,
     exp_ty: Option<String>,
     pub metavar: MetaVar,
@@ -665,7 +682,6 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
     let cend = node.text_range().end();
     let sindex: LineCol = lindex.line_col(cstart);
     let eindex: LineCol = lindex.line_col(cend);
-
     let pos_info: PositionInfo = PositionInfo::new(
         //all casted to usize because linecol returns u32
         sindex.line as usize,
@@ -710,7 +726,6 @@ pub fn parsedisjs<'a>(node: &mut Snode) {
     }
 }
 
-//for wrapping
 pub fn wrap_root(contents: &str) -> Snode {
     let lindex = LineIndex::new(contents);
 

@@ -1,6 +1,4 @@
 @@
+expression c, d;
 @@
-
-tcx.
--type_of()
-+bound()
+-mac!(c, d);
