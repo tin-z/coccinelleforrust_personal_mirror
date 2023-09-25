@@ -2,26 +2,25 @@
 
 use ra_ide_db::line_index::LineIndex;
 use ra_parser::SyntaxKind;
+use ra_syntax::SyntaxElement;
 use std::vec;
-use ra_syntax::{SyntaxElement, SyntaxNode};
 
 use crate::commons::util::worksnode;
 
-use super::ast0::{Snode, wrap_root};
+use super::ast0::{wrap_root, Snode};
 
 type Tag = SyntaxKind;
 
-fn ttree_to_expr_list(tt: &SyntaxNode) -> Vec<Snode> {
-    let exprliststr = tt.to_string();
+fn ttree_to_expr_list(tt: String) -> Vec<Snode> {
     let wrapped = format!(
         "fn func() {{
             fcall({})
         }}",
-        exprliststr
+        tt
     );
 
     let mut rnode = wrap_root(&wrapped);
-    let mut args = rnode.children[0]//fn
+    let mut args = rnode.children[0] //fn
         .children[3] //blockexpr
         .children[0] //stmtlist
         .children[1] //callexpr
@@ -79,8 +78,10 @@ pub fn work_node<'a>(
                             }
                         }
                         Tag::TOKEN_TREE => {
-                            let info = work_node(lindex, wrap_node, child.clone(), modkind.clone()).wrapper.info;
-                            let mut exprlist = ttree_to_expr_list(child.as_node().unwrap());
+                            let mut exprlist =
+                                ttree_to_expr_list(child.as_node().unwrap().to_string());
+                            let info =
+                                work_node(lindex, wrap_node, child, modkind.clone()).wrapper.info;
 
                             //position is fixed only for errors
                             exprlist.iter_mut().for_each(|x| {

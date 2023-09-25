@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use ra_parser::SyntaxKind;
-use ra_syntax::{SyntaxElement, SyntaxNode};
+use ra_syntax::SyntaxElement;
 use std::vec;
 
 use crate::commons::util::workrnode;
@@ -9,16 +9,15 @@ use crate::commons::util::workrnode;
 use super::{ast_rs::Rnode, parse_rs::processrs};
 type Tag = SyntaxKind;
 
-fn ttree_to_expr_list(tt: &SyntaxNode) -> Vec<Rnode> {
-    let exprliststr = tt.to_string();
+fn ttree_to_expr_list(tt: String) -> Vec<Rnode> {
     let wrapped = format!(
         "fn func() {{
             fcall({})
         }}",
-        exprliststr
+        tt
     );
     let mut rnode = processrs(&wrapped).unwrap();
-    let mut args = rnode.children[0]//fn
+    let mut args = rnode.children[0] //fn
         .children[3] //blockexpr
         .children[0] //stmtlist
         .children[1] //callexpr
@@ -63,9 +62,10 @@ pub fn work_node<'a>(
                         }
                         Tag::TOKEN_TREE => {
                             //Macros being artificially stitched in
-                            let info = work_node(wrap_node, child.clone()).wrapper.info.clone(); //Currently clones for macros
-                            let mut exprlist = ttree_to_expr_list(child.as_node().unwrap());
-                            
+                            let mut exprlist =
+                                ttree_to_expr_list(child.as_node().unwrap().to_string());
+                            let info = work_node(wrap_node, child).wrapper.info.clone(); //Currently clones for macros
+
                             //Adding the offset to the expressions
                             exprlist.iter_mut().for_each(|x| {
                                 workrnode(x, &mut |node| {
