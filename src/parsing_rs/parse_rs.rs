@@ -15,8 +15,8 @@ pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
         String::new(),
         usize::from(node.text_range().start()),
         usize::from(node.text_range().end()),
-        eindex.line as usize,
         sindex.line as usize,
+        eindex.line as usize,
         sindex.col as usize,
         String::new(),
     );

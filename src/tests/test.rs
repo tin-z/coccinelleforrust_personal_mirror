@@ -1,3 +1,4 @@
 fn func() {
-    mac!(thisfunc(), class.sub.sub.sub.fc());
+    mac!(thissfunc(),
+        class.sub.sub.sub.fc());
 }

@@ -198,7 +198,6 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
         debugcocci!("After trimming {:?}", savedbindings);
 
         let transformedstring = transformedcode.getunformatted();
-
         transformedcode = match processrs(&transformedstring) {
             Ok(node) => node,
             Err(errors) => {
@@ -227,6 +226,5 @@ pub fn transformfile(rules: &Vec<Rule>, rustcode: String) -> Result<Rnode, Parse
         }
     };
     //If this passes then The rnode has been parsed successfully
-
     return transformrnode(rules, transformedcode);
 }

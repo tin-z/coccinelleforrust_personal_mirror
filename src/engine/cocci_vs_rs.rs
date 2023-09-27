@@ -13,7 +13,6 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding {
     pub metavarinfo: MetavarName,
@@ -96,27 +95,26 @@ enum MetavarMatch<'a, 'b> {
     Exists,
 }
 
+/// This checks for any pluses attached to the SEMANTIC CODE
+/// If so it marks the corresponding position in the RUST CODE
+/// and stores it along with the plus code in env
 fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
-    if a.children.len() == 1 {
-        addplustoenv(&a.children[0], b, env)
-    } else {
-        match &a.wrapper.mcodekind {
-            Mcodekind::Context(avec, bvec) => {
-                if avec.len() != 0 {
-                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, avec.clone()));
-                }
-                if bvec.len() != 0 {
-                    env.modifiers.pluses.push((b.wrapper.info.charend, false, bvec.clone()));
-                }
+    match &a.wrapper.mcodekind {
+        Mcodekind::Context(avec, bvec) => {
+            if avec.len() != 0 {
+                env.modifiers.pluses.push((b.wrapper.info.charstart, true, avec.clone()));
             }
-            Mcodekind::Minus(pluses) => {
-                //This is a replacement
-                if pluses.len() != 0 {
-                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
-                }
+            if bvec.len() != 0 {
+                env.modifiers.pluses.push((b.wrapper.info.charend, false, bvec.clone()));
             }
-            _ => {}
         }
+        Mcodekind::Minus(pluses) => {
+            //This is a replacement
+            if pluses.len() != 0 {
+                env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
+            }
+        }
+        _ => {}
     }
 }
 
@@ -205,7 +203,6 @@ impl<'a, 'b> Looper<'a> {
                         b.clone(),
                     );
 
-
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
@@ -277,7 +274,7 @@ impl<'a, 'b> Looper<'a> {
                         //then fail matching
                         return MetavarMatch::Fail;
                     }
-                    
+
                     match metavar {
                         MetaVar::Exp(_info) => {
                             if node2.isexpr() {
@@ -292,9 +289,8 @@ impl<'a, 'b> Looper<'a> {
                             return MetavarMatch::Maybe(node1, node2);
                         }
                         MetaVar::Lifetime(_info) => {
-                            if  node2.islifetime() {
-                                
-                                return MetavarMatch::Match
+                            if node2.islifetime() {
+                                return MetavarMatch::Match;
                             }
                             return MetavarMatch::Maybe(node1, node2);
                         }
@@ -317,7 +313,7 @@ impl<'a, 'b> Looper<'a> {
                                     return MetavarMatch::Match;
                                 }
                             }
-                            
+
                             //Will go deeper for both other types and
                             //Non types like blocks
                             return MetavarMatch::Maybe(node1, node2);
@@ -350,15 +346,13 @@ impl<'a, 'b> Looper<'a> {
             //this part makes sure that if any previous disjunctions
             //match for the current piece of code, we shall abort the matching
             //(a | b) is converted into (a | (not a) and b)
-            let mut ctr = 0;
+            
             for prevdisj in &disjs[0..din] {
                 let penv =
                     self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
-                println!("{}", ctr);
                 if !penv.failed {
                     continue 'outer;
                 }
-                ctr += 1;
             }
 
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);

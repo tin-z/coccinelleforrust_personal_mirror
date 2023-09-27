@@ -4,7 +4,7 @@ use ra_parser::SyntaxKind;
 use ra_syntax::SyntaxElement;
 use std::vec;
 
-use crate::commons::util::workrnode;
+use crate::commons::util::{workrnode, attach_spaces_back, attach_spaces_front};
 
 use super::{ast_rs::Rnode, parse_rs::processrs};
 type Tag = SyntaxKind;
@@ -83,12 +83,12 @@ pub fn work_node<'a>(
                                     //injected at rnode.unformatted() should it be attached to nodes
                                     //that come after it
 
-                                    newnode.wrapper.wspaces.0 = String::from("/*COCCIVAR*/");
+                                    attach_spaces_front(&mut newnode, String::from("/*COCCIVAR*/"));
                                     estrings = estrings.replace("/*COCCIVAR*/", "");
                                 }
-                                children.last_mut().unwrap().wrapper.wspaces.1 = estrings;
+                                attach_spaces_back(children.last_mut().unwrap(), estrings);
                             } else {
-                                newnode.wrapper.wspaces.0 = estrings;
+                                attach_spaces_front(&mut newnode, estrings);
                             }
                             children.push(newnode);
                             estrings = String::new();
@@ -96,7 +96,7 @@ pub fn work_node<'a>(
                     }
                 }
                 if estrings.len() != 0 {
-                    children.last_mut().unwrap().wrapper.wspaces.1 = estrings;
+                    attach_spaces_front(children.last_mut().unwrap(), estrings);
                 }
             }
             SyntaxElement::Token(_token) => {}

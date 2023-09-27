@@ -53,7 +53,6 @@ fn init_logger(args: &CoccinelleForRust) {
 pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -> Option<usize> {
     
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
-        println!("found");
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
         println!("{:?}", node1.wrapper.wspaces);
         line = Some(node1.wrapper.info.sline);
@@ -180,9 +179,9 @@ fn showdiff(
         println!("Code highlighted with *");
         for line in diff.split("\n").collect_vec() {
             if line.len() != 0 && line.chars().next().unwrap() == '-' {
-                print!("*{}\n", &line[1..]);
+                println!("*{}", &line[1..]);
             } else {
-                print!("{}\n", line)
+                println!("{}", line)
             }
         }
     }
@@ -200,7 +199,6 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
 
             let rcode = fs::read_to_string(&targetpath).expect("Could not read file");
             let transformedcode = transformation::transformfile(&rules, rcode);
-
             let mut transformedcode = match transformedcode {
                 Ok(node) => node,
                 Err(error) => {

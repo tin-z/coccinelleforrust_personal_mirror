@@ -4,7 +4,7 @@ use itertools::{enumerate, Itertools};
 
 use crate::{
     parsing_cocci::ast0::{Pluses, Snode},
-    commons::util::{attachfront, attachback},
+    commons::util::{attach_pluses_front, attach_pluses_back},
 };
 
 #[derive(Debug)]
@@ -31,9 +31,10 @@ impl Disjunction {
 
     pub fn attachpluses(&mut self, pluses: Pluses) {
         for disj in &mut self.0 {
-            attachfront(&mut disj[0], pluses.0.clone());
+            attach_pluses_front(&mut disj[0], pluses.0.clone());
             let len = disj.len();
-            attachback(&mut disj[len-1], pluses.1.clone());
+            println!("kotha");
+            attach_pluses_back(&mut disj[len-1], pluses.1.clone());
         }
     }
 }
@@ -89,6 +90,5 @@ pub fn getdisjunctions<'a>(nodes: Disjunction) -> Disjunction {
         }
         tmpdisjs.extend(newvec);
     }
-
     return Disjunction(tmpdisjs);
 }

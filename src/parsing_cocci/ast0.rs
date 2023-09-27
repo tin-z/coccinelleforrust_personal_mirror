@@ -291,12 +291,12 @@ impl PositionInfo {
 
     pub fn subtract(&mut self, info: Self) {
         self.line_start -= info.line_start;
-        self.line_end -= info.line_end;
+        self.line_end -= info.line_start;
     }
 
     pub fn add(&mut self, info: Self) {
         self.line_start += info.line_start;
-        self.line_end += info.line_end;
+        self.line_end += info.line_start;
     }
 
 }
@@ -748,7 +748,6 @@ pub fn wrap_root(contents: &str) -> Snode {
             if error.to_string().contains("missing type for function parameter") {
                 break;
             }
-
             println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
             println!("{}", parse.syntax_node().to_string());
             exit(1);
