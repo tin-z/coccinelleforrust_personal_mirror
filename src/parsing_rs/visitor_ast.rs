@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
+use itertools::Itertools;
 use ra_parser::SyntaxKind;
 use ra_syntax::SyntaxElement;
 use std::vec;
@@ -84,7 +85,10 @@ pub fn work_node<'a>(
                                     //that come after it
 
                                     attach_spaces_front(&mut newnode, String::from("/*COCCIVAR*/"));
-                                    estrings = estrings.replace("/*COCCIVAR*/", "");
+
+                                    //Takes only spaces coming before COCCIVAR
+                                    //Anything after COCCIVAR in that line is unformatted
+                                    estrings = estrings.split("/*COCCIVAR*/").collect_vec()[0].to_string();
                                 }
                                 attach_spaces_back(children.last_mut().unwrap(), estrings);
                             } else {

@@ -294,3 +294,11 @@ pub fn attach_spaces_back(node: &mut Rnode, estring: String) {
         attach_spaces_back(&mut node.children[len-1], estring);
     }
 }
+
+#[allow(unused)]
+pub fn debug_spaces(node: &mut Rnode) {
+    workrnode(node, &mut |node: &mut Rnode| {
+        println!("{:?} => {:?}", node.getstring(), node.wrapper.wspaces);
+        true
+    });
+}

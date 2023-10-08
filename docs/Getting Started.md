@@ -36,9 +36,8 @@ impl Wheel {
 ```
 
 We would have to change all occurences of setSpeed to incorporate a new parameter while keeping the magnitude of speed the same.
-Using regex for this would be extremely tedious. 
 
-To do this in SmPL is simple. We will need something called metavariables. Metavariables are variables which can represent different parts of an Abstract Syntax Tree. Currently cfr only supports expression, identifier and type metavariables(Type inference has not been implemented yet, but is under development). More metavariables are being added. To achieve the above task we would need two metavariables, one for refering to the wheel instance and the other for the speed. The SmPL would look something like this :-
+To do this in SmPL is simple. We will need something called metavariables. Metavariables are variables which can represent different parts of an Abstract Syntax Tree. Currently cfr supports expression, identifier, type, lifetime, and parameter metavariables. More metavariables are being added. To achieve the above task we would need two metavariables, one for refering to the wheel instance and the other for the speed. The SmPL would look something like this :-
 
 ```
 @ rule1 @
@@ -52,9 +51,21 @@ expression wheel, speed;
 This is not the correct patch, but we will come to that.
 
 The @@s are used to seperate the declaration space from the modifier space.
-The first line signifies the name of a Rule. A rule is can be thought of as independant changes to the source code(unless specified otherwise). One rule can inherit metavariables from another previously declared rule. But that is a discussion for another section.
+The first line declares the name of a Rule. Each rule is applied on the whole source code before going on to the next rule. Rules can inherit metavariables from other previously declared rules. But that is a discussion for another section.
 
 The second line declares two expression metavariables named wheel and speed. These variables can take on any valid expression: literals, objects, function calls etc.
 
-The last two lines are called the modifiers. All modifiers begin with a symbol as the first character of their line. 
-The minus(-) modifier teslls cfr that it
+The last two lines make the actual chnge we want. The minus(-) at the beginning of the line instructs Coccinelle to remove any matching line from rust file, and the plus(+) in the next line adds that line along with the information it collected in the previous line.
+
+For the following code segment
+
+```
+x.setSpeed(100);
+```
+
+would be replaced by
+
+```
+x.setSpeed(100, true);
+```
+

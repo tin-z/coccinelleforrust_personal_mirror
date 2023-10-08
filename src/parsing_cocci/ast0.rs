@@ -136,7 +136,10 @@ impl<'a> Snode {
 
     pub fn isid(&self) -> bool {
         use SyntaxKind::*;
-        return self.kind() == NAME || self.kind() == NAME_REF || self.ispat();
+        return self.kind() == PATH
+            || self.kind() == NAME
+            || self.kind() == NAME_REF
+            || self.ispat();
     }
 
     pub fn ispat(&self) -> bool {
@@ -298,7 +301,6 @@ impl PositionInfo {
         self.line_start += info.line_start;
         self.line_end += info.line_start;
     }
-
 }
 
 #[derive(PartialEq, Clone)]
@@ -409,6 +411,7 @@ impl<'a> Mcodekind {
         }
     }
 
+    //This function is only invoked on a disjunction node
     pub fn push_pluses_back(&mut self, pluses: Vec<Snode>) {
         match self {
             Mcodekind::Context(_, a) => {
@@ -430,6 +433,7 @@ pub enum MetaVar {
     Type(Minfo),
     Lifetime(Minfo),
     Parameter(Minfo),
+
     Adt(String, Minfo), //typename, minfo
                         //Adt stands for A DataType as used in RA for
                         //Struct, enum and union

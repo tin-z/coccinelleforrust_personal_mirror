@@ -33,7 +33,6 @@ impl Disjunction {
         for disj in &mut self.0 {
             attach_pluses_front(&mut disj[0], pluses.0.clone());
             let len = disj.len();
-            println!("kotha");
             attach_pluses_back(&mut disj[len-1], pluses.1.clone());
         }
     }

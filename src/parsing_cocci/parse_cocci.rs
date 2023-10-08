@@ -176,6 +176,7 @@ impl Patch {
         worksnode(&mut self.minus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
     }
 
+    //remove let from around the type
     pub fn striplet(&mut self, hastype: bool) {
         if !hastype {
             return;
@@ -277,7 +278,7 @@ impl Patch {
             if pvec.len() != 0 {
                 //Plus statements exist after
                 //the context and need to be attached to the
-                //closes context above
+                //closes context above/before
                 let a = node1.children.last_mut();
                 if a.is_none() {
                     panic!("Plus without context.");

@@ -76,7 +76,7 @@ impl Wrap {
     }
 
     pub fn get_type(&self) -> Option<&String> {
-        return self.exp_ty.as_ref()
+        return self.exp_ty.as_ref();
     }
 
     pub fn dummy(nc: usize) -> Wrap {
@@ -153,12 +153,12 @@ impl Rnode {
         self.print_tree_aux(&String::from("--"));
     }
 
-    pub fn gettokenstream(&self) -> String {
+    pub fn getstring(&self) -> String {
         let mut data = String::new();
 
         //pluses before current node
         for plusbef in &self.wrapper.plussed.0 {
-            data.push_str(&plusbef.gettokenstream());
+            data.push_str(&plusbef.getstring());
             data.push(' ');
         }
 
@@ -176,10 +176,10 @@ impl Rnode {
             data.push_str(&format!("{}", self.totoken()));
         } else {
             for i in &self.children {
-                data.push_str(&i.gettokenstream());
+                data.push_str(&i.getstring());
             }
         }
-        
+
         // Spaces after the node
         if !self.wrapper.isremoved {
             data.push_str(&format!("{}", self.wrapper.wspaces.1));
@@ -188,7 +188,7 @@ impl Rnode {
         //plusses after current node
         for plusaft in &self.wrapper.plussed.1 {
             //    println!("plusaft - {:?}", self.astnode.to_string());
-            data.push_str(&plusaft.gettokenstream());
+            data.push_str(&plusaft.getstring());
         }
 
         return data;
@@ -218,8 +218,7 @@ impl Rnode {
         // Main node
         if self.children.len() == 0 && !self.wrapper.isremoved {
             data.push_str(&format!("{}", self.totoken()));
-        }
-         else {
+        } else {
             for i in &self.children {
                 data.push_str(&i.getunformatted());
             }
@@ -238,18 +237,25 @@ impl Rnode {
                 data.push_str(&plusaft.getunformatted());
             }
         }
-        
+
         //println!("returning - {}", data);
         return data;
     }
 
     pub fn writetreetofile(&self, filename: &str) {
-        let data = self.gettokenstream();
+        let data = self.getstring();
         fs::write(filename, data).expect("Unable to write file");
     }
 
     pub fn isid(&self) -> bool {
-        return self.kind() == NAME || self.kind() == NAME_REF || self.ispat();
+        match self.kind() {
+            PATH | PATH_SEGMENT | NAME | NAME_REF => {
+                return true
+            }
+            _ => {
+                return self.ispat();
+            }
+        }
     }
 
     pub fn islifetime(&self) -> bool {
@@ -258,8 +264,8 @@ impl Rnode {
 
     pub fn isparam(&self) -> bool {
         match self.kind() {
-            PARAM | SELF_PARAM => { true }
-            _ => { false }
+            PARAM | SELF_PARAM => true,
+            _ => false,
         }
     }
 

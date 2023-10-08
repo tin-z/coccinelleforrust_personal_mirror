@@ -54,7 +54,6 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
     
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
-        println!("{:?}", node1.wrapper.wspaces);
         line = Some(node1.wrapper.info.sline);
     }
 
