@@ -49,10 +49,12 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
 
     if errors.len() != 0 {
         let mut errorstr = String::new();
+        errorstr.push_str(contents);
+        errorstr.push('\n');
         for error in errors {
             let lindex = lindex.line_col(error.range().start());
             errorstr.push_str(&format!(
-                "Error : {} at line: {}, col {}",
+                "Error : {} at line: {}, col {}\n",
                 error.to_string(),
                 lindex.line,
                 lindex.col

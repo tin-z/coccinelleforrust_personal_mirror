@@ -249,9 +249,7 @@ impl Rnode {
 
     pub fn isid(&self) -> bool {
         match self.kind() {
-            PATH | PATH_SEGMENT | NAME | NAME_REF => {
-                return true
-            }
+            PATH | PATH_SEGMENT | NAME | NAME_REF => return true,
             _ => {
                 return self.ispat();
             }
@@ -285,6 +283,8 @@ impl Rnode {
             ARRAY_TYPE | DYN_TRAIT_TYPE | FN_PTR_TYPE | FOR_TYPE | IMPL_TRAIT_TYPE | INFER_TYPE
             | MACRO_TYPE | NEVER_TYPE | PAREN_TYPE | PATH_TYPE | PTR_TYPE | REF_TYPE
             | SLICE_TYPE | TUPLE_TYPE => true,
+            //NAME is not a type but, since we want to alter struct/enum
+            //definitions too we include that
             _ => false,
         }
     }

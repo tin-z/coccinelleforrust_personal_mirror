@@ -1,4 +1,3 @@
-
-fn func() {
-    let a = Foo::new();
+struct Foo {
+    a: Foo
 }
