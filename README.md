@@ -2,6 +2,14 @@
 
 ## Introduction
 
+Coccinelle is a tool for automatic program matching and transformation that
+was originally developed for making large scale changes to the Linux kernel
+source code (ie, C code).  Matches and transformations are driven by
+user-specific transformation rules having the form of abstracted patches,
+referred to as semantic patches. As the Linux kernel, and systems software
+more generally, is starting to adopt Rust, we are developing Coccinelle for
+Rust, to make the power of Coccinelle available to Rust codebases.
+
 ## Install
 
 ### Build from source
