@@ -66,11 +66,11 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
     let transformmods = &mut |x: &mut Rnode| -> bool {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
-        println!("minuses - {:?}", env.modifiers.minuses.clone());
+        //println!("minuses - {:?}", env.modifiers.minuses.clone());
         for minus in env.modifiers.minuses.clone() {
             if pos == minus || pos.0 >= minus.0 && pos.1 <= minus.1 {
                 x.wrapper.isremoved = true;
-                println!("Removed : {:?}", x);
+                //println!("Removed : {:?}", x);
                 shouldgodeeper = true;
             } else if max(pos.0, minus.0) <= min(pos.1, minus.1) {
                 //this if checks for an overlap between the rnode and all minuses

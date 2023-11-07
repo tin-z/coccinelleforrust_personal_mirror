@@ -170,7 +170,7 @@ impl<'a, 'b> Looper<'a> {
             let akind = a.kind();
             let bkind = b.kind();
 
-            println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
+            //println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
             //please dont remove this line
             //helps in debugging, and I always forget where to put it
 
