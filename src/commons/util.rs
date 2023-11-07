@@ -18,13 +18,13 @@ macro_rules! fail {
 #[macro_export]
 macro_rules! syntaxerror {
     ($lino: expr, $err:expr) => {
-        panic!("{:?} at line:{:?}", $err, $lino)
+        panic!("{} at line:{:?}", $err, $lino)
     };
     ($lino:expr, $err:expr, $name:expr) => {
-        panic!("{:?}: {:?} at line:{:?}", $name, $err, $lino)
+        panic!("{}: {} at line:{:?}", $name, $err, $lino)
     };
-    ($err:expr, $name:expr) => {
-        panic!("{:?}: {:?}", $name, $err)
+    ($lino: expr, $err:expr) => {
+        panic!("{:?}: {}", $lino, $err)
     };
 }
 
@@ -222,7 +222,7 @@ pub fn getstmtlist<'a>(node: &'a Snode) -> &'a Snode {
     return stmtlist;
 }
 
-pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
+pub fn attach_pluses_front(node: &mut Snode, plus: Vec<Snode>) {
     if node.children.len() == 0 || !node.wrapper.metavar.isnotmeta() {
         //attach to a token or a metavar
         //a metavar does not always mean a token like an expr may be
@@ -245,13 +245,13 @@ pub fn attachfront(node: &mut Snode, plus: Vec<Snode>) {
             _ => {}
         }
     } else {
-        attachfront(&mut node.children[0], plus);
+        attach_pluses_front(&mut node.children[0], plus);
     }
 }
 
-pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
+pub fn attach_pluses_back(node: &mut Snode, plus: Vec<Snode>) {
     let len = node.children.len();
-    if len == 0 {
+    if len == 0 || !node.wrapper.metavar.isnotmeta() {
         if plus.len() != 0 {
             debugcocci!(
                 "Plus Statements:- {:#?} attached to back of {}:{:?}",
@@ -271,10 +271,34 @@ pub fn attachback(node: &mut Snode, plus: Vec<Snode>) {
         }
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
-        attachback(&mut node.children[len - 1], plus);
+        attach_pluses_back(&mut node.children[len - 1], plus);
     }
 }
 
-pub enum TMP {
-    HEHE,
+pub fn attach_spaces_front(node: &mut Rnode, estring: String) {
+    let len = node.children.len();
+    if len == 0 {
+        node.wrapper.wspaces.0 = estring;
+    } else {
+        //println!("deeper to {:?}", node.children[len - 1].kind());
+        attach_spaces_front(&mut node.children[0], estring);
+    }
+}
+
+pub fn attach_spaces_back(node: &mut Rnode, estring: String) {
+    let len = node.children.len();
+    if len == 0 {
+        node.wrapper.wspaces.1 = estring;
+    } else {
+        //println!("deeper to {:?}", node.children[len - 1].kind());
+        attach_spaces_back(&mut node.children[len-1], estring);
+    }
+}
+
+#[allow(unused)]
+pub fn debug_spaces(node: &mut Rnode) {
+    workrnode(node, &mut |node: &mut Rnode| {
+        println!("{:?} => {:?}", node.getstring(), node.wrapper.wspaces);
+        true
+    });
 }

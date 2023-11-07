@@ -1,5 +1,4 @@
-fn func (&self) {
-    tcx.//comment
-        type_of()//checks this
-        ;
+
+fn func() {
+    let a = Foo::new();
 }

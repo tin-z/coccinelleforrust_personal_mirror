@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::vec;
 
 use itertools::Itertools;
+use ra_parser::SyntaxKind;
 use regex::Regex;
 
 use crate::{
@@ -13,6 +14,11 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
+type Tag = SyntaxKind;
+
+//This array is used for special matching cases where we want to continue matching
+//even if the node types do not match
+const EXCEPTIONAL_MATCHES: [(Tag, Tag); 1] = [(Tag::PATH_TYPE, Tag::PATH_SEGMENT)];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding {
@@ -96,27 +102,26 @@ enum MetavarMatch<'a, 'b> {
     Exists,
 }
 
+/// This checks for any pluses attached to the SEMANTIC PATCH CODE
+/// If so it marks the corresponding position in the RUST CODE
+/// and stores it along with the plus code in env
 fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
-    if a.children.len() == 1 {
-        addplustoenv(&a.children[0], b, env)
-    } else {
-        match &a.wrapper.mcodekind {
-            Mcodekind::Context(avec, bvec) => {
-                if avec.len() != 0 {
-                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, avec.clone()));
-                }
-                if bvec.len() != 0 {
-                    env.modifiers.pluses.push((b.wrapper.info.charend, false, bvec.clone()));
-                }
+    match &a.wrapper.mcodekind {
+        Mcodekind::Context(avec, bvec) => {
+            if avec.len() != 0 {
+                env.modifiers.pluses.push((b.wrapper.info.charstart, true, avec.clone()));
             }
-            Mcodekind::Minus(pluses) => {
-                //This is a replacement
-                if pluses.len() != 0 {
-                    env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
-                }
+            if bvec.len() != 0 {
+                env.modifiers.pluses.push((b.wrapper.info.charend, false, bvec.clone()));
             }
-            _ => {}
         }
+        Mcodekind::Minus(pluses) => {
+            //This is a replacement
+            if pluses.len() != 0 {
+                env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.clone()));
+            }
+        }
+        _ => {}
     }
 }
 
@@ -161,13 +166,24 @@ impl<'a, 'b> Looper<'a> {
                 fail!();
             }
 
-            let akind = a.kind();
-            let bkind = b.kind();
+            let mut akind = a.kind();
+            let mut bkind = b.kind();
+
             //println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
             //please dont remove this line
             //helps in debugging, and I always forget where to put it
-            if akind != bkind && a.wrapper.metavar.isnotmeta() {
-                //println!("fail");
+
+            //This takes care of when node types dont match but we still
+            //want to work on them
+            if EXCEPTIONAL_MATCHES.contains(&(akind, bkind)) {
+                (a, b) = self.exceptional_workon(a, b);
+                (akind, bkind) = (a.kind(), b.kind());
+                //println!("{:?} ===== {:?} --> {} ::: Exceptional", akind, bkind, b.getunformatted());
+            }
+
+            if akind != bkind && a.wrapper.metavar.isnotmeta()
+            //There are certain metavariables which need to be processed even if the types dont match
+            {
                 fail!()
             }
             match self.workon(a, b, &env.bindings) {
@@ -194,7 +210,7 @@ impl<'a, 'b> Looper<'a> {
 
                     debugcocci!(
                         "Binding {} to {}.{}",
-                        b.gettokenstream(),
+                        b.getstring(),
                         minfo.0.rulename.to_string(),
                         minfo.0.varname.to_string()
                     );
@@ -204,7 +220,6 @@ impl<'a, 'b> Looper<'a> {
                         minfo.0.varname.to_string(),
                         b.clone(),
                     );
-
 
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
@@ -230,6 +245,55 @@ impl<'a, 'b> Looper<'a> {
             }
         }
     }
+
+    fn exceptional_workon(&self, node1: &'b Snode, node2: &'a Rnode) -> (&'b Snode, &'a Rnode) {
+        match (node1.kind(), node2.kind()) {
+            (Tag::PATH_TYPE, Tag::PATH_SEGMENT) => {
+                //If a type is being compared then
+                //Type maybe something like Foo<a: A, b: B> but it needs
+                //to match types like Foo
+
+                //This part removes the qualifier from the path
+                let node1 = &node1.children[0];//Gets path
+                let psegment = match &node1.children[..] {
+                    [_qualifier, psegment] => psegment,
+                    [psegment] => psegment,
+                    _ => {
+                        panic!("Path should have 1 or 2 children: qualifier? Pathsegment")
+                    }
+                };
+                //Gets rid of the generic args list
+                //For non-type inferenced checks, generic args are skipped
+                let name_ref1 = match &psegment.children.iter().map(|x| x.kind()).collect_vec()[..] {
+                    [Tag::COLON2, Tag::NAME_REF] => &psegment.children[1],
+                    [Tag::NAME_REF]
+                    | [Tag::NAME_REF, _]
+                    | [Tag::NAME_REF, _, _] => &psegment.children[0],
+                    _ => {
+                        println!("{:#?}, {}", &psegment.children.iter().map(|x| x.kind()).collect_vec()[..], psegment.getstring());
+                        panic!("PathSegment not fully implented in exceptional_workon");
+                    } //There is one missing branch here: '<' PathType ('as' PathType)? '>'
+                      //I am not sure how to handle that branch
+                };
+                let name_ref2 = match &node2.children.iter().map(|x| x.kind()).collect_vec()[..] {
+                    [Tag::COLON2, Tag::NAME_REF] => &node2.children[1],
+                    [Tag::NAME_REF]
+                    | [Tag::NAME_REF, _]
+                    | [Tag::NAME_REF, _, _] => &node2.children[0],
+                    _ => {
+                        panic!("PathSegment not fully implented in exceptional_workon");
+                    } //There is one missing branch here: '<' PathType ('as' PathType)? '>'
+                      //I am not sure how to handle that branch
+                };
+
+                (name_ref1, name_ref2)
+            }
+            _ => {
+                panic!("The match arms should be exhaustive.");
+            }
+        }
+    }
+
     //this function decides if two nodes match, fail or have a chance of matching, without
     //going deeper into the node.
     fn workon(
@@ -277,7 +341,7 @@ impl<'a, 'b> Looper<'a> {
                         //then fail matching
                         return MetavarMatch::Fail;
                     }
-                    
+
                     match metavar {
                         MetaVar::Exp(_info) => {
                             if node2.isexpr() {
@@ -292,9 +356,8 @@ impl<'a, 'b> Looper<'a> {
                             return MetavarMatch::Maybe(node1, node2);
                         }
                         MetaVar::Lifetime(_info) => {
-                            if  node2.islifetime() {
-                                
-                                return MetavarMatch::Match
+                            if node2.islifetime() {
+                                return MetavarMatch::Match;
                             }
                             return MetavarMatch::Maybe(node1, node2);
                         }
@@ -317,7 +380,7 @@ impl<'a, 'b> Looper<'a> {
                                     return MetavarMatch::Match;
                                 }
                             }
-                            
+
                             //Will go deeper for both other types and
                             //Non types like blocks
                             return MetavarMatch::Maybe(node1, node2);
@@ -350,15 +413,13 @@ impl<'a, 'b> Looper<'a> {
             //this part makes sure that if any previous disjunctions
             //match for the current piece of code, we shall abort the matching
             //(a | b) is converted into (a | (not a) and b)
-            let mut ctr = 0;
+
             for prevdisj in &disjs[0..din] {
                 let penv =
                     self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
-                println!("{}", ctr);
                 if !penv.failed {
                     continue 'outer;
                 }
-                ctr += 1;
             }
 
             let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);

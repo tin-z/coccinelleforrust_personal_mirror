@@ -1,6 +1,5 @@
-@@
+@type@
 @@
 
-tcx.
--type_of()
-+bound()
+-Foo
++Bar

@@ -1,12 +1,12 @@
-- Type inference
-- Add the block wildcard instead of ...
-- put proper error reporting for failure of hastype
-- ALLminus
-- See profiling tools
-- Make sure to understand what rowan does internally
-with children_with_tokens
-* I am expanding disjunctions in transformation. do that while
-parsing the cocci file
-- Make Rnode and Snode have a trait
-- People put lets at random places, so we may need to be generic with
-respect to this.
+    - Type inference
+    - Add the block wildcard instead of ...
+    - put proper error reporting for failure of hastype
+    - ALLminus
+    - See profiling tools
+    - Make sure to understand what rowan does internally
+    with children_with_tokens
+    * I am expanding disjunctions in transformation. do that while
+    parsing the cocci file
+    - Make Rnode and Snode have a trait
+    - People put lets at random places, so we may need to be generic with
+    respect to this.

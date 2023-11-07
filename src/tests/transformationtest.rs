@@ -18,13 +18,13 @@ impl<'a> TransformTest<'a> {
 
         let (rules, _, _) = processcocci(&patchstring);
         let transformedcode = transformation::transformfile(&rules, rustcode).ok().unwrap();
-        let rnode = processrs(&transformedcode.gettokenstream()).unwrap();
+        let rnode = processrs(&transformedcode.getstring()).unwrap();
         return rnode;
     }
 
     pub fn testtransformation(&self, coccifile: &str, rsfile: &str, expectedfile: &str) -> bool {
         let out = self.transformfile(coccifile, rsfile);
-        println!("Outfile:- {}", out.gettokenstream());
+        println!("Outfile:- {}", out.getstring());
         let expected = fs::read_to_string(format!("{}{}", &self.prefix, expectedfile))
             .expect("This should not be empty.");
         let rnode = processrs(&expected).unwrap();

@@ -16,7 +16,7 @@ use std::{collections::HashSet, vec};
 
 use super::ast0::{wrap_root, Mcodekind, MetaVar, MetavarName, Snode};
 use crate::{
-    commons::util::{self, attachback, attachfront, collecttree, removestmtbraces, worksnode},
+    commons::util::{self, attach_pluses_back, attach_pluses_front, collecttree, removestmtbraces, worksnode},
     debugcocci,
     parsing_cocci::ast0::MetavarType,
     syntaxerror,
@@ -176,6 +176,7 @@ impl Patch {
         worksnode(&mut self.minus, (0, Mcodekind::Context(vec![], vec![])), &mut tagmods);
     }
 
+    //remove let from around the type
     pub fn striplet(&mut self, hastype: bool) {
         if !hastype {
             return;
@@ -224,7 +225,7 @@ impl Patch {
                             (Mcodekind::Minus(_), _) => {
                                 //minus code
                                 //with any thing other than a plus
-                                attachfront(ak, pvec);
+                                attach_pluses_front(ak, pvec);
                                 pvec = vec![];
                                 a = achildren.next();
                             }
@@ -238,7 +239,7 @@ impl Patch {
                                     ak.wrapper.mcodekind.push_pluses_front(pvec);
                                     //ak.wrapper.plusesbef.extend(pvec);
                                 } else {
-                                    attachfront(ak, pvec);
+                                    attach_pluses_front(ak, pvec);
                                 }
                                 pvec = vec![];
                                 tagplus_aux(ak, bk);
@@ -277,7 +278,7 @@ impl Patch {
             if pvec.len() != 0 {
                 //Plus statements exist after
                 //the context and need to be attached to the
-                //closes context above
+                //closes context above/before
                 let a = node1.children.last_mut();
                 if a.is_none() {
                     panic!("Plus without context.");
@@ -287,8 +288,7 @@ impl Patch {
                     a.wrapper.mcodekind.push_pluses_back(pvec);
                     //a.wrapper.plusesaft.extend(pvec);
                 } else {
-                    //println!("attaching {} to {:?}", a.gettokenstream(), pvec);
-                    attachback(a, pvec);
+                    attach_pluses_back(a, pvec);
                 }
             }
         }
@@ -545,6 +545,7 @@ pub fn handlemods(block: &Vec<&str>) -> Result<(String, String, bool), (usize, S
     let mut lino: usize = 0;
     let mut hasstar: bool = false;
     let mut hastforms: bool = false;
+    let mut indisj = 0;
 
     for line in block {
         match line.chars().next() {
@@ -574,6 +575,7 @@ pub fn handlemods(block: &Vec<&str>) -> Result<(String, String, bool), (usize, S
                 let holder = "if COCCIVAR {\n";
                 plusbuf.push_str(holder);
                 minusbuf.push_str(holder);
+                indisj += 1;
             }
             Some('|') => {
                 let holder = "} else if COCCIVAR {\n";
@@ -581,8 +583,14 @@ pub fn handlemods(block: &Vec<&str>) -> Result<(String, String, bool), (usize, S
                 minusbuf.push_str(holder);
             }
             Some(')') => {
+                if indisj==0 {
+                    syntaxerror!(lino, 
+                        "Disjunction does not exist. ')' in column 0 is only used for closing disjunctions. \n\
+                        Put a space before ')' if not a part of disjunction.")
+                }
                 plusbuf.push_str("}\n");
                 minusbuf.push_str("}\n");
+                indisj -= 1;
             }
             Some('*') => {
                 if hastforms {
