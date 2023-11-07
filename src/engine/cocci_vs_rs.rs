@@ -8,6 +8,7 @@ use ra_parser::SyntaxKind;
 use regex::Regex;
 
 use crate::{
+    commons::util::getnrfrompt,
     debugcocci, fail,
     parsing_cocci::ast0::{Mcodekind, Snode},
     parsing_cocci::ast0::{MetaVar, MetavarName},
@@ -166,10 +167,10 @@ impl<'a, 'b> Looper<'a> {
                 fail!();
             }
 
-            let mut akind = a.kind();
-            let mut bkind = b.kind();
+            let akind = a.kind();
+            let bkind = b.kind();
 
-            //println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
+            println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
             //please dont remove this line
             //helps in debugging, and I always forget where to put it
 
@@ -177,15 +178,20 @@ impl<'a, 'b> Looper<'a> {
             //want to work on them
             if EXCEPTIONAL_MATCHES.contains(&(akind, bkind)) {
                 (a, b) = self.exceptional_workon(a, b);
-                (akind, bkind) = (a.kind(), b.kind());
                 //println!("{:?} ===== {:?} --> {} ::: Exceptional", akind, bkind, b.getunformatted());
+            } else {
+                if akind != bkind && a.wrapper.metavar.isnotmeta()
+                //There are certain metavariables which need to be processed even if the types dont match
+                {
+                    fail!()
+                }
             }
 
-            if akind != bkind && a.wrapper.metavar.isnotmeta()
-            //There are certain metavariables which need to be processed even if the types dont match
-            {
-                fail!()
-            }
+            //At this point in execution, there are two possiblities
+            //Either akind == bkind or a is a metavar or
+            //(akind, bkind) is present in EXCEPRIONAL_MATCHES
+            //The rule is, akind is allowed to be diff from bkind only if
+            //there is a guaranteed match or fail in the next few iters
             match self.workon(a, b, &env.bindings) {
                 MetavarMatch::Fail => {
                     fail!()
@@ -199,7 +205,6 @@ impl<'a, 'b> Looper<'a> {
 
                     if !renv.failed {
                         addplustoenv(a, b, &mut env);
-
                         env.add(renv);
                     } else {
                         fail!()
@@ -250,36 +255,15 @@ impl<'a, 'b> Looper<'a> {
         match (node1.kind(), node2.kind()) {
             (Tag::PATH_TYPE, Tag::PATH_SEGMENT) => {
                 //If a type is being compared then
-                //Type maybe something like Foo<a: A, b: B> but it needs
+                //Type maybe something like Foo<A, B> but it needs
                 //to match types like Foo
 
-                //This part removes the qualifier from the path
-                let node1 = &node1.children[0];//Gets path
-                let psegment = match &node1.children[..] {
-                    [_qualifier, psegment] => psegment,
-                    [psegment] => psegment,
-                    _ => {
-                        panic!("Path should have 1 or 2 children: qualifier? Pathsegment")
-                    }
-                };
-                //Gets rid of the generic args list
-                //For non-type inferenced checks, generic args are skipped
-                let name_ref1 = match &psegment.children.iter().map(|x| x.kind()).collect_vec()[..] {
-                    [Tag::COLON2, Tag::NAME_REF] => &psegment.children[1],
-                    [Tag::NAME_REF]
-                    | [Tag::NAME_REF, _]
-                    | [Tag::NAME_REF, _, _] => &psegment.children[0],
-                    _ => {
-                        println!("{:#?}, {}", &psegment.children.iter().map(|x| x.kind()).collect_vec()[..], psegment.getstring());
-                        panic!("PathSegment not fully implented in exceptional_workon");
-                    } //There is one missing branch here: '<' PathType ('as' PathType)? '>'
-                      //I am not sure how to handle that branch
-                };
+                let name_ref1 = getnrfrompt(node1);
                 let name_ref2 = match &node2.children.iter().map(|x| x.kind()).collect_vec()[..] {
                     [Tag::COLON2, Tag::NAME_REF] => &node2.children[1],
                     [Tag::NAME_REF]
-                    | [Tag::NAME_REF, _]
-                    | [Tag::NAME_REF, _, _] => &node2.children[0],
+                    | [Tag::NAME_REF, _]//GenericArgList
+                    | [Tag::NAME_REF, _, _] => &node2.children[0],//Paramlist, RetType
                     _ => {
                         panic!("PathSegment not fully implented in exceptional_workon");
                     } //There is one missing branch here: '<' PathType ('as' PathType)? '>'
@@ -368,7 +352,6 @@ impl<'a, 'b> Looper<'a> {
                             return MetavarMatch::Maybe(node1, node2);
                         }
                         MetaVar::Parameter(_info) => {
-                            println!("poverty");
                             if node2.isparam() {
                                 return MetavarMatch::Match;
                             }
@@ -441,7 +424,7 @@ pub fn visitrnode<'a>(
     let nodebchildren = &mut nodeb.children.iter();
 
     loop {
-        let tmp = f(nodea, &nodebchildren.clone().collect_vec());
+        let tmp = f(nodea, &nodebchildren.clone().collect_vec()); //CLoning an Iter only clones the references inside
 
         if tmp.1 {
             environments.extend(tmp.0);

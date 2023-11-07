@@ -66,9 +66,11 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
     let transformmods = &mut |x: &mut Rnode| -> bool {
         let mut shouldgodeeper: bool = false;
         let pos = x.getpos();
+        println!("minuses - {:?}", env.modifiers.minuses.clone());
         for minus in env.modifiers.minuses.clone() {
             if pos == minus || pos.0 >= minus.0 && pos.1 <= minus.1 {
                 x.wrapper.isremoved = true;
+                println!("Removed : {:?}", x);
                 shouldgodeeper = true;
             } else if max(pos.0, minus.0) <= min(pos.1, minus.1) {
                 //this if checks for an overlap between the rnode and all minuses
@@ -163,22 +165,6 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
         let mut tmpbindings: Vec<Vec<MetavarBinding>> = vec![]; //this captures the bindings collected in current rule applciations
                                                                 //let mut usedbindings = HashSet::new(); //this makes sure the same binding is not repeated
         for gbindings in expandedbindings {
-            /*
-            let bindings = gbindings
-                .into_iter()
-                .filter(|x| rule.freevars.iter().any(|y| y.getminfo().0 == x.metavarinfo))
-                .collect_vec(); //This filters only those metavariables which are present in freevars
-            if !(rule
-                .freevars
-                .iter()
-                .all(|x| bindings.iter().any(|y| y.metavarinfo == x.getminfo().0)))
-            //This checks if all necessary inherited metavars are present in this environment, if not, it is discarded
-            {
-                //if all inherited dependencies of this rule is not satisfied by the bindings then move on
-                //to the next bindings
-                continue;
-            }
-            */
             debugcocci!("For rule {}, inherited: {:#?}", rule.name, gbindings);
             let looper = Looper::new(tokenf);
             let envs = visitrnode(&a.0, &transformedcode, &|k, l| {
