@@ -1,5 +1,10 @@
 @type@
+lifetime 'l1,'l2;
 @@
 
--Foo
-+Bar
+(
+App <'l1,'l2>
+|
+App
++ <'_,'_>
+)

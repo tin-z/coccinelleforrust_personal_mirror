@@ -204,7 +204,7 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
                     //failedfiles.push((error, targetpath));
                     match error {
                         TARGETERROR(msg, _) => println!("{}", msg),
-                        RULEERROR(msg, error, _) => println!("{}:{}", msg, error),
+                        RULEERROR(msg, error, _) => println!("Transformation Error at rule {} : {}", msg, error),
                     }
                     println!("Failed to transform {}", targetpath);
                     return;

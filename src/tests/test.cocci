@@ -8,6 +8,7 @@ identifier i;
 
 @type@
 identifier i;
+expression s;
 @@
 -i<'tcx, 'tcx>
 +i<'tcx>

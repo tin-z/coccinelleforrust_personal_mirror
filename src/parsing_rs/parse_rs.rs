@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use ra_ide_db::line_index::{LineCol, LineIndex};
-use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode};
+use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxError};
 
 use crate::{commons::info::ParseInfo, parsing_rs::visitor_ast::work_node};
 
@@ -41,13 +41,37 @@ pub fn processrswithsemantics(contents: &str, rnode: SyntaxNode) -> Result<Rnode
     Ok(work_node(wrap_node, SyntaxElement::Node(rnode)))
 }
 
+fn pretty_print_errors(errors: &[SyntaxError], code: &str, lindex: &LineIndex) -> String {
+
+    let mut ret = String::new();
+
+    for error in errors {
+        let linecol = lindex.line_col(error.range().start());
+        let line_number = linecol.line as usize;
+        let line_char = linecol.col as usize;
+        let lines: Vec<&str> = code.lines().collect();
+        let start_line = if line_number > 2 { line_number - 2 } else { 0 };
+        let end_line = if line_number + 2 < lines.len() { line_number + 2 } else { lines.len() - 1 };
+ 
+        ret.push_str(&format!("Error: {} at char {}\n", error, line_char));
+        for (i, line) in lines[start_line..=end_line].iter().enumerate() {
+            let line_number = start_line + i + 1;
+            ret.push_str(&format!("{:>5}: {}\n", line_number, line));
+        }
+    }
+
+    return ret;
+ } 
+
 pub fn processrs(contents: &str) -> Result<Rnode, String> {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
     let parse = SourceFile::parse(contents);
+    
     let errors = parse.errors();
 
     if errors.len() != 0 {
+        /*
         let mut errorstr = String::new();
         errorstr.push_str(contents);
         errorstr.push('\n');
@@ -60,7 +84,8 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
                 lindex.col
             ));
         }
-        return Err(errorstr);
+        */
+        return Err(pretty_print_errors(errors, contents, &lindex));
     }
     let root = parse.syntax_node();
 
