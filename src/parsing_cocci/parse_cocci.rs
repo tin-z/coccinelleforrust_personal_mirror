@@ -509,7 +509,7 @@ fn buildrule(
     let unusedmetavars = currpatch.getunusedmetavars(metavars.clone());
 
     for metavar in &unusedmetavars {
-        println!("Warning: Unused metavariable {}.{}", metavar.getrulename(), metavar.getname());
+        eprintln!("Warning: Unused metavariable {}.{}", metavar.getrulename(), metavar.getname());
         if let Some(index) = metavars.iter().position(|x| x.getname() == metavar.getname()) {
             //All this will be optimised when using hashsets
             metavars.remove(index);

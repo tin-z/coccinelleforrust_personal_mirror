@@ -342,7 +342,9 @@ pub fn attach_spaces_left(node: &mut Rnode, estring: String) {
     let len = node.children.len();
     if len == 0 {
         //eprintln!("{} LEFT \"{}\"", node.getunformatted(), estring);
-        node.wrapper.wspaces.0 = estring;
+        if node.wrapper.wspaces.0.is_empty() {
+            node.wrapper.wspaces.0 = estring;
+        }
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
         attach_spaces_left(&mut node.children[0], estring);

@@ -112,10 +112,10 @@ pub fn work_node<'a>(
                                     estrings =
                                         estrings.split("/*COCCIVAR*/").collect_vec()[0].to_string();
                                 }
-                                //eprintln!("{} RIGHT \"{}\"", newnode.getunformatted(), estrings);
+                                //eprintln!("{} RIGHT \"{}\"", children.last_mut().unwrap().getunformatted(), estrings);
                                 attach_spaces_right(children.last_mut().unwrap(), estrings);
                             } else {
-                                //eprintln!("{} LEFT \"{}\"", newnode.getunformatted(), estrings);
+                                
                                 attach_spaces_left(&mut newnode, estrings);
                             }
                             children.push(newnode);
@@ -123,9 +123,9 @@ pub fn work_node<'a>(
                         }
                     }
                 }
-                if estrings.is_empty() {
-                    //eprintln!("{} thisLEFT \"{}\"", children.last_mut().unwrap().getunformatted(), estrings);
-                    attach_spaces_left(children.last_mut().unwrap(), estrings);
+                if !estrings.is_empty() {
+                    //eprintln!("{} thisRIGHT \"{}\"", children.last_mut().unwrap().getunformatted(), estrings);
+                    attach_spaces_right(children.last_mut().unwrap(), estrings);
                 }
             }
             SyntaxElement::Token(_token) => {}

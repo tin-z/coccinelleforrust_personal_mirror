@@ -1,3 +1,4 @@
+//AYee
 struct Foo {
     //func()
 }
