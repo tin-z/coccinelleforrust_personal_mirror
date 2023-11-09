@@ -8,7 +8,7 @@ use ra_parser::SyntaxKind;
 use regex::Regex;
 
 use crate::{
-    commons::util::getnrfrompt,
+    commons::util::{getnrfrompt, getnrfrompt_r},
     debugcocci, fail,
     parsing_cocci::ast0::{Mcodekind, Snode},
     parsing_cocci::ast0::{MetaVar, MetavarName},
@@ -264,6 +264,16 @@ impl<'a, 'b> Looper<'a> {
                     [Tag::NAME_REF]
                     | [Tag::NAME_REF, _]//GenericArgList
                     | [Tag::NAME_REF, _, _] => &node2.children[0],//Paramlist, RetType
+                    | [Tag::L_ANGLE, Tag::PATH_TYPE, Tag::R_ANGLE] => {
+                        getnrfrompt_r(&node2.children[1])
+                    }
+                    | [Tag::L_ANGLE, _, Tag::AS_KW, _, Tag::R_ANGLE] => {
+                        //This should fail as it is something like
+                        //<TypeA as TypeB>
+                        //These types are matched seperately from
+                        //visitrnode
+                        node2
+                    }
                     _ => {
                         panic!("PathSegment not fully implented in exceptional_workon");
                     } //There is one missing branch here: '<' PathType ('as' PathType)? '>'

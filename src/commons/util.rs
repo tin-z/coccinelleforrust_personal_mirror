@@ -254,6 +254,37 @@ pub fn getnrfrompt<'a>(node1: &'a Snode) -> &'a Snode {
     return name_ref1;
 }
 
+/// Get NameRef from PathType
+pub fn getnrfrompt_r<'a>(node1: &'a Rnode) -> &'a Rnode {
+    //This part removes the qualifier from the path
+    let node1 = &node1.children[0]; //Gets path
+    let psegment = match &node1.children[..] {
+        [_qualifier, psegment] => psegment,
+        [psegment] => psegment,
+        _ => {
+            panic!("Path should have 1 or 2 children: qualifier? Pathsegment")
+        }
+    };
+    //Gets rid of the generic args list
+    //For non-type inferenced checks, generic args are skipped
+    let name_ref1 = match &psegment.children.iter().map(|x| x.kind()).collect_vec()[..] {
+        [Tag::COLON2, Tag::NAME_REF] => &psegment.children[1],
+        [Tag::NAME_REF] | [Tag::NAME_REF, _] | [Tag::NAME_REF, _, _] => &psegment.children[0],
+        _ => {
+            println!(
+                "{:#?}, {}",
+                &psegment.children.iter().map(|x| x.kind()).collect_vec()[..],
+                psegment.getstring()
+            );
+            panic!("PathSegment not fully implented in exceptional_workon");
+        } //There is one missing branch here: '<' PathType ('as' PathType)? '>'
+          //I am not sure how to handle that branch
+    };
+
+    return name_ref1;
+}
+
+
 pub fn attach_pluses_front(node: &mut Snode, plus: Vec<Snode>) {
     if node.children.len() == 0 || !node.wrapper.metavar.isnotmeta() {
         //attach to a token or a metavar
