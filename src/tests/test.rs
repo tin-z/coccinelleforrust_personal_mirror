@@ -1,4 +1,7 @@
-//AYee
+//Test
+
+///AYee
 struct Foo {
-    //func()
+    //println!("{}");
 }
+

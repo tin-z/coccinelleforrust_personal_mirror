@@ -163,7 +163,9 @@ fn showdiff(
     let (data, diff) = getformattedfile(&args, transformedcode, &targetpath);
     if !hasstars {
         if !args.suppress_diff {
-            println!("{}", diff);
+            if !diff.is_empty() {
+                println!("{}", diff);
+            }
         }
 
         if args.apply {
@@ -196,7 +198,6 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
             let (rules, _, hasstars) = processcocci(&patchstring);
             //Currently have to parse cocci again because Rule has SyntaxNode which which has
             //rowan `NonNull<rowan::cursor::NodeData>` which cannot be shared between threads safely
-
             let rcode = fs::read_to_string(&targetpath).expect("Could not read file");
             let transformedcode = transformation::transformfile(&rules, rcode);
             let mut transformedcode = match transformedcode {
@@ -204,7 +205,7 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
                 Err(error) => {
                     //failedfiles.push((error, targetpath));
                     match error {
-                        TARGETERROR(msg, _) => println!("{}", msg),
+                        TARGETERROR(msg, _) => eprintln!("{}", msg),
                         RULEERROR(msg, error, _) => println!("Transformation Error at rule {} : {}", msg, error),
                     }
                     println!("Failed to transform {}", targetpath);

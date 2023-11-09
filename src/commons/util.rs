@@ -284,7 +284,6 @@ pub fn getnrfrompt_r<'a>(node1: &'a Rnode) -> &'a Rnode {
     return name_ref1;
 }
 
-
 pub fn attach_pluses_front(node: &mut Snode, plus: Vec<Snode>) {
     if node.children.len() == 0 || !node.wrapper.metavar.isnotmeta() {
         //attach to a token or a metavar
@@ -338,13 +337,12 @@ pub fn attach_pluses_back(node: &mut Snode, plus: Vec<Snode>) {
     }
 }
 
-pub fn attach_spaces_left(node: &mut Rnode, estring: String) {
+pub fn attach_spaces_left(node: &mut Rnode, mut estring: String) {
     let len = node.children.len();
     if len == 0 {
         //eprintln!("{} LEFT \"{}\"", node.getunformatted(), estring);
-        if node.wrapper.wspaces.0.is_empty() {
-            node.wrapper.wspaces.0 = estring;
-        }
+        estring.push_str(&node.wrapper.wspaces.0);
+        node.wrapper.wspaces.0 = estring;
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
         attach_spaces_left(&mut node.children[0], estring);

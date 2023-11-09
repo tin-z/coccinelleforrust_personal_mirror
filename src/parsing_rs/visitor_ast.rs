@@ -79,7 +79,10 @@ pub fn work_node<'a>(
                                     Some(exprlist) => exprlist,
                                     None => {
                                         //Macros could not be parsed
-                                        let rnode = work_node(wrap_node, child);
+                                        let mut rnode = work_node(wrap_node, child);
+                                        attach_spaces_left(&mut rnode, estrings);
+                                        estrings = String::new();
+
                                         children.push(rnode);
                                         continue;
                                     }
@@ -94,6 +97,10 @@ pub fn work_node<'a>(
                                     true
                                 })
                             });
+
+                            attach_spaces_left(&mut exprlist[0], estrings);
+                            estrings = String::new();
+
                             children.extend(exprlist);
                         }
                         _ => {
