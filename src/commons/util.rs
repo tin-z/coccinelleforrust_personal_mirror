@@ -307,23 +307,25 @@ pub fn attach_pluses_back(node: &mut Snode, plus: Vec<Snode>) {
     }
 }
 
-pub fn attach_spaces_front(node: &mut Rnode, estring: String) {
+pub fn attach_spaces_left(node: &mut Rnode, estring: String) {
     let len = node.children.len();
     if len == 0 {
+        //eprintln!("{} LEFT \"{}\"", node.getunformatted(), estring);
         node.wrapper.wspaces.0 = estring;
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
-        attach_spaces_front(&mut node.children[0], estring);
+        attach_spaces_left(&mut node.children[0], estring);
     }
 }
 
-pub fn attach_spaces_back(node: &mut Rnode, estring: String) {
+pub fn attach_spaces_right(node: &mut Rnode, estring: String) {
     let len = node.children.len();
     if len == 0 {
+        //eprintln!("{} RIGHT \"{}\"", node.getunformatted(), estring);
         node.wrapper.wspaces.1 = estring;
     } else {
         //println!("deeper to {:?}", node.children[len - 1].kind());
-        attach_spaces_back(&mut node.children[len - 1], estring);
+        attach_spaces_right(&mut node.children[len - 1], estring);
     }
 }
 

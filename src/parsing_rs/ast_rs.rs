@@ -212,6 +212,7 @@ impl Rnode {
 
         // Spaces before curent node
         if !self.wrapper.isremoved {
+            //eprintln!("{:?} \"{}\"", data, self.wrapper.wspaces.0);
             data.push_str(&format!("{}", self.wrapper.wspaces.0));
         }
 
@@ -226,6 +227,7 @@ impl Rnode {
 
         // Spaces after node
         if !self.wrapper.isremoved {
+            //eprintln!("{:?} \"{}\"", data, self.wrapper.wspaces.1 );
             data.push_str(&format!("{}", self.wrapper.wspaces.1));
         }
 

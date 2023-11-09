@@ -125,6 +125,7 @@ fn getformattedfile(
 
         let formattednode =
             processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
+
         adjustformat(transformedcode, &formattednode, None);
         transformedcode.writetreetofile(&randrustfile);
 

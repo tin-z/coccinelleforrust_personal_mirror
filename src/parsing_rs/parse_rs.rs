@@ -67,7 +67,7 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
     let parse = SourceFile::parse(contents);
-    
+
     let errors = parse.errors();
 
     if errors.len() != 0 {
@@ -102,6 +102,6 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
         );
         rnode
     };
-
+    
     Ok(work_node(wrap_node,  SyntaxElement::Node(root)))
 }

@@ -5,7 +5,7 @@ use ra_parser::SyntaxKind;
 use ra_syntax::SyntaxElement;
 use std::vec;
 
-use crate::commons::util::{attach_spaces_back, attach_spaces_front, workrnode};
+use crate::commons::util::{attach_spaces_right, attach_spaces_left, workrnode};
 
 use super::{ast_rs::Rnode, parse_rs::processrs};
 type Tag = SyntaxKind;
@@ -101,27 +101,31 @@ pub fn work_node<'a>(
                             if children.len() != 0 {
                                 if estrings.contains("/*COCCIVAR*/") {
                                     //Only in case of this special variable which has been
-                                    //injected at rnode.unformatted() should it be attached to nodes
-                                    //that come after it
-
-                                    attach_spaces_front(&mut newnode, String::from("/*COCCIVAR*/"));
+                                    //injected at rnode.getunformatted() should the whitespaces
+                                    // be attached to nodes that come after it
+                                    
+                                    //eprintln!("{} LEFT \"{}\"", newnode.getunformatted(), "/*COCCIVAR*/");
+                                    attach_spaces_left(&mut newnode, String::from("/*COCCIVAR*/"));
 
                                     //Takes only spaces coming before COCCIVAR
                                     //Anything after COCCIVAR in that line is unformatted
                                     estrings =
                                         estrings.split("/*COCCIVAR*/").collect_vec()[0].to_string();
                                 }
-                                attach_spaces_back(children.last_mut().unwrap(), estrings);
+                                //eprintln!("{} RIGHT \"{}\"", newnode.getunformatted(), estrings);
+                                attach_spaces_right(children.last_mut().unwrap(), estrings);
                             } else {
-                                attach_spaces_front(&mut newnode, estrings);
+                                //eprintln!("{} LEFT \"{}\"", newnode.getunformatted(), estrings);
+                                attach_spaces_left(&mut newnode, estrings);
                             }
                             children.push(newnode);
                             estrings = String::new();
                         }
                     }
                 }
-                if estrings.len() != 0 {
-                    attach_spaces_front(children.last_mut().unwrap(), estrings);
+                if estrings.is_empty() {
+                    //eprintln!("{} thisLEFT \"{}\"", children.last_mut().unwrap().getunformatted(), estrings);
+                    attach_spaces_left(children.last_mut().unwrap(), estrings);
                 }
             }
             SyntaxElement::Token(_token) => {}
