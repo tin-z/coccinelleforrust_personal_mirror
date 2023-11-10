@@ -2,6 +2,10 @@
 
 ///AYee
 struct Foo {
-    //println!("{}");
+    a: usize
+}
+
+fn main() {
+    test();
 }
 

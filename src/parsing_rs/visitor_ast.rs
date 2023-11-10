@@ -47,7 +47,7 @@ fn ttree_to_expr_list(tt: String) -> Option<Vec<Rnode>> {
     //function
     args.children.iter_mut().for_each(|x| {
         workrnode(x, &mut |node| {
-            node.wrapper.info.subtract(info.clone());
+            node.wrapper.info.subtract(&info);
             true
         });
     });
@@ -93,7 +93,7 @@ pub fn work_node<'a>(
                             //Adding the offset to the expressions
                             exprlist.iter_mut().for_each(|x| {
                                 workrnode(x, &mut |node| {
-                                    node.wrapper.info.add(info.clone());
+                                    node.wrapper.info.add(&info);
                                     true
                                 })
                             });

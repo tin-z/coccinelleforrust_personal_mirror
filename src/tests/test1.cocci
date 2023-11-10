@@ -2,4 +2,4 @@
 lifetime 'l1,'l2;
 @@
 
--func()
+-test()

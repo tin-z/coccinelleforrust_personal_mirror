@@ -59,14 +59,14 @@ impl ParseInfo {
         ParseInfo { str: String::new(), charstart: 0, charend: 0, sline: 0, eline: 0, column: 0, file: String::new() }
     }
 
-    pub fn subtract(&mut self, info: Self) {
+    pub fn subtract(&mut self, info: &Self) {
         self.charstart -= info.charstart;
         self.charend -= info.charstart;
         self.sline -= info.sline;
         self.eline -= info.sline;
     }
 
-    pub fn add(&mut self, info: Self) {
+    pub fn add(&mut self, info: &Self) {
         self.charstart += info.charstart;
         self.charend += info.charstart;
         self.sline += info.sline;

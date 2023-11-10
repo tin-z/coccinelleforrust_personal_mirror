@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
 
-use ra_ide_db::line_index::{LineCol, LineIndex};
-use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode, SyntaxError};
+use ra_ide_db::line_index::LineIndex;
+use ra_syntax::{SourceFile, SyntaxElement, SyntaxError, SyntaxNode};
 
 use crate::{commons::info::ParseInfo, parsing_rs::visitor_ast::work_node};
 
 use super::ast_rs::{Rnode, Wrap};
 
 pub fn fill_wrap(lindex: &LineIndex, node: &SyntaxElement) -> Wrap {
-    let sindex: LineCol = lindex.line_col(node.text_range().start());
-    let eindex: LineCol = lindex.line_col(node.text_range().end());
+    let sindex =
+        lindex.try_line_col(node.text_range().start()).unwrap_or(lindex.line_col(0.into()));
+    let eindex = lindex.try_line_col(node.text_range().end()).unwrap_or(lindex.line_col(0.into()));
 
     let parse_info = ParseInfo::new(
         String::new(),
@@ -29,9 +30,7 @@ pub fn processrswithsemantics(contents: &str, rnode: SyntaxNode) -> Result<Rnode
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
 
-    let wrap_node = &|node: SyntaxElement,
-                      df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
-     -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
         let kind = node.kind();
         let children = df(&node);
@@ -42,7 +41,6 @@ pub fn processrswithsemantics(contents: &str, rnode: SyntaxNode) -> Result<Rnode
 }
 
 fn pretty_print_errors(errors: &[SyntaxError], code: &str, lindex: &LineIndex) -> String {
-
     let mut ret = String::new();
 
     for error in errors {
@@ -51,8 +49,9 @@ fn pretty_print_errors(errors: &[SyntaxError], code: &str, lindex: &LineIndex) -
         let line_char = linecol.col as usize;
         let lines: Vec<&str> = code.lines().collect();
         let start_line = if line_number > 2 { line_number - 2 } else { 0 };
-        let end_line = if line_number + 2 < lines.len() { line_number + 2 } else { lines.len() - 1 };
- 
+        let end_line =
+            if line_number + 2 < lines.len() { line_number + 2 } else { lines.len() - 1 };
+
         ret.push_str(&format!("Error: {} at char {}\n", error, line_char));
         for (i, line) in lines[start_line..=end_line].iter().enumerate() {
             let line_number = start_line + i + 1;
@@ -61,12 +60,18 @@ fn pretty_print_errors(errors: &[SyntaxError], code: &str, lindex: &LineIndex) -
     }
 
     return ret;
- } 
+}
 
 pub fn processrs(contents: &str) -> Result<Rnode, String> {
     //TODO put this in ast_rs.rs
     let lindex = LineIndex::new(contents);
     let parse = SourceFile::parse(contents);
+
+    if contents.trim().is_empty() {
+        let node = parse.syntax_node();
+        let kind = node.kind();
+        return Ok(Rnode::new(Wrap::dummy(1), Some(SyntaxElement::Node(node)), kind, vec![]));
+    }
 
     let errors = parse.errors();
 
@@ -89,9 +94,7 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
     }
     let root = parse.syntax_node();
 
-    let wrap_node = &|node: SyntaxElement,
-                      df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>|
-     -> Rnode {
+    let wrap_node = &|node: SyntaxElement, df: &dyn Fn(&SyntaxElement) -> Vec<Rnode>| -> Rnode {
         let wrapped = fill_wrap(&lindex, &node);
         let children = df(&node);
         let kind = node.kind();
@@ -102,6 +105,6 @@ pub fn processrs(contents: &str) -> Result<Rnode, String> {
         );
         rnode
     };
-    
-    Ok(work_node(wrap_node,  SyntaxElement::Node(root)))
+
+    Ok(work_node(wrap_node, SyntaxElement::Node(root)))
 }
