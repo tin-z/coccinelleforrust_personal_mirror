@@ -84,8 +84,8 @@ pub fn transform(node: &mut Rnode, env: &Environment) {
             //eprintln!("{:?}:{:?}, {:?}", x.getunformatted(), x.kind(), (pluspos, isbef, pos));
             if pos.0 == pluspos && x.children.len() == 0 && isbef {
                 x.wrapper.plussed.0 = snodetornode(pluses, env);
-                //println!("TESTIG bef {}", x.totoken());
-                //println!("======================== {:?}", x);
+                //eprintln!("TESTIG bef {}", x.totoken());
+                //eprintln!("======================== {:?}", x);
             } else if pos.1 == pluspos && x.children.len() == 0 && !isbef {
                 x.wrapper.plussed.1 = snodetornode(pluses, env);
                 //println!("TESTIG aft {}", x.totoken());

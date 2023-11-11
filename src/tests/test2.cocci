@@ -1,6 +1,13 @@
 @@
-struct .*::Rnode rnode;
+identifier i;
+expression e;
 @@
 
--Rc::new(rnode)
-+Rc::new(BoundNode::Node(rnode))
+pub fn i(
+    ...
+-) -> e {
++) -> usize {
+    f(
+        ...
+    );
+}

@@ -1,11 +1,3 @@
-//Test
-
-///AYee
-struct Foo {
-    a: usize
+pub fn bind_clevis(self) -> MethodResult {
+    f(a(), 0);
 }
-
-fn main() {
-    
-}
-

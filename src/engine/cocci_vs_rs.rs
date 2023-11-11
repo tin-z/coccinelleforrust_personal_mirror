@@ -216,7 +216,7 @@ impl<'a, 'b> Looper<'a> {
                 MetavarMatch::WildMatch => {
                     //Should I add plusses here?
                     loop {
-                        if !b.isexpr() && !b.isparam() {
+                        if !b.isexpr() && !b.isparam() && b.kind()!=Tag::COMMA {
                             a = nodevec1
                                 .next()
                                 .unwrap_or_else(|| panic!("Something wrong with wildcard"));
