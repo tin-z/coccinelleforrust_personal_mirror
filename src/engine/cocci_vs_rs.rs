@@ -216,6 +216,7 @@ impl<'a, 'b> Looper<'a> {
                 MetavarMatch::WildMatch => {
                     //Should I add plusses here?
                     loop {
+                        //if b.isexpr() || b.isparam()
                         if !b.isexpr() {
                             a = nodevec1
                                 .next()
