@@ -82,3 +82,5 @@ pub enum ParseError {
                         //This means there is an error after transformation
                         //It contains the rulename, error, the unparsed file
 }
+
+pub const WILDCARD: &str = "__BLOCK_WILD_CARD__";

@@ -5,7 +5,7 @@ use ra_parser::SyntaxKind;
 use ra_syntax::SyntaxElement;
 use std::vec;
 
-use crate::commons::util::{attach_spaces_right, attach_spaces_left, workrnode};
+use crate::commons::util::{attach_spaces_left, attach_spaces_right, workrnode};
 
 use super::{ast_rs::Rnode, parse_rs::processrs};
 type Tag = SyntaxKind;
@@ -87,7 +87,7 @@ pub fn work_node<'a>(
                                         continue;
                                     }
                                 };
-                            
+
                             let info = work_node(wrap_node, child).wrapper.info.clone(); //Currently clones for macros
 
                             //Adding the offset to the expressions
@@ -110,7 +110,7 @@ pub fn work_node<'a>(
                                     //Only in case of this special variable which has been
                                     //injected at rnode.getunformatted() should the whitespaces
                                     // be attached to nodes that come after it
-                                    
+
                                     //eprintln!("{} LEFT \"{}\"", newnode.getunformatted(), "/*COCCIVAR*/");
                                     attach_spaces_left(&mut newnode, String::from("/*COCCIVAR*/"));
 
@@ -122,7 +122,6 @@ pub fn work_node<'a>(
                                 //eprintln!("{} RIGHT \"{}\"", children.last_mut().unwrap().getunformatted(), estrings);
                                 attach_spaces_right(children.last_mut().unwrap(), estrings);
                             } else {
-                                
                                 attach_spaces_left(&mut newnode, estrings);
                             }
                             children.push(newnode);

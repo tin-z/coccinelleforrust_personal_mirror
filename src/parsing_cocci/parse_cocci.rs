@@ -16,7 +16,7 @@ use std::{collections::HashSet, vec};
 
 use super::ast0::{wrap_root, Mcodekind, MetaVar, MetavarName, Snode};
 use crate::{
-    commons::util::{self, attach_pluses_back, attach_pluses_front, collecttree, removestmtbraces, worksnode},
+    commons::{util::{self, attach_pluses_back, attach_pluses_front, collecttree, removestmtbraces, worksnode}, info::WILDCARD},
     debugcocci,
     parsing_cocci::ast0::MetavarType,
     syntaxerror,
@@ -548,6 +548,13 @@ pub fn handlemods(block: &Vec<&str>) -> Result<(String, String, bool), (usize, S
     let mut indisj = 0;
 
     for line in block {
+
+        if line.trim()=="..." {
+            minusbuf.push_str(&format!("{}{}", WILDCARD, '\n'));
+            plusbuf.push_str(&format!("{}{}", WILDCARD, '\n'));
+            continue;
+        }
+
         match line.chars().next() {
             Some('+') => {
                 if hasstar {

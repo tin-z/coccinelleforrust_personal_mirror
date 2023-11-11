@@ -5,9 +5,9 @@ use ra_parser::SyntaxKind;
 use ra_syntax::SyntaxElement;
 use std::vec;
 
-use crate::commons::util::worksnode;
+use crate::commons::{info::WILDCARD, util::worksnode};
 
-use super::ast0::{wrap_root, Snode};    
+use super::ast0::{wrap_root, Snode};
 
 type Tag = SyntaxKind;
 
@@ -90,6 +90,12 @@ pub fn work_node<'a>(
                                 })
                             });
                             children.extend(exprlist);
+                        }
+                        Tag::PATH_EXPR if child.to_string() == WILDCARD => {
+                            let snode = Snode::make_wildcard();
+                            children.push(snode);
+
+                            modkind = None;
                         }
                         _ => {
                             children.push(work_node(lindex, wrap_node, child, modkind.clone()));

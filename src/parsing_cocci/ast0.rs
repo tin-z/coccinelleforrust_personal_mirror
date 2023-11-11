@@ -17,6 +17,7 @@ use ra_syntax::{SourceFile, SyntaxElement, SyntaxNode};
 /// Semantic Path Node
 pub struct Snode {
     pub wrapper: Wrap,
+    pub is_wildcard: bool,
     pub asttoken: Option<SyntaxElement>,
     kind: SyntaxKind,
     pub children: Vec<Snode>,
@@ -50,6 +51,16 @@ impl<'a> Snode {
     //pub fn new_rloot(wrapper: Wrap, syntax: SyntaxElement, children: Vec<Snode>) -> Snode {
     //    Snode { wrapper: wrapper, astnode: Some(syntax), kind: , children: children }
     //}
+
+    pub fn make_wildcard() -> Snode {
+        Snode {
+            wrapper: Wrap::make_dummy(),
+            is_wildcard: true,
+            asttoken: None,
+            kind: SyntaxKind::WILDCARD_PAT,//No meaning
+            children: vec![]
+        }
+    }
 
     pub fn set_children(&mut self, children: Vec<Snode>) {
         self.children = children
@@ -651,6 +662,35 @@ impl Wrap {
         }
     }
 
+    pub fn make_dummy() -> Wrap {
+        let pos_info: PositionInfo = PositionInfo::new(
+            //all casted to usize because linecol returns u32
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+    
+        let info = Info::new(pos_info, false, false, vec![], vec![], false);
+        let wrap: Wrap = Wrap::new(
+            info,
+            0,
+            None, //will be filled later with type inference
+            MetaVar::NoMeta,
+            false,
+            false,
+            false,
+            vec![],
+            false,
+        );
+        wrap
+    }
+    
+
     pub fn is_ident(&self) -> bool {
         self.info.is_symbol_ident
     }
@@ -771,6 +811,7 @@ pub fn wrap_root(contents: &str) -> Snode {
         let node = if children.len() == 0 { Some(node) } else { None };
         let mut snode = Snode {
             wrapper: wrapped,
+            is_wildcard: false,
             asttoken: node, //Change this to SyntaxElement
             kind: kind,
             children: children,

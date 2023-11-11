@@ -101,6 +101,7 @@ enum MetavarMatch<'a, 'b> {
     Maybe(&'b Snode, &'a Rnode),
     Match,
     Exists,
+    WildMatch,
 }
 
 /// This checks for any pluses attached to the SEMANTIC PATCH CODE
@@ -153,7 +154,7 @@ impl<'a, 'b> Looper<'a> {
         let mut a: &Snode;
         let mut b: &Rnode;
 
-        loop {
+        'outer: loop {
             if let Some(ak) = nodevec1.next() {
                 a = ak;
             } else {
@@ -175,15 +176,17 @@ impl<'a, 'b> Looper<'a> {
             //helps in debugging, and I always forget where to put it
 
             //This takes care of when node types dont match but we still
-            //want to work on them
-            if EXCEPTIONAL_MATCHES.contains(&(akind, bkind)) {
-                (a, b) = self.exceptional_workon(a, b);
-                //println!("{:?} ===== {:?} --> {} ::: Exceptional", akind, bkind, b.getunformatted());
-            } else {
-                if akind != bkind && a.wrapper.metavar.isnotmeta()
-                //There are certain metavariables which need to be processed even if the types dont match
-                {
-                    fail!()
+            //want to work on them or it is a WILDCARD
+            if !a.is_wildcard {
+                if EXCEPTIONAL_MATCHES.contains(&(akind, bkind)) {
+                    (a, b) = self.exceptional_workon(a, b);
+                    //println!("{:?} ===== {:?} --> {} ::: Exceptional", akind, bkind, b.getunformatted());
+                } else {
+                    if akind != bkind && a.wrapper.metavar.isnotmeta()
+                    //There are certain metavariables which need to be processed even if the types dont match
+                    {
+                        fail!()
+                    }
                 }
             }
 
@@ -208,6 +211,38 @@ impl<'a, 'b> Looper<'a> {
                         env.add(renv);
                     } else {
                         fail!()
+                    }
+                }
+                MetavarMatch::WildMatch => {
+                    //Should I add plusses here?
+                    loop {
+                        if !b.isexpr() {
+                            a = nodevec1
+                                .next()
+                                .unwrap_or_else(|| panic!("Something wrong with wildcard"));
+                            //This should either be } or )
+                            //No bindings are created
+                            match (a.kind(), b.kind()) {
+                                (Tag::R_CURLY, Tag::R_CURLY) | (Tag::R_BRACK, Tag::R_BRACK) => {
+                                    addplustoenv(a, b, &mut env);
+                                    match a.wrapper.mcodekind {
+                                        Mcodekind::Minus(_) | Mcodekind::Star => {
+                                            env.modifiers.minuses.push(b.getpos());
+                                        }
+                                        Mcodekind::Plus => {}
+                                        Mcodekind::Context(_, _) => {}
+                                    }
+                                }
+                                _ => {
+                                    fail!();
+                                }
+                            }
+                            continue 'outer;
+                        }
+
+                        b = nodevec2
+                            .next()
+                            .unwrap_or_else(|| panic!("Something wrong with wildcard."));
                     }
                 }
                 MetavarMatch::Match => {
@@ -298,7 +333,14 @@ impl<'a, 'b> Looper<'a> {
     ) -> MetavarMatch<'a, 'b> {
         // Metavar checking will be done inside the match
         // block below
-        // to note: node1 and node2 are of the same SyntaxKind
+        // to note: node1 and node2 are of the same SyntaxKind(probably)
+        // If not it is because node1 is a wildcard or
+        // their kinds exist in EXCEPTINAL_MATCHES
+
+        if node1.is_wildcard {
+            return MetavarMatch::WildMatch;
+        }
+
         match &node1.wrapper.metavar {
             crate::parsing_cocci::ast0::MetaVar::NoMeta => {
                 if node2.children.len() == 0

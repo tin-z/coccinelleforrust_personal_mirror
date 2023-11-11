@@ -1,5 +1,8 @@
-@type@
-lifetime 'l1,'l2;
+@@
+identifier i;
 @@
 
--test()
+- fn i() {
++ fn hehe() {
+    ...
+}
