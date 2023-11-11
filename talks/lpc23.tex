@@ -1,0 +1,682 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[all]{xy}
+\usetheme{metropolis}
+
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{beamerfoils}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{textpos}
+\usepackage{alltt}
+\usepackage{color}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest,
+   /pgfplots/ybar legend/.style={
+    /pgfplots/legend image code/.code={%
+       \draw[##1,/tikz/.cd,yshift=-0.25em]
+        (0cm,0cm) rectangle (2pt,0.8em);},
+   },
+}
+
+\definecolor{color1}{rgb}{0.549,0.815,0.960}
+\definecolor{color2}{rgb}{0.607,0.937,0.498}
+\definecolor{color3}{rgb}{0.839,0.929,0.427}
+\definecolor{color4}{rgb}{0.878,0.619,0.141}
+\definecolor{color5}{rgb}{0.396,0.165,0.055}
+\definecolor{color6}{rgb}{0.643,0.368,0.898}
+\definecolor{colortop}{rgb}{0.878,0.141,0.141}
+
+\usepackage{wasysym}
+
+\newcommand{\snest}{Nest}
+
+\newcommand{\extrabold}{}%{\bfseries}
+
+  \lstdefinelanguage{diff}{
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+	morecomment=[f][\color{purple}]{*},
+	morecomment=[f][\color{purple}]{?},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+  \lstdefinelanguage{tdiff}{
+	basicstyle=\ttfamily\extrabold\tiny,
+	morecomment=[f][\color{subtitlex}]{@},
+	morecomment=[f][\color{gr}]{+},
+	morecomment=[f][\color{red}]{-},
+        keepspaces=true,
+	escapechar=£,
+	identifierstyle=\color{black},
+  }
+
+\lstloadlanguages{C}
+\lstset{language=C,
+	basicstyle=\ttfamily\extrabold\scriptsize,
+	backgroundcolor=\color{white},
+        showspaces=false,
+        rulesepcolor=\color{gray},
+	showstringspaces=false,
+	keywordstyle=\bfseries\color{blue!40!black},
+	commentstyle=\itshape\color{purple!40!black},
+	identifierstyle=\color{black},
+	stringstyle=\color{red},
+        numbers=none,
+        numbersep=2pt,
+        morekeywords={elif},
+       }
+
+%\lstset{escapeinside={(*@}{@*)},style=customP}
+
+\newcommand{\ttlb}{\mbox{\tt \char'173}}
+\newcommand{\ttrb}{\mbox{\tt \char'175}}
+\newcommand{\ttbs}{\mbox{\tt \char'134}}
+\newcommand{\ttmid}{\mbox{\tt \char'174}}
+\newcommand{\tttld}{\mbox{\tt \char'176}}
+\newcommand{\ttcar}{\mbox{\tt \char'136}}
+\newcommand{\msf}[1]{\mbox{\sf{{#1}}}}
+\newcommand{\mita}[1]{\mbox{\it{{#1}}}}
+\newcommand{\mbo}[1]{\mbox{\bf{{#1}}}}
+\newcommand{\mth}[1]{\({#1}\)}
+\newcommand{\ssf}[1]{\mbox{\scriptsize\sf{{#1}}}}
+\newcommand{\sita}[1]{\mbox{\scriptsize\it{{#1}}}}
+\newcommand{\mrm}[1]{\mbox{\rm{{#1}}}}
+\newcommand{\mtt}[1]{\mbox{\tt{{#1}}}}
+
+\definecolor{gr}{rgb}{0.22,0.63,0.08}
+\definecolor{subtitlex}{rgb}{0.2,0.2,0.7}
+
+\setlength{\fboxrule}{1.75pt}
+\newcommand{\mybox}[2]{\fcolorbox{#1}{black!2}{\makebox[1.2\height]{\begin{tabular}{c}\textcolor{#1}{#2}\end{tabular}}}}
+\newcommand{\emptybox}[1]{\mybox{#1}{\textcolor{black!2}{t1}}}
+\newcommand{\blackbox}{\emptybox{black}}
+\newcommand{\grbox}[1]{\mybox{gr}{T{#1}}}
+\newcommand{\redbox}[1]{\mybox{subtitlex}{\textcolor{red}{T{#1}}}}
+\newcommand{\gredbox}[1]{\mybox{gr}{\textcolor{red}{T{#1}}}}
+\newcommand{\bluebox}[1]{\mybox{subtitlex}{T{#1}}}
+
+%\\[-2mm]
+%5\\[-2mm]{}
+
+\title{Coccinelle for Rust\\
+https://gitlab.inria.fr/coccinelle/coccinelleforrust.git
+}
+\author{Julia Lawall, Tathagata Roy}
+\date{November 15, 2023\\ \mbox{}
+}
+
+\begin{document}
+
+\frame{\titlepage}
+\frame{\frametitle{Goals}
+
+\begin{itemize}
+\setlength{\itemsep}{4mm}
+\item Perform repetitive transformations at a large scale. \pause
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item[--] Rust is 1.6 MLOC.
+\item[--] The Linux kernel is 23 MLOC. \pause
+\item[--] Collateral evolutions: a change in an API requires changes in all clients.
+\end{itemize}
+
+\pause
+
+\item Provide a transformation language that builds on developer expertise.
+
+\pause
+
+\item Changes + developer familiarity = (semantic) patches
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{An example change (Rust
+    repository)}
+
+\begin{lstlisting}[language=tdiff]
+commit d822b97a27e50f5a091d2918f6ff0ffd2d2827f5
+Author: Kyle Matsuda <kyle.yoshio.matsuda@gmail.com>
+Date:   Mon Feb 6 17:48:12 2023 -0700
+
+    change usages of type_of to bound_type_of
+
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/.../conflict_errors.rs
+@@ -2592,4 +2592,4 @@ fn annotate_argument_and_return_for_borrow(
+             } else {
+-                £\textcolor{red}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{red}{;}£
++                £\textcolor{gr}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{gr}{;}£
+                 match ty.kind() {
+                     ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.rs
+@@ -1185,4 +1185,4 @@ fn explain_captures(
+                         matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
+                             .then_some(parent_did)
+-                            £\textcolor{red}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{red}{.kind() \ttlb}£
++                            £\textcolor{gr}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{gr}{.kind() \ttlb}£
+                                 ty::Adt(def, ..) => Some(def.did()),
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{An example change (Rust
+    repository)}
+
+\begin{lstlisting}[language=tdiff]
+commit d822b97a27e50f5a091d2918f6ff0ffd2d2827f5
+Author: Kyle Matsuda <kyle.yoshio.matsuda@gmail.com>
+Date:   Mon Feb 6 17:48:12 2023 -0700
+
+    change usages of type_of to bound_type_of
+
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/.../conflict_errors.rs
+@@ -2592,4 +2592,4 @@ fn annotate_argument_and_return_for_borrow(
+             } else {
+-                £\textcolor{black}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{black}{;}£
++                £\textcolor{black}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{black}{;}£
+                 match ty.kind() {
+                     ty::FnDef(_, _) | ty::FnPtr(_) => self.annotate_fn_sig(
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.rs
+@@ -1185,4 +1185,4 @@ fn explain_captures(
+                         matches!(tcx.def_kind(parent_did), rustc_hir::def::DefKind::Impl { .. })
+                             .then_some(parent_did)
+-                            £\textcolor{black}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{black}{.kind() \ttlb}£
++                            £\textcolor{black}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{black}{.kind() \ttlb}£
+                                 ty::Adt(def, ..) => Some(def.did()),
+...
+\end{lstlisting}
+
+\textcolor{subtitlex}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 1: remove irrelevant code}
+
+\begin{lstlisting}[language=tdiff]
+££
+££
+££
+££
+££
+££
+££
+££
+££
+-                £\textcolor{black!2}{let ty = }£self.infcx.tcx.type_of(self.mir_def_id())£\textcolor{black!2}{;}£
++                £\textcolor{black!2}{let ty = }£self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()£\textcolor{black!2}{;}£
+££
+££
+££
+££
+££
+££
+-                            £\textcolor{black!2}{.and\_then(|did| match}£ tcx.type_of(did)£\textcolor{black!2}{.kind() \ttlb}£
++                            £\textcolor{black!2}{.and\_then(|did| match}£ tcx.bound_type_of(did).subst_identity()£\textcolor{black!2}{.kind() \ttlb}£
+££
+££
+\end{lstlisting}
+
+\textcolor{black!2}{136 files changed, 385 insertions(+), 262 deletions(-)}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2:
+    pick a typical example}
+
+\begin{lstlisting}[language=tdiff]
+@@
+
+@@
+
+- self.infcx.tcx.type_of(self.mir_def_id())
++ self.infcx.tcx.bound_type_of(self.mir_def_id()).subst_identity()
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{Updates over 200 call sites.}
+}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 3: abstract over subterms using metavariables}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+- tcx.type_of(arg)
++ tcx.bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+
+\textcolor{black!2}{Updates over 200 call sites.}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 3: abstract over subterms using metavariables}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+- tcx.type_of(arg)
++ tcx.bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Updates over 200 call sites.}
+}
+
+\frame[t,containsverbatim]{\frametitle{An outlier}
+
+\begin{lstlisting}[language=tdiff]
+             let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
++            let def_ty = ecx.tcx.bound_type_of(def_id).subst_identity();
+             let extern_decl_layout =
+-                ecx.tcx.layout_of(ty::ParamEnv::empty().and(ecx.tcx.type_of(def_id))).unwrap();
++                ecx.tcx.layout_of(ty::ParamEnv::empty().and(def_ty)).unwrap();
+             if extern_decl_layout.size != shim_size || extern_decl_layout.align.abi != shim_align {
+                 throw_unsup_format!(
+                     "`extern` static `{name}` from crate `{krate}` has been declared \
+\end{lstlisting}
+
+\vspace{0.5\baselineskip}
+
+\textcolor{black!2}{The developer has created a new name to avoid a long
+  line.}
+\begin{itemize}
+\item[] \textcolor{black!2}{Could address it manually.}
+\item[] \textcolor{black!2}{Could create a rule for the special case of nested function call
+  contexts \newline (probably not worth it for one case).}
+\end{itemize}
+}
+
+\addtocounter{framenumber}{-1}
+
+\frame[t,containsverbatim]{\frametitle{An outlier}
+
+\begin{lstlisting}[language=tdiff]
+             let (shim_size, shim_align, _kind) = ecx.get_alloc_info(alloc_id);
++            let def_ty = ecx.tcx.bound_type_of(def_id).subst_identity();
+             let extern_decl_layout =
+-                ecx.tcx.layout_of(ty::ParamEnv::empty().and(ecx.tcx.type_of(def_id))).unwrap();
++                ecx.tcx.layout_of(ty::ParamEnv::empty().and(def_ty)).unwrap();
+             if extern_decl_layout.size != shim_size || extern_decl_layout.align.abi != shim_align {
+                 throw_unsup_format!(
+                     "`extern` static `{name}` from crate `{krate}` has been declared \
+\end{lstlisting}
+
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{The developer has created a new name to avoid a long
+  line.}
+\begin{itemize}
+\item Could address it manually.
+\item Could create a rule for the special case of nested function call
+  contexts \newline (probably not worth it for one case).
+\end{itemize}
+}
+
+\frame[t,containsverbatim]{\frametitle{An alternate semantic patch}
+
+\begin{lstlisting}[language=tdiff]
+@@
+expression tcx, arg;
+@@
+
+££
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+\textcolor{subtitlex}{Putting tcx in the context ensures any comments will
+  be preserved.}
+}
+
+
+\frame[t,containsverbatim]{\frametitle{A refinement}
+
+\begin{lstlisting}[language=tdiff]
+@@
+TyCtxt tcx;
+expression arg;
+@@
+
+  tcx.
+-    type_of(arg)
++    bound_type_of(arg).subst_identity()
+\end{lstlisting}
+
+\vfill
+
+\textcolor{subtitlex}{Specifying the type of {\tt tcx} protects against
+  changing other uses of \texttt{type\_of}.} 
+}
+
+\frame{\frametitle{Some Coccinelle internals}
+
+\textcolor{subtitlex}{Input:} Parsing provided by Rust Analyzer.
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item Used both for Rust code and for semantic patch code.
+\item Will provide type inference, when needed (currently, loses concurrency).
+\end{itemize} \pause
+
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Output:} Pretty printing provided by {\tt rustfmt}.
+\begin{itemize}
+\setlength{\itemsep}{2mm}
+\item To avoid problems with code not originally formatted with {\tt
+  rustfmt} \newline (or formatted with a different version), the {\tt rustfmt}ed
+  changes are dropped back into the original code.
+\item Preserves comments and whitespace in the unchanged part of the code.
+\end{itemize}}
+
+\frame{\frametitle{Some Coccinelle internals}
+\textcolor{subtitlex}{In the middle:}
+\begin{itemize}
+\setlength{\itemsep}{3mm}
+\item Wrap Rust code and semantic patch code, eg to indicate metavariables.
+\item Match semantic patch code against Rust code, to collect change sites and metavariable bindings.
+\item On a successful match, apply the changes, instantiated according to the metavariable bindings, reparse, and repeat with the next rule.
+\end{itemize}}
+
+\frame{\frametitle{A case study}
+
+\textcolor{subtitlex}{Software:} stratisd
+\begin{itemize}
+\item https://github.com/stratis-storage/stratisd
+\item Easy to use local storage management for Linux.
+\item Over 2000 commits, and over 10K lines of Rust code.
+\end{itemize}
+
+\vspace{\baselineskip}
+
+\textcolor{subtitlex}{Commit selection:}
+\begin{itemize}
+\item Patchparse: https://gitlab.inria.fr/lawall/patchparse4
+\item Collect change patterns that occur at least 40 times.
+\item 13 commits selected, affecting 10-94 files, and up to 3000 $\textcolor{gr}{+}/\textcolor{red}{-}$ lines.
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Some successes}
+
+\textcolor{subtitlex}{Commits:}
+\begin{itemize}
+\item 39b925b0: Remove EngineError alias
+\item c3918972: Replace EngineResult usage with StratisResult
+\end{itemize}
+
+\textcolor{subtitlex}{Semantic patch:}
+\begin{columns}
+\begin{column}{0.3\textwidth}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+@type@
+@@
+- EngineError
++ StratisError
+\end{lstlisting}
+\end{column}
+\begin{column}{0.3\textwidth}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+@type@
+@@
+- EngineResult
++ StratisResult
+\end{lstlisting}
+\end{column}
+\end{columns}
+
+\vspace{0.5\baselineskip}
+
+\textcolor{black!2}{Results:}
+\begin{itemize}
+\item[] \textcolor{black!2}{{Typical changes:} {\tt use}, method signatures, method calls.}
+\item[] \textcolor{black!2}{Benefits from recent improvements in pretty printing.}
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Some successes}
+
+\textcolor{subtitlex}{Commits:}
+\begin{itemize}
+\item 39b925b0: Remove EngineError alias
+\item c3918972: Replace EngineResult usage with StratisResult
+\end{itemize}
+
+\textcolor{subtitlex}{Semantic patch:}
+\begin{columns}
+\begin{column}{0.3\textwidth}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+@type@
+@@
+- EngineError
++ StratisError
+\end{lstlisting}
+\end{column}
+\begin{column}{0.3\textwidth}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+@type@
+@@
+- EngineResult
++ StratisResult
+\end{lstlisting}
+\end{column}
+\end{columns}
+
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{Results:}
+\begin{itemize}
+\item {Typical changes:} {\tt use}, method signatures, method calls.
+\item Benefits from recent improvements in pretty printing.
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Some successes}
+
+\textcolor{subtitlex}{fe7df6a9:} Remove unnecessary pub modifier on
+stratisd tests
+
+\vspace{0.4\baselineskip}
+
+\textcolor{subtitlex}{Semantic patch:}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+@@
+identifier f;
+expression e;
+@@
+#[test]
+- pub
+  fn f() { e; }
+\end{lstlisting}
+
+\textcolor{subtitlex}{Results:}
+\begin{itemize}
+\item 69 changes across 9 files.
+\item 1 case has an additional attribute and thus is omitted.
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Some successes}
+
+\textcolor{subtitlex}{9c60ad44:} Remove ErrorEnum and add error chaining
+
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{lstlisting}[language=tdiff,backgroundcolor=\color{black!2}]
+@@
+expression return_message, e1;
+@@
+  return_message.append3(e1,
+-   msg_code_ok(), msg_string_ok(),
++   DbusErrorEnum::OK as u16, OK_STRING.to_string(),
+  )
+
+@@
+@@
+- DbusErrorEnum::INTERNAL_ERROR
++ DbusErrorEnum::ERROR
+\end{lstlisting}
+\end{column}
+\begin{column}{0.3\textwidth}
+\begin{lstlisting}[language=tdiff,backgroundcolor=\color{black!2}]
+@@
+expression e;
+@@
+- StratisError::Error
++ StratisError::Msg
+    (e,)
+
+@@
+expression e1, e2;
+@@
+- StratisError::Engine(e1,
++ StratisError::Msg(
+    e2,)
+\end{lstlisting}
+\end{column}
+\end{columns}
+
+\textcolor{subtitlex}{Results:}
+\begin{itemize}
+\item Covers 290/417 changes. Omits {\tt use}s and some less common patterns.
+\item Trailing commas lead to a lot of rule duplication.
+\end{itemize}}
+
+\frame[containsverbatim]{\frametitle{Some successes}
+
+\textcolor{subtitlex}{d4ac5d89:} Switch from trait objects to type parameters and associated types
+
+%\textcolor{subtitlex}{Semantic patch extract:}
+\begin{lstlisting}[language=tdiff,backgroundcolor=\color{black!2}]
+@r1@
+identifier mthd, f;
+identifier t;
+@@
+pub fn
+- mthd(f: &Factory<MTSync<TData>, TData>,) -> t<MTSync<TData>, TData>
++ mthd<E>(f: &Factory<MTSync<TData<E>>, TData<E>>,) -> t<MTSync<TData<E>>, TData
+<E>>
++where E: 'static + Engine,
+  {
+  ...
+  }
+\end{lstlisting}
+
+\textcolor{subtitlex}{Results:}
+\begin{itemize}
+\item Covers ??? changes.
+\item Trailing commas issues.
+\item New feature: \texttt{\ldots} for method bodies.
+\begin{itemize}
+\item[--] Matches both simple expressions and block expressions.
+\end{itemize}
+\end{itemize}}
+
+\frame{\frametitle{Some failures}
+
+\textcolor{subtitlex}{Commits:}
+\begin{itemize}
+\item aeed4b7c: Use inline format arguments
+\item ea33caf4: Conform to snake\_case naming style
+\end{itemize}
+
+\vspace{\baselineskip}\pause
+
+\textcolor{subtitlex}{Issues:}
+\begin{itemize}
+\item Require changes inside identifier names and strings.
+\item Such changes require scripting, as found in Coccinelle for C.
+\end{itemize}
+}
+
+\frame[containsverbatim]{\frametitle{Some failures}
+
+\textcolor{subtitlex}{2569545c:} Add anonymous lifetime parameters.
+
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{Semantic patch extract:}
+\begin{lstlisting}[language=diff,backgroundcolor=\color{black!2}]
+@type@
+lifetime l1,l2;
+@@
+(
+App <l1,l2>
+|
+App
++ <'_,'_>
+)
+\end{lstlisting}
+
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{Disjunctions on types not currently supported.}
+}
+
+\frame[containsverbatim]{\frametitle{Some failures}
+
+\textcolor{subtitlex}{f00fb860:} Allow disabling actions when stratisd detects unresolvable failures
+
+\vspace{0.5\baselineskip}
+
+\textcolor{subtitlex}{Semantic patch extract:}
+\begin{lstlisting}[language=tdiff,backgroundcolor=\color{black!2}]
+@@
+identifier mthd;
+@@
+- log_action!(
++ handle_action!(
+    pool.mthd(
+             ...
+             )
++   ,dbus_context, pool_path.get_name()
+    )
+\end{lstlisting}
+
+\textcolor{subtitlex}{Issues:}
+\begin{itemize}
+\item This covers a few changes, but the commit has more variety.
+\item New feature: {\tt \ldots} for argument lists and parameter lists.
+\item Future feature: {\tt \ldots} to connect the definitions of pool\_path
+  to the call site.
+\end{itemize}}
+
+\frame{\frametitle{Conclusion}
+
+\begin{itemize}
+\setlength{\itemsep}{5mm}
+\item Pattern-based transformation language.
+\begin{itemize}
+\item[--] Changes can be expressed in all parts of the code: expressions,
+  signatures, lifetimes, etc.
+\item[--] Changes can be sensitive to expression types.
+\end{itemize}
+\item Works well for frequent atomic changes.
+\begin{itemize}
+\item[--] Recent updates to improve pretty printing, handling of macros,
+  genericity ({\tt \ldots}), etc.
+\end{itemize}
+\item Future work: {\tt \ldots} for control-flow paths, nesting.
+\begin{itemize}
+\item[--] Connect variable definitions to uses.
+\item[--] Connect method definitions to the containing type implementation.
+\end{itemize}
+\end{itemize}
+
+\begin{center}
+\textcolor{red}{\bf https://gitlab.inria.fr/coccinelle/coccinelleforrust.git}
+\end{center}
+}
+\end{document}
