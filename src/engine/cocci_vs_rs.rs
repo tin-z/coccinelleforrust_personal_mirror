@@ -216,15 +216,14 @@ impl<'a, 'b> Looper<'a> {
                 MetavarMatch::WildMatch => {
                     //Should I add plusses here?
                     loop {
-                        //if b.isexpr() || b.isparam()
-                        if !b.isexpr() {
+                        if !b.isexpr() && !b.isparam() {
                             a = nodevec1
                                 .next()
                                 .unwrap_or_else(|| panic!("Something wrong with wildcard"));
                             //This should either be } or )
                             //No bindings are created
                             match (a.kind(), b.kind()) {
-                                (Tag::R_CURLY, Tag::R_CURLY) | (Tag::R_BRACK, Tag::R_BRACK) => {
+                                (Tag::R_CURLY, Tag::R_CURLY) | (Tag::R_PAREN, Tag::R_PAREN) => {
                                     addplustoenv(a, b, &mut env);
                                     match a.wrapper.mcodekind {
                                         Mcodekind::Minus(_) | Mcodekind::Star => {

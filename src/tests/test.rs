@@ -6,11 +6,6 @@ struct Foo {
 }
 
 fn main() {
-    a();
-    println!();
-    match a {_ => {}}
-    {}
-    a;
-    n
+    
 }
 

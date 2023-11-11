@@ -2,7 +2,9 @@
 identifier i;
 @@
 
-- fn i() {
-+ fn hehe() {
+fn i(
     ...
+ ) {
++test;
+
 }

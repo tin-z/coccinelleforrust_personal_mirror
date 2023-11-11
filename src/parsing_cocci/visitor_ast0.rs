@@ -97,6 +97,12 @@ pub fn work_node<'a>(
 
                             modkind = None;
                         }
+                        Tag::PARAM if child.to_string() == WILDCARD => {
+                            let snode = Snode::make_wildcard();
+                            children.push(snode);
+
+                            modkind = None;
+                        }
                         _ => {
                             children.push(work_node(lindex, wrap_node, child, modkind.clone()));
                             modkind = None;
