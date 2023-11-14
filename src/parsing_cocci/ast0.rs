@@ -57,8 +57,8 @@ impl<'a> Snode {
             wrapper: Wrap::make_dummy(),
             is_wildcard: true,
             asttoken: None,
-            kind: SyntaxKind::WILDCARD_PAT,//No meaning
-            children: vec![]
+            kind: SyntaxKind::WILDCARD_PAT, //No meaning
+            children: vec![],
         }
     }
 
@@ -160,6 +160,17 @@ impl<'a> Snode {
             | PATH_PAT | WILDCARD_PAT | RANGE_PAT | RECORD_PAT | REF_PAT | SLICE_PAT
             | TUPLE_PAT | TUPLE_STRUCT_PAT | CONST_BLOCK_PAT => true,
             _ => false,
+        }
+    }
+
+    pub fn isitem(&self) -> bool {
+        use SyntaxKind::*;
+
+        match self.kind() {
+            CONST | ENUM | EXTERN_BLOCK | EXTERN_CRATE | FN | IMPL | MACRO_CALL | MACRO_RULES
+            | MACRO_DEF | MODULE | STATIC | STRUCT | TRAIT | TRAIT_ALIAS | TYPE_ALIAS | UNION
+            | USE => { true }
+            _ => { false }
         }
     }
 
@@ -665,16 +676,9 @@ impl Wrap {
     pub fn make_dummy() -> Wrap {
         let pos_info: PositionInfo = PositionInfo::new(
             //all casted to usize because linecol returns u32
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
+            0, 0, 0, 0, 0, 0, 0, 0,
         );
-    
+
         let info = Info::new(pos_info, false, false, vec![], vec![], false);
         let wrap: Wrap = Wrap::new(
             info,
@@ -689,7 +693,6 @@ impl Wrap {
         );
         wrap
     }
-    
 
     pub fn is_ident(&self) -> bool {
         self.info.is_symbol_ident

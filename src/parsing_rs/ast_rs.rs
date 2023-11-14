@@ -262,6 +262,17 @@ impl Rnode {
         return self.kind() == LIFETIME_ARG;
     }
 
+    pub fn isitem(&self) -> bool {
+        use SyntaxKind::*;
+
+        match self.kind() {
+            CONST | ENUM | EXTERN_BLOCK | EXTERN_CRATE | FN | IMPL | MACRO_CALL | MACRO_RULES
+            | MACRO_DEF | MODULE | STATIC | STRUCT | TRAIT | TRAIT_ALIAS | TYPE_ALIAS | UNION
+            | USE => { true }
+            _ => { false }
+        }
+    }
+
     pub fn isparam(&self) -> bool {
         match self.kind() {
             PARAM | SELF_PARAM => true,
