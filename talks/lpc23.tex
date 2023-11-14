@@ -229,7 +229,7 @@ diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.r
 \frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 2:
     pick a typical example}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 
 @@
@@ -245,7 +245,7 @@ diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/.../mod.r
 
 \frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 3: abstract over subterms using metavariables}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 expression tcx, arg;
 @@
@@ -263,7 +263,7 @@ expression tcx, arg;
 
 \frame[containsverbatim]{\frametitle{Creating a semantic patch: Step 3: abstract over subterms using metavariables}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 expression tcx, arg;
 @@
@@ -329,7 +329,7 @@ expression tcx, arg;
 
 \frame[t,containsverbatim]{\frametitle{An alternate semantic patch}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 expression tcx, arg;
 @@
@@ -348,7 +348,7 @@ expression tcx, arg;
 
 \frame[t,containsverbatim]{\frametitle{A refinement}
 
-\begin{lstlisting}[language=tdiff]
+\begin{lstlisting}[language=diff]
 @@
 TyCtxt tcx;
 expression arg;
@@ -400,7 +400,7 @@ expression arg;
 \begin{itemize}
 \item https://github.com/stratis-storage/stratisd
 \item Easy to use local storage management for Linux.
-\item Over 2000 commits, and over 10K lines of Rust code.
+\item Over 2000 commits since 2016, and over 10K lines of Rust code.
 \end{itemize}
 
 \vspace{\baselineskip}
@@ -554,30 +554,53 @@ expression e1, e2;
 \item Trailing commas lead to a lot of rule duplication.
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{Some successes}
+\frame[containsverbatim]{\frametitle{A partial success}
 
 \textcolor{subtitlex}{d4ac5d89:} Switch from trait objects to type parameters and associated types
 
 %\textcolor{subtitlex}{Semantic patch extract:}
+\begin{columns}
+\begin{column}{0.4\textwidth}
 \begin{lstlisting}[language=tdiff,backgroundcolor=\color{black!2}]
-@r1@
+@l1@
 identifier mthd, f;
-identifier t;
+type T;
 @@
-pub fn
-- mthd(f: &Factory<MTSync<TData>, TData>,) -> t<MTSync<TData>, TData>
-+ mthd<E>(f: &Factory<MTSync<TData<E>>, TData<E>>,) -> t<MTSync<TData<E>>, TData
-<E>>
-+where E: 'static + Engine,
+async fn
+- mthd(f: &LockableEngine,
++ mthd<E>(f: &LockableEngine<E>,
+  ...
+  )
+ -> T
++where E: Engine,
   {
   ...
   }
 \end{lstlisting}
+\end{column}
+\begin{column}{0.4\textwidth}
+\begin{lstlisting}[language=tdiff,backgroundcolor=\color{black!2}]
+@l2@
+identifier mthd, f;
+type T;
+@@
+pub async fn
+- mthd(f: LockableEngine,
++ mthd<E>(f: LockableEngine<E>,
+  ...
+  )
+ -> T
++where E: Engine,
+  {
+  ...
+  }
+\end{lstlisting}
+\end{column}
+\end{columns}
 
-\textcolor{subtitlex}{Results:}
 \begin{itemize}
-\item Covers ??? changes.
-\item Trailing commas issues.
+\item Covers 111/418 changes.
+\item Trailing commas issues. Borrowing issues.
 \item New feature: \texttt{\ldots} for method bodies.
 \begin{itemize}
 \item[--] Matches both simple expressions and block expressions.
