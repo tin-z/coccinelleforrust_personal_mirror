@@ -220,7 +220,8 @@ impl<'a, 'b> Looper<'a> {
                             && !b.isparam()
                             && !b.isitem()
                             && b.kind() != Tag::COMMA
-                            && b.kind() != Tag::LET_STMT;
+                            && b.kind() != Tag::LET_STMT
+                            && b.kind() != Tag::EXPR_STMT;
                         //The negation of this is allowed for matching ...s
 
                         if is_not_allowed {
