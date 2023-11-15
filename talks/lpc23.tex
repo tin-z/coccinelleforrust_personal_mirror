@@ -444,7 +444,11 @@ expression arg;
 
 \textcolor{black!2}{Results:}
 \begin{itemize}
-\item[] \textcolor{black!2}{{Typical changes:} {\tt use}, method signatures, method calls.}
+\item[] \textcolor{black!2}{{Typical changes:} {\tt use}, method
+  signatures, method calls.}
+\begin{itemize}
+\item[] \textcolor{black!2}{Not completely following the Rust Analyzer AST.}
+\end{itemize}
 \item[] \textcolor{black!2}{Benefits from recent improvements in pretty printing.}
 \end{itemize}}
 
@@ -481,6 +485,9 @@ expression arg;
 \textcolor{subtitlex}{Results:}
 \begin{itemize}
 \item {Typical changes:} {\tt use}, method signatures, method calls.
+\begin{itemize}
+\item[--] Not completely following the Rust Analyzer AST.
+\end{itemize}
 \item Benefits from recent improvements in pretty printing.
 \end{itemize}}
 
@@ -508,7 +515,7 @@ expression e;
 \item 1 case has an additional attribute and thus is omitted.
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{Some successes}
+\frame[containsverbatim]{\frametitle{A partial success}
 
 \textcolor{subtitlex}{9c60ad44:} Remove ErrorEnum and add error chaining
 
@@ -550,11 +557,12 @@ expression e1, e2;
 
 \textcolor{subtitlex}{Results:}
 \begin{itemize}
-\item Covers 290/417 changes. Omits {\tt use}s and some less common patterns.
+\item Covers 209/417 changes. Omits {\tt use}s and some less common patterns.
 \item Trailing commas lead to a lot of rule duplication.
+\item Treatment of Error too simplistic, leading to false positives.
 \end{itemize}}
 
-\frame[containsverbatim]{\frametitle{A partial success}
+\frame[containsverbatim]{\frametitle{Another partial success}
 
 \textcolor{subtitlex}{d4ac5d89:} Switch from trait objects to type parameters and associated types
 
@@ -601,9 +609,10 @@ pub async fn
 \begin{itemize}
 \item Covers 111/418 changes.
 \item Trailing commas issues. Borrowing issues.
-\item New feature: \texttt{\ldots} for method bodies.
+\item New feature: \texttt{\ldots} for parameter lists and for method bodies.
 \begin{itemize}
-\item[--] Matches both simple expressions and block expressions.
+\item[--] For method bodies, matches both simple expressions and block
+  expressions.
 \end{itemize}
 \end{itemize}}
 
@@ -671,7 +680,7 @@ identifier mthd;
 \textcolor{subtitlex}{Issues:}
 \begin{itemize}
 \item This covers a few changes, but the commit has more variety.
-\item New feature: {\tt \ldots} for argument lists and parameter lists.
+\item New feature: {\tt \ldots} for argument lists.
 \item Future feature: {\tt \ldots} to connect the definitions of pool\_path
   to the call site.
 \end{itemize}}
@@ -708,7 +717,12 @@ identifier mthd;
 \end{itemize}
 
 \begin{center}
-\textcolor{red}{\bf https://gitlab.inria.fr/coccinelle/coccinelleforrust.git}
+\begin{tabular}{c}
+\textcolor{red}{\bf
+  https://gitlab.inria.fr/coccinelle/coccinelleforrust.git}
+\\
+\textcolor{red}{\bf https://rust-for-linux.com/coccinelle-for-rust}
+\end{tabular}
 \end{center}
 }
 \end{document}
