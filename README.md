@@ -62,6 +62,10 @@ Example - `cfr -c patch.cocci myproject/src/`
     -V, --version
             Print version
 
+## Joining the mailing list
+
+Email `subscribe cfr FirstName LastName` to `sympa_inria@inria.fr` to join the cfr mailing list.
+
 ## Contributing:
 
 Contributions are welcome.  Please sign your contributions, according to
