@@ -8,9 +8,9 @@ use ra_parser::SyntaxKind;
 use regex::Regex;
 
 use crate::{
-    commons::util::{getnrfrompt, getnrfrompt_r},
+    commons::util::{getnrfrompt, getnrfrompt_r, get_pluses_back, get_pluses_front},
     debugcocci, fail,
-    parsing_cocci::ast0::{Mcodekind, Snode},
+    parsing_cocci::ast0::{Mcodekind, Snode, Pluses},
     parsing_cocci::ast0::{MetaVar, MetavarName},
     parsing_rs::ast_rs::Rnode,
 };
@@ -19,7 +19,7 @@ type Tag = SyntaxKind;
 
 //This array is used for special matching cases where we want to continue matching
 //even if the node types do not match
-const EXCEPTIONAL_MATCHES: [(Tag, Tag); 1] = [(Tag::PATH_TYPE, Tag::PATH_SEGMENT)];
+const EXCEPTIONAL_MATCHES: [(Tag, Tag); 0] = [];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MetavarBinding {
@@ -127,6 +127,15 @@ fn addplustoenv(a: &Snode, b: &Rnode, env: &mut Environment) {
     }
 }
 
+fn addexplustoenv(b: &Rnode, pluses: Pluses, env: &mut Environment) {
+    if pluses.0.len() > 0 {
+        env.modifiers.pluses.push((b.wrapper.info.charstart, true, pluses.0));
+    }
+    if pluses.1.len() > 0 {
+        env.modifiers.pluses.push((b.wrapper.info.charend, false, pluses.1));
+    }
+}
+
 pub fn types_equal(ty1: &str, ty2: &str) -> bool {
     let pattern = Regex::new(ty1).unwrap();
     pattern.is_match(ty2)
@@ -154,6 +163,8 @@ impl<'a, 'b> Looper<'a> {
         let mut a: &Snode;
         let mut b: &Rnode;
 
+        let mut wild_tail: &Snode;
+
         'outer: loop {
             if let Some(ak) = nodevec1.next() {
                 a = ak;
@@ -170,8 +181,9 @@ impl<'a, 'b> Looper<'a> {
 
             let akind = a.kind();
             let bkind = b.kind();
+            let mut pluses = (vec![], vec![]);
 
-            //println!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
+            // eprintln!("{:?} ===== {:?} --> {}", akind, bkind, b.getunformatted());
             //please dont remove this line
             //helps in debugging, and I always forget where to put it
 
@@ -179,7 +191,7 @@ impl<'a, 'b> Looper<'a> {
             //want to work on them or it is a WILDCARD
             if !a.is_wildcard {
                 if EXCEPTIONAL_MATCHES.contains(&(akind, bkind)) {
-                    (a, b) = self.exceptional_workon(a, b);
+                    (a, b, pluses) = self.exceptional_workon(a, b);
                     //println!("{:?} ===== {:?} --> {} ::: Exceptional", akind, bkind, b.getunformatted());
                 } else {
                     if akind != bkind && a.wrapper.metavar.isnotmeta()
@@ -208,14 +220,28 @@ impl<'a, 'b> Looper<'a> {
 
                     if !renv.failed {
                         addplustoenv(a, b, &mut env);
+                        addexplustoenv(b, pluses, &mut env);
                         env.add(renv);
                     } else {
                         fail!()
                     }
                 }
                 MetavarMatch::WildMatch => {
+                    wild_tail =
+                        nodevec1.next().unwrap_or_else(|| panic!("Something wrong with wildcard"));
+                    //This should either be } or )
+                    //No bindings are created
+
                     //Should I add plusses here?
                     loop {
+                        
+                        let penv = self.matchnodes(&vec![wild_tail], &vec![b], env.clone());
+
+                        if !penv.failed {
+                            env = penv;
+                            continue 'outer;
+                        }
+
                         let is_not_allowed = !b.isexpr()
                             && !b.isparam()
                             && !b.isitem()
@@ -225,11 +251,6 @@ impl<'a, 'b> Looper<'a> {
                         //The negation of this is allowed for matching ...s
 
                         if is_not_allowed {
-                            a = nodevec1
-                                .next()
-                                .unwrap_or_else(|| panic!("Something wrong with wildcard"));
-                            //This should either be } or )
-                            //No bindings are created
                             match (a.kind(), b.kind()) {
                                 (Tag::R_CURLY, Tag::R_CURLY) | (Tag::R_PAREN, Tag::R_PAREN) => {
                                     addplustoenv(a, b, &mut env);
@@ -255,7 +276,6 @@ impl<'a, 'b> Looper<'a> {
                 }
                 MetavarMatch::Match => {
                     let minfo = a.wrapper.metavar.getminfo();
-
                     debugcocci!(
                         "Binding {} to {}.{}",
                         b.getstring(),
@@ -268,7 +288,6 @@ impl<'a, 'b> Looper<'a> {
                         minfo.0.varname.to_string(),
                         b.clone(),
                     );
-
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
@@ -277,11 +296,13 @@ impl<'a, 'b> Looper<'a> {
                         Mcodekind::Context(_, _) => {}
                     }
                     addplustoenv(a, b, &mut env);
+                    addexplustoenv(b, pluses, &mut env);
                     env.addbinding(binding);
                 }
                 MetavarMatch::Exists => {
                     //No bindings are created
                     addplustoenv(a, b, &mut env);
+                    addexplustoenv(b, pluses, &mut env);
                     match a.wrapper.mcodekind {
                         Mcodekind::Minus(_) | Mcodekind::Star => {
                             env.modifiers.minuses.push(b.getpos());
@@ -294,14 +315,35 @@ impl<'a, 'b> Looper<'a> {
         }
     }
 
-    fn exceptional_workon(&self, node1: &'b Snode, node2: &'a Rnode) -> (&'b Snode, &'a Rnode) {
+    fn exceptional_workon(&self, node1: &'b Snode, node2: &'a Rnode) -> (&'b Snode, &'a Rnode, Pluses) {
+        //TO NOTE
+        //In some cases of the exceptionsal workon tokens
+        //may be ommited which have pluses attached to them
+        //So for each branch, make sure that the pluses are
+        //dealt with 
         match (node1.kind(), node2.kind()) {
             (Tag::PATH_TYPE, Tag::PATH_SEGMENT) => {
                 //If a type is being compared then
-                //Type maybe something like Foo<A, B> but it needs
+                //Type something like Foo<A, B> but it needs
                 //to match types like Foo
 
                 let name_ref1 = getnrfrompt(node1);
+
+                //Only keeping those pluses that are not present in name_ref1 because
+                //those pluses will be added in the normal operation
+                let pluses_to_rem = (get_pluses_front(name_ref1), get_pluses_back(name_ref1));
+                let mut pluses = (get_pluses_front(node1), get_pluses_back(node1));
+                pluses.0.retain(|element| !pluses_to_rem.0.contains(element));//probably not required
+                pluses.1.retain(|element| !pluses_to_rem.1.contains(element));//probably not required
+                                                         //as there should be only one plus in case of a type
+                //Since all the pluses must be pathtypes getnrfrompt can be run on them
+                if pluses.1.len() > 0 {
+                    pluses.1[0] = getnrfrompt(&pluses.1[0]).clone(); 
+                }
+                if pluses.0.len() > 0 {
+                    pluses.0[0] = getnrfrompt(&pluses.0[0]).clone(); 
+                }
+
                 let name_ref2 = match &node2.children.iter().map(|x| x.kind()).collect_vec()[..] {
                     [Tag::COLON2, Tag::NAME_REF] => &node2.children[1],
                     [Tag::NAME_REF]
@@ -318,12 +360,11 @@ impl<'a, 'b> Looper<'a> {
                         node2
                     }
                     _ => {
-                        panic!("PathSegment not fully implented in exceptional_workon");
-                    } //There is one missing branch here: '<' PathType ('as' PathType)? '>'
-                      //I am not sure how to handle that branch
+                        panic!("PathSegment is causing problems");
+                    }
                 };
 
-                (name_ref1, name_ref2)
+                (name_ref1, name_ref2, pluses)
             }
             _ => {
                 panic!("The match arms should be exhaustive.");

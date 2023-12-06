@@ -35,8 +35,11 @@ fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
 fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
         if let Some(mvar) = env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
-        {
-            return (*mvar.rnode).clone();
+        {   
+            let mut rnode = (*mvar.rnode).clone();
+            let wsf = format!(" {}", rnode.wrapper.wspaces.0);
+            rnode.wrapper.wspaces.0 = wsf;
+            return rnode;
         } else {
             panic!("Metavariable should already be present in environment.");
         }

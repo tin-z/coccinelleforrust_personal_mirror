@@ -284,6 +284,48 @@ pub fn getnrfrompt_r<'a>(node1: &'a Rnode) -> &'a Rnode {
     return name_ref1;
 }
 
+pub fn get_pluses_back(node: &Snode) -> Vec<Snode> {
+    let len = node.children.len();
+    if len == 0 || !node.wrapper.metavar.isnotmeta() {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                return a.clone();
+            }
+            Mcodekind::Context(_, a) => {
+                eprintln!("{:?}", a);
+                return a.clone();
+            }
+            _ => {
+                eprintln!("does come?");
+                return vec![];
+            }
+        }
+    } else {
+        //println!("deeper to {:?}", node.children[len - 1].kind());
+        return get_pluses_back(&node.children[len - 1]);
+    }
+}
+
+pub fn get_pluses_front(node: &Snode) -> Vec<Snode> {
+    let len = node.children.len();
+    if len == 0 || !node.wrapper.metavar.isnotmeta() {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                return a.clone();
+            }
+            Mcodekind::Context(a, _) => {
+                return a.clone();
+            }
+            _ => {
+                return vec![];
+            }
+        }
+    } else {
+        //println!("deeper to {:?}", node.children[len - 1].kind());
+        return get_pluses_front(&node.children[0]);
+    }
+}
+
 pub fn attach_pluses_front(node: &mut Snode, plus: Vec<Snode>) {
     if node.children.len() == 0 || !node.wrapper.metavar.isnotmeta() {
         //attach to a token or a metavar

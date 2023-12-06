@@ -2,6 +2,8 @@
 
 use clap::Parser;
 use coccinelleforrust::commons::info::ParseError::*;
+use coccinelleforrust::commons::util::attach_spaces_right;
+use coccinelleforrust::parsing_cocci::get_constants::do_get_files;
 use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
 use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
 use coccinelleforrust::parsing_rs::type_inference::{gettypedb, set_types};
@@ -13,13 +15,13 @@ use env_logger::{Builder, Env};
 use itertools::{izip, Itertools};
 use ra_hir::Semantics;
 use ra_vfs::VfsPath;
-use rand::Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::{canonicalize, DirEntry};
 use std::io;
 use std::io::Write;
-use std::process::Command;
+use std::process::{Command, Output};
 use std::{fs, path::Path, process::exit};
+use tempfile::NamedTempFile;
 
 #[allow(dead_code)]
 fn tokenf<'a>(_node1: &'a Snode, _node2: &'a Rnode) -> Vec<MetavarBinding> {
@@ -51,22 +53,37 @@ fn init_logger(args: &CoccinelleForRust) {
 }
 
 pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -> Option<usize> {
-    
+    if line.is_some() {
+        //eprintln!("{:?}", line);
+        //eprintln!("{} here", node1.getunformatted());
+    }
+
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
         line = Some(node1.wrapper.info.sline);
     }
-
+    let mut prev_space = String::new();
+    let mut preva = None;
     for (childa, childb) in izip!(&mut node1.children, &node2.children) {
         line.map(|sline| {
+            //eprintln!("{}, {:?}=={:?}", sline, childa.getunformatted(), childb.getunformatted());
             if childa.wrapper.info.eline == sline {
                 childa.wrapper.wspaces = childb.wrapper.wspaces.clone();
             } else {
                 line = None;
             }
         });
-
         line = adjustformat(childa, &childb, line);
+        if line.is_some() {
+            if preva.is_some() {
+                attach_spaces_right(preva.unwrap(), prev_space.clone());
+                preva = None;
+                prev_space = String::new();
+            }
+        } else {
+            preva = Some(childa);
+            prev_space = childb.get_spaces_right();
+        }
     }
 
     return line;
@@ -90,11 +107,21 @@ fn getformattedfile(
     transformedcode: &mut Rnode,
     targetpath: &str,
 ) -> (String, String) {
-    let mut rng = rand::thread_rng();
-    let randrustfile = format!("/tmp/tmp{}.rs", rng.gen::<u32>());
+    //eprintln!("Dealing with - {}", targetpath);
+
+    let tp = std::path::Path::new(targetpath);
+    let parent = tp.parent().unwrap_or(std::path::Path::new("/tmp"));
+
+    //-let randrustfile = format!("{}/tmp{}.rs", parent.display(), rng.gen::<u32>());
+    let dirpath = parent.to_str().expect("Cannot get directory");
+    let mut randfile =
+        tempfile::Builder::new().tempfile_in(dirpath).expect("Cannot create temporary file.");
+    let mut randrustfile = randfile.path().to_str().expect("Cannot get temporary file.");
 
     // In all cases, write the transformed code to a file so we can diff
-    transformedcode.writetreetofile(&randrustfile);
+    //VERY IMPORTANT :-
+    //CHECK TO REMOVE THIS FILE FOR ALL ERROR CASES
+    transformedcode.writetotmpnamedfile(&randfile);
 
     // Now, optionally, we may want to not rust-format the code.
     if !cfr.suppress_formatting {
@@ -109,34 +136,64 @@ fn getformattedfile(
 
         // Core command is in a separate binding so it stays alive. The others
         // are just references to it.
+
+        let output: Output;
         let mut core_command = Command::new("rustfmt");
-        let mut fcommand = core_command
-            .arg(&randrustfile)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
-
         if let Some(fmtconfig_path) = &cfr.rustfmt_config {
-            fcommand = fcommand.arg("--config-path").arg(fmtconfig_path.as_str());
+            let fmtconfp = format!("--config-path {}", fmtconfig_path.as_str());
+            output = core_command
+                .arg(&randrustfile)
+                .arg("--edition")
+                .arg("2021")
+                .arg(fmtconfp)
+                .output()
+                .expect("rustfmt failed");
+        } else {
+            output = core_command
+                .arg(&randrustfile)
+                .arg("--edition")
+                .arg("2021")
+                .output()
+                .expect("rustfmt failed");
         }
 
-        if fcommand.spawn().expect("rustfmt failed").wait().is_err() {
-            println!("Formatting failed.");
+        if !output.status.success() {
+            if cfr.show_fmt_errors {
+                eprint!(
+                    "RUSTFMT ERR - {}",
+                    String::from_utf8(output.stderr).unwrap_or(String::from("NONE"))
+                );
+            }
         }
+        //if let Some(fmtconfig_path) = &cfr.rustfmt_config {
+        //  fcommand = fcommand.arg("--config-path").arg(fmtconfig_path.as_str());
+        //}
 
+        //if fcommand.spawn().expect("rustfmt failed").wait().is_err() {
+        //  eprintln!("Formatting failed.");
+        //}
         let formattednode =
-            processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
+            match processrs(&fs::read_to_string(&randrustfile).expect("Could not read")) {
+                Ok(rnode) => rnode,
+                Err(_) => {
+                    panic!("Cannot parse temporary file.");
+                }
+            };
 
+        //let formattednode =
+        //  processrs(&fs::read_to_string(&randrustfile).expect("Could not read")).unwrap();
+
+        //eprintln!("{}", formattednode.getunformatted());
         adjustformat(transformedcode, &formattednode, None);
-        transformedcode.writetreetofile(&randrustfile);
-
-        //fs::write(&randrustfile, original.clone()).expect("Could not write file.");
+        randfile = NamedTempFile::new().expect("Cannot create temporary file.");
+        randrustfile = randfile.path().to_str().expect("Cannot get temporary file.");
+        transformedcode.writetotmpnamedfile(&randfile);
     }
 
     let diffed = if !cfr.suppress_diff {
-        let diffout = Command::new("git")
-            .arg("diff")
-            .arg("--no-index")
-            .arg("--diff-algorithm=histogram")
+        let diffout = Command::new("diff")
+            .arg("-u")
+            .arg("--text")
             .arg(targetpath)
             .arg(&randrustfile)
             .output()
@@ -148,8 +205,6 @@ fn getformattedfile(
     };
 
     let formatted = fs::read_to_string(&randrustfile).expect("Unable to read file");
-
-    fs::remove_file(&randrustfile).expect("No file found.");
 
     (formatted, diffed)
 }
@@ -199,7 +254,11 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
             let (rules, _, hasstars) = processcocci(&patchstring);
             //Currently have to parse cocci again because Rule has SyntaxNode which which has
             //rowan `NonNull<rowan::cursor::NodeData>` which cannot be shared between threads safely
-            let rcode = fs::read_to_string(&targetpath).expect("Could not read file");
+            // let files_tmp = do_get_files(&args, &args.targetpath, &rules);
+            // eprintln!("{:?}", files_tmp);
+
+            let rcode = fs::read_to_string(&targetpath)
+                .expect(&format!("{} {}", "Could not read file", targetpath));
             let transformedcode = transformation::transformfile(&rules, rcode);
             let mut transformedcode = match transformedcode {
                 Ok(node) => node,
@@ -207,13 +266,14 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
                     //failedfiles.push((error, targetpath));
                     match error {
                         TARGETERROR(msg, _) => eprintln!("{}", msg),
-                        RULEERROR(msg, error, _) => println!("Transformation Error at rule {} : {}", msg, error),
+                        RULEERROR(msg, error, _) => {
+                            println!("Transformation Error at rule {} : {}", msg, error)
+                        }
                     }
                     println!("Failed to transform {}", targetpath);
                     return;
                 }
             };
-
             showdiff(args, &mut transformedcode, targetpath, hasstars);
         };
 
@@ -242,7 +302,7 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
 
             let mut rnode = processrswithsemantics(&rcode, syntaxnode)
                 .expect("Could not convert SyntaxNode to Rnode");
-            
+
             set_types(&mut rnode, semantics, db);
 
             let transformedcode = transformation::transformrnode(&rules, rnode);
@@ -252,8 +312,8 @@ fn transformfiles(args: &CoccinelleForRust, files: &[String]) {
                 Err(error) => {
                     //failedfiles.push((error, targetpath));
                     match error {
-                        TARGETERROR(msg, _) => println!("{}", msg),
-                        RULEERROR(msg, error, _) => println!("{}:{}", msg, error),
+                        TARGETERROR(msg, _) => eprintln!("{}", msg),
+                        RULEERROR(msg, error, _) => eprintln!("{}:{}", msg, error),
                     }
                     println!("Failed to transform {}", targetpath);
                     return;
@@ -326,8 +386,8 @@ fn visit_dirs(dir: &Path, ignore: &str, cb: &mut dyn FnMut(&DirEntry)) -> io::Re
 fn main() {
     let args = CoccinelleForRust::parse();
     init_logger(&args);
-
     makechecks(&args);
+
     let targetpath = Path::new(&args.targetpath);
     if targetpath.is_file() {
         transformfiles(&args, &[String::from(canonicalize(targetpath).unwrap().to_str().unwrap())]);

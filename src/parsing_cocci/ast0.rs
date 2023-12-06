@@ -75,6 +75,20 @@ impl<'a> Snode {
         self.asttoken.as_ref().unwrap().to_string()
     }
 
+    pub fn totokenrec(&self) -> &str {
+        fn aux(node: &Snode) -> &str {
+            if node.children.len() == 0 {
+                return node.asttoken.as_ref().unwrap().as_token().unwrap().text();
+            }
+            else {
+                return aux(&node.children[0]);
+            }
+        }
+        
+        return aux(self);
+
+    }
+
     pub fn kind(&self) -> SyntaxKind {
         self.kind
     }
@@ -169,8 +183,8 @@ impl<'a> Snode {
         match self.kind() {
             CONST | ENUM | EXTERN_BLOCK | EXTERN_CRATE | FN | IMPL | MACRO_CALL | MACRO_RULES
             | MACRO_DEF | MODULE | STATIC | STRUCT | TRAIT | TRAIT_ALIAS | TYPE_ALIAS | UNION
-            | USE => { true }
-            _ => { false }
+            | USE => true,
+            _ => false,
         }
     }
 
@@ -593,6 +607,12 @@ impl MetaVar {
 
 impl PartialEq for MetaVar {
     fn eq(&self, other: &Self) -> bool {
+        if self.isnotmeta() && other.isnotmeta() {
+            return true;
+        }
+        else if self.isnotmeta() ^ other.isnotmeta() {
+            return false;
+        }
         self.getname() == other.getname() && self.getrulename() == other.getrulename()
     }
 }
@@ -795,8 +815,8 @@ pub fn wrap_root(contents: &str) -> Snode {
             if error.to_string().contains("missing type for function parameter") {
                 break;
             }
-            println!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
-            println!("{}", parse.syntax_node().to_string());
+            eprintln!("Error : {} at line: {}, col {}", error.to_string(), lindex.line, lindex.col);
+            eprintln!("{}", parse.syntax_node().to_string());
             exit(1);
         }
     }

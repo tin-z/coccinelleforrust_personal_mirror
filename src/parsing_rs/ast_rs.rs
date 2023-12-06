@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 
 use std::fmt::Debug;
-use std::fs;
 use std::hash::{Hash, Hasher};
 
 use itertools::izip;
 use ra_parser::SyntaxKind;
 use ra_syntax::{SyntaxElement, SyntaxNode};
+use std::io::Write;
+use tempfile::NamedTempFile;
 use SyntaxKind::*;
 
 use crate::commons::info;
@@ -244,9 +245,16 @@ impl Rnode {
         return data;
     }
 
-    pub fn writetreetofile(&self, filename: &str) {
+    pub fn writetotmpnamedfile(&self, randfile: &NamedTempFile) {
         let data = self.getstring();
-        fs::write(filename, data).expect("Unable to write file");
+        randfile.as_file().write_all(data.as_bytes()).expect("The project directory must be writable by cfr");
+        //write!(randfile, "{}", &data).expect("The project directory must be writable by cfr.");
+    }
+
+    pub fn writeunformatted(&self, randfile: &NamedTempFile) {
+        let data = self.getunformatted();
+        randfile.as_file().write_all(data.as_bytes()).expect("The project directory must be writable by cfr");
+        //write!(randfile, "{}", &data).expect("The project directory must be writable by cfr.");
     }
 
     pub fn isid(&self) -> bool {
@@ -268,8 +276,8 @@ impl Rnode {
         match self.kind() {
             CONST | ENUM | EXTERN_BLOCK | EXTERN_CRATE | FN | IMPL | MACRO_CALL | MACRO_RULES
             | MACRO_DEF | MODULE | STATIC | STRUCT | TRAIT | TRAIT_ALIAS | TYPE_ALIAS | UNION
-            | USE => { true }
-            _ => { false }
+            | USE => true,
+            _ => false,
         }
     }
 
@@ -361,6 +369,18 @@ impl Rnode {
     pub fn getpos(&self) -> (usize, usize) {
         (self.wrapper.info.charstart, self.wrapper.info.charend)
     }
+
+    pub fn get_spaces_right(&self) -> String {
+        let len = self.children.len();
+        if len == 0 {
+            //eprintln!("{} RIGHT \"{}\"", node.getunformatted(), estring);
+            return self.wrapper.wspaces.1.clone();
+        } else {
+            //println!("deeper to {:?}", node.children[len - 1].kind());
+            return self.children[len - 1].get_spaces_right();
+        }
+    }
+    
 }
 
 impl Debug for Rnode {
