@@ -215,6 +215,7 @@ impl Patch {
             let mut a = achildren.next();
             let mut b = bchildren.next();
             loop {
+                // eprintln!("{:?} {:?}", a, b);
                 match (&mut a, &b) {
                     (Some(ak), Some(bk)) => {
                         match (&ak.wrapper.mcodekind, &bk.wrapper.mcodekind) {
@@ -225,6 +226,7 @@ impl Patch {
                             (Mcodekind::Minus(_), _) => {
                                 //minus code
                                 //with any thing other than a plus
+                                // eprintln!("Comes with {:?}", pvec);
                                 attach_pluses_front(ak, pvec);
                                 pvec = vec![];
                                 a = achildren.next();

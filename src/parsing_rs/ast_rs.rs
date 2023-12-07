@@ -11,6 +11,7 @@ use tempfile::NamedTempFile;
 use SyntaxKind::*;
 
 use crate::commons::info;
+use crate::commons::util::remexspaces;
 
 type VirtualPosition = (info::ParseInfo, usize);
 
@@ -159,13 +160,15 @@ impl Rnode {
 
         //pluses before current node
         for plusbef in &self.wrapper.plussed.0 {
-            data.push_str(&plusbef.getstring());
+            let mut dat = plusbef.getstring();
+            dat = remexspaces(dat);
+            data.push_str(&dat);
             data.push(' ');
         }
 
         // Spaces before the node
         if self.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
-            data.push_str(" ");
+            data.push_str("");
         } else {
             if !self.wrapper.isremoved {
                 data.push_str(&format!("{}", self.wrapper.wspaces.0));
@@ -188,8 +191,11 @@ impl Rnode {
 
         //plusses after current node
         for plusaft in &self.wrapper.plussed.1 {
+            let mut dat = plusaft.getstring();
+            dat = remexspaces(dat);
+            data.push_str(&dat);
             //    println!("plusaft - {:?}", self.astnode.to_string());
-            data.push_str(&plusaft.getstring());
+            data.push_str(&dat);
         }
 
         return data;
@@ -206,15 +212,20 @@ impl Rnode {
         if self.wrapper.plussed.0.len() != 0 {
             data.push_str("/*COCCIVAR*/");
             for plusbef in &self.wrapper.plussed.0 {
-                data.push_str(&plusbef.getunformatted());
-                data.push(' ');
+                let dat = plusbef.getunformatted();
+                // eprientln!("{:?}", date;
+                data.push_str(dat.trim());
+                data.push(' '); //THis is imp
             }
+            // eprintln!("{:?}, {:?}", data, self.totoken());
+            data = remexspaces(data);
         }
 
         // Spaces before curent node
         if !self.wrapper.isremoved {
             //eprintln!("{:?} \"{}\"", data, self.wrapper.wspaces.0);
             data.push_str(&format!("{}", self.wrapper.wspaces.0));
+            // data.push_str(&format!("{}", self.wrapper.wspaces.0));
         }
 
         // Main node
@@ -232,13 +243,17 @@ impl Rnode {
             data.push_str(&format!("{}", self.wrapper.wspaces.1));
         }
 
+        let mut plussed1 = String::new();
         // Plusses after current node
         if self.wrapper.plussed.1.len() != 0 {
-            data.push_str("/*COCCIVAR*/");
+            plussed1.push_str("/*COCCIVAR*/");
             for plusaft in &self.wrapper.plussed.1 {
                 //    println!("plusaft - {:?}", self.astnode.to_string());
-                data.push_str(&plusaft.getunformatted());
+                let dat = plusaft.getunformatted();
+                plussed1.push_str(dat.trim());
             }
+            plussed1 = remexspaces(plussed1);
+            data.push_str(&plussed1)
         }
 
         //println!("returning - {}", data);
@@ -247,13 +262,19 @@ impl Rnode {
 
     pub fn writetotmpnamedfile(&self, randfile: &NamedTempFile) {
         let data = self.getstring();
-        randfile.as_file().write_all(data.as_bytes()).expect("The project directory must be writable by cfr");
+        randfile
+            .as_file()
+            .write_all(data.as_bytes())
+            .expect("The project directory must be writable by cfr");
         //write!(randfile, "{}", &data).expect("The project directory must be writable by cfr.");
     }
 
     pub fn writeunformatted(&self, randfile: &NamedTempFile) {
         let data = self.getunformatted();
-        randfile.as_file().write_all(data.as_bytes()).expect("The project directory must be writable by cfr");
+        randfile
+            .as_file()
+            .write_all(data.as_bytes())
+            .expect("The project directory must be writable by cfr");
         //write!(randfile, "{}", &data).expect("The project directory must be writable by cfr.");
     }
 
@@ -380,7 +401,6 @@ impl Rnode {
             return self.children[len - 1].get_spaces_right();
         }
     }
-    
 }
 
 impl Debug for Rnode {

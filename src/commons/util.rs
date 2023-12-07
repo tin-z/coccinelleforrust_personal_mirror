@@ -8,6 +8,8 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
+use regex::Regex;
+
 type Tag = SyntaxKind;
 
 #[macro_export]
@@ -408,4 +410,30 @@ pub fn debug_spaces(node: &mut Rnode) {
         println!("{:?} => {:?}", node.getstring(), node.wrapper.wspaces);
         true
     });
+}
+
+pub fn remexspaces(mut s: String) -> String {
+    let punctuations = vec![',', '.', '!', ':', ';', '?', '=', '(', ')', '[', ']', '{', '}'];
+    for punctuation in punctuations {
+        let old = format!(" *\\{} *", punctuation);
+        let new = format!("{}", punctuation);
+        let re = Regex::new(&old).unwrap();
+        s = re.replace_all(&s, new.as_str()).to_string();
+    }
+
+    return s;
+}
+
+pub fn is_punc(s: &str) -> bool {
+    if s.len() > 1 {
+        return false;
+    }
+    match s.chars().into_iter().next().unwrap() {
+        ',' | '.' | '!' | ':' | ';' | '?' | '=' | '(' | ')' | '[' | ']' => {
+            true
+        }
+        _ => {
+            false
+        }
+    }
 }

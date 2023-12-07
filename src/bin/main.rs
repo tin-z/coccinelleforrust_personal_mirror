@@ -3,7 +3,7 @@
 use clap::Parser;
 use coccinelleforrust::commons::info::ParseError::*;
 use coccinelleforrust::commons::util::attach_spaces_right;
-use coccinelleforrust::parsing_cocci::get_constants::do_get_files;
+use coccinelleforrust::debugcocci;
 use coccinelleforrust::parsing_cocci::parse_cocci::processcocci;
 use coccinelleforrust::parsing_rs::parse_rs::{processrs, processrswithsemantics};
 use coccinelleforrust::parsing_rs::type_inference::{gettypedb, set_types};
@@ -61,6 +61,7 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
         line = Some(node1.wrapper.info.sline);
+        debugcocci!("Formatting line {}", line.unwrap());
     }
     let mut prev_space = String::new();
     let mut preva = None;
@@ -74,6 +75,7 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
             }
         });
         line = adjustformat(childa, &childb, line);
+        debugcocci!("Formatting line {}", line.unwrap());
         if line.is_some() {
             if preva.is_some() {
                 attach_spaces_right(preva.unwrap(), prev_space.clone());
