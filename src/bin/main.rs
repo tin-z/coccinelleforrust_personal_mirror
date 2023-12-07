@@ -54,14 +54,13 @@ fn init_logger(args: &CoccinelleForRust) {
 
 pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -> Option<usize> {
     if line.is_some() {
-        //eprintln!("{:?}", line);
+        // eprintln!("{:?}", line);
         //eprintln!("{} here", node1.getunformatted());
     }
 
     if node1.wrapper.wspaces.0.contains("/*COCCIVAR*/") {
         node1.wrapper.wspaces = node2.wrapper.wspaces.clone();
         line = Some(node1.wrapper.info.sline);
-        debugcocci!("Formatting line {}", line.unwrap());
     }
     let mut prev_space = String::new();
     let mut preva = None;
@@ -75,7 +74,6 @@ pub fn adjustformat(node1: &mut Rnode, node2: &Rnode, mut line: Option<usize>) -
             }
         });
         line = adjustformat(childa, &childb, line);
-        debugcocci!("Formatting line {}", line.unwrap());
         if line.is_some() {
             if preva.is_some() {
                 attach_spaces_right(preva.unwrap(), prev_space.clone());
@@ -124,7 +122,10 @@ fn getformattedfile(
     //VERY IMPORTANT :-
     //CHECK TO REMOVE THIS FILE FOR ALL ERROR CASES
     transformedcode.writetotmpnamedfile(&randfile);
-
+    fs::write("/tmp/tmp_CFR_COCCI.rs", transformedcode.getstring()).expect("Failed to write to tmp");
+    debugcocci!((|| {
+        fs::write("/tmp/tmp_CFR_COCCI.rs", transformedcode.getunformatted()).expect("Failed to write to tmp");
+    }));
     // Now, optionally, we may want to not rust-format the code.
     if !cfr.suppress_formatting {
         //should never be disabled except for debug

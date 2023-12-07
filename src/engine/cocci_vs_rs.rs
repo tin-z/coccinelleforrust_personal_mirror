@@ -157,9 +157,10 @@ impl<'a, 'b> Looper<'a> {
         nodevec1: &Vec<&Snode>,
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment,
+        strict: bool
     ) -> Environment {
         let mut nodevec1 = nodevec1.iter();
-        let mut nodevec2 = nodevec2.iter();
+        let mut nodevec2 = nodevec2.iter().peekable();
         let mut a: &Snode;
         let mut b: &Rnode;
 
@@ -169,6 +170,9 @@ impl<'a, 'b> Looper<'a> {
             if let Some(ak) = nodevec1.next() {
                 a = ak;
             } else {
+                if nodevec2.peek().is_some() && strict {
+                    fail!()
+                }
                 return env;
             }
 
@@ -202,6 +206,7 @@ impl<'a, 'b> Looper<'a> {
                 }
             }
 
+
             //At this point in execution, there are two possiblities
             //Either akind == bkind or a is a metavar or
             //(akind, bkind) is present in EXCEPRIONAL_MATCHES
@@ -216,9 +221,11 @@ impl<'a, 'b> Looper<'a> {
                         &a.children.iter().collect_vec(),
                         &b.children.iter().collect_vec(),
                         env.clonebindings(),
+                        true
                     );
 
                     if !renv.failed {
+                        // eprintln!("Maybe {:?}", b);
                         addplustoenv(a, b, &mut env);
                         addexplustoenv(b, pluses, &mut env);
                         env.add(renv);
@@ -235,7 +242,7 @@ impl<'a, 'b> Looper<'a> {
                     //Should I add plusses here?
                     loop {
                         
-                        let penv = self.matchnodes(&vec![wild_tail], &vec![b], env.clone());
+                        let penv = self.matchnodes(&vec![wild_tail], &vec![b], env.clone(), true);
 
                         if !penv.failed {
                             env = penv;
@@ -500,13 +507,13 @@ impl<'a, 'b> Looper<'a> {
 
             for prevdisj in &disjs[0..din] {
                 let penv =
-                    self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone());
+                    self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone(), false);
                 if !penv.failed {
                     continue 'outer;
                 }
             }
 
-            let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv);
+            let env = self.matchnodes(&disj.iter().collect_vec(), node2, inheritedenv, false);
             matched = matched || !env.failed;
             if !env.failed {
                 environments.push(env);

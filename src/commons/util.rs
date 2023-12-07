@@ -50,6 +50,12 @@ macro_rules! debugcocci {
             log::debug!("{}", format!($fmt, $($arg),*));
         }
     };
+
+    ($closure:tt) => {
+        if log::log_enabled!(log::Level::Debug) {
+            $closure()
+        }
+    }
 }
 
 #[macro_export]
