@@ -11,6 +11,7 @@ use crate::{
 use regex::Regex;
 
 type Tag = SyntaxKind;
+static PUNCTUATIONS: [char; 13] = [',', '.', '!', ':', ';', '?', '=', '(', ')', '[', ']', '{', '}'];
 
 #[macro_export]
 macro_rules! fail {
@@ -419,8 +420,7 @@ pub fn debug_spaces(node: &mut Rnode) {
 }
 
 pub fn remexspaces(mut s: String) -> String {
-    let punctuations = vec![',', '.', '!', ':', ';', '?', '=', '(', ')', '[', ']', '{', '}'];
-    for punctuation in punctuations {
+    for punctuation in PUNCTUATIONS {
         let old = format!(" *\\{} *", punctuation);
         let new = format!("{}", punctuation);
         let re = Regex::new(&old).unwrap();

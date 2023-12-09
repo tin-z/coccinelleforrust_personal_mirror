@@ -8,9 +8,9 @@ use ra_parser::SyntaxKind;
 use regex::Regex;
 
 use crate::{
-    commons::util::{getnrfrompt, getnrfrompt_r, get_pluses_back, get_pluses_front},
+    commons::util::{get_pluses_back, get_pluses_front, getnrfrompt, getnrfrompt_r},
     debugcocci, fail,
-    parsing_cocci::ast0::{Mcodekind, Snode, Pluses},
+    parsing_cocci::ast0::{Mcodekind, Pluses, Snode},
     parsing_cocci::ast0::{MetaVar, MetavarName},
     parsing_rs::ast_rs::Rnode,
 };
@@ -157,7 +157,7 @@ impl<'a, 'b> Looper<'a> {
         nodevec1: &Vec<&Snode>,
         nodevec2: &Vec<&'a Rnode>,
         mut env: Environment,
-        strict: bool
+        strict: bool,
     ) -> Environment {
         let mut nodevec1 = nodevec1.iter();
         let mut nodevec2 = nodevec2.iter().peekable();
@@ -206,7 +206,6 @@ impl<'a, 'b> Looper<'a> {
                 }
             }
 
-
             //At this point in execution, there are two possiblities
             //Either akind == bkind or a is a metavar or
             //(akind, bkind) is present in EXCEPRIONAL_MATCHES
@@ -221,7 +220,7 @@ impl<'a, 'b> Looper<'a> {
                         &a.children.iter().collect_vec(),
                         &b.children.iter().collect_vec(),
                         env.clonebindings(),
-                        true
+                        true,
                     );
 
                     if !renv.failed {
@@ -241,7 +240,6 @@ impl<'a, 'b> Looper<'a> {
 
                     //Should I add plusses here?
                     loop {
-                        
                         let penv = self.matchnodes(&vec![wild_tail], &vec![b], env.clone(), true);
 
                         if !penv.failed {
@@ -322,12 +320,16 @@ impl<'a, 'b> Looper<'a> {
         }
     }
 
-    fn exceptional_workon(&self, node1: &'b Snode, node2: &'a Rnode) -> (&'b Snode, &'a Rnode, Pluses) {
+    fn exceptional_workon(
+        &self,
+        node1: &'b Snode,
+        node2: &'a Rnode,
+    ) -> (&'b Snode, &'a Rnode, Pluses) {
         //TO NOTE
         //In some cases of the exceptionsal workon tokens
         //may be ommited which have pluses attached to them
         //So for each branch, make sure that the pluses are
-        //dealt with 
+        //dealt with
         match (node1.kind(), node2.kind()) {
             (Tag::PATH_TYPE, Tag::PATH_SEGMENT) => {
                 //If a type is being compared then
@@ -340,15 +342,15 @@ impl<'a, 'b> Looper<'a> {
                 //those pluses will be added in the normal operation
                 let pluses_to_rem = (get_pluses_front(name_ref1), get_pluses_back(name_ref1));
                 let mut pluses = (get_pluses_front(node1), get_pluses_back(node1));
-                pluses.0.retain(|element| !pluses_to_rem.0.contains(element));//probably not required
-                pluses.1.retain(|element| !pluses_to_rem.1.contains(element));//probably not required
-                                                         //as there should be only one plus in case of a type
-                //Since all the pluses must be pathtypes getnrfrompt can be run on them
+                pluses.0.retain(|element| !pluses_to_rem.0.contains(element)); //probably not required
+                pluses.1.retain(|element| !pluses_to_rem.1.contains(element)); //probably not required
+                                                                               //as there should be only one plus in case of a type
+                                                                               //Since all the pluses must be pathtypes getnrfrompt can be run on them
                 if pluses.1.len() > 0 {
-                    pluses.1[0] = getnrfrompt(&pluses.1[0]).clone(); 
+                    pluses.1[0] = getnrfrompt(&pluses.1[0]).clone();
                 }
                 if pluses.0.len() > 0 {
-                    pluses.0[0] = getnrfrompt(&pluses.0[0]).clone(); 
+                    pluses.0[0] = getnrfrompt(&pluses.0[0]).clone();
                 }
 
                 let name_ref2 = match &node2.children.iter().map(|x| x.kind()).collect_vec()[..] {
@@ -506,8 +508,12 @@ impl<'a, 'b> Looper<'a> {
             //(a | b) is converted into (a | (not a) and b)
 
             for prevdisj in &disjs[0..din] {
-                let penv =
-                    self.matchnodes(&prevdisj.iter().collect_vec(), node2, inheritedenv.clone(), false);
+                let penv = self.matchnodes(
+                    &prevdisj.iter().collect_vec(),
+                    node2,
+                    inheritedenv.clone(),
+                    false,
+                );
                 if !penv.failed {
                     continue 'outer;
                 }

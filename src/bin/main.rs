@@ -122,7 +122,6 @@ fn getformattedfile(
     //VERY IMPORTANT :-
     //CHECK TO REMOVE THIS FILE FOR ALL ERROR CASES
     transformedcode.writetotmpnamedfile(&randfile);
-    fs::write("/tmp/tmp_CFR_COCCI.rs", transformedcode.getstring()).expect("Failed to write to tmp");
     debugcocci!((|| {
         fs::write("/tmp/tmp_CFR_COCCI.rs", transformedcode.getunformatted()).expect("Failed to write to tmp");
     }));
