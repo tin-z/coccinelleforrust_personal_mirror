@@ -38,6 +38,9 @@ pub struct CoccinelleForRust {
     pub suppress_formatting: bool,
 
     #[arg(long)]
+    pub show_fmt_errors: bool,
+
+    #[arg(short, long)]
     pub no_parallel: bool,
 
     /// strategy for identifying files that may be matched by the semantic patch

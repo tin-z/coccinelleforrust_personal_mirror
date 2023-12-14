@@ -8,7 +8,10 @@ use crate::{
     parsing_rs::ast_rs::Rnode,
 };
 
+use regex::Regex;
+
 type Tag = SyntaxKind;
+static PUNCTUATIONS: [char; 13] = [',', '.', '!', ':', ';', '?', '=', '(', ')', '[', ']', '{', '}'];
 
 #[macro_export]
 macro_rules! fail {
@@ -48,6 +51,12 @@ macro_rules! debugcocci {
             log::debug!("{}", format!($fmt, $($arg),*));
         }
     };
+
+    ($closure:tt) => {
+        if log::log_enabled!(log::Level::Debug) {
+            $closure()
+        }
+    }
 }
 
 #[macro_export]
@@ -284,6 +293,48 @@ pub fn getnrfrompt_r<'a>(node1: &'a Rnode) -> &'a Rnode {
     return name_ref1;
 }
 
+pub fn get_pluses_back(node: &Snode) -> Vec<Snode> {
+    let len = node.children.len();
+    if len == 0 || !node.wrapper.metavar.isnotmeta() {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                return a.clone();
+            }
+            Mcodekind::Context(_, a) => {
+                eprintln!("{:?}", a);
+                return a.clone();
+            }
+            _ => {
+                eprintln!("does come?");
+                return vec![];
+            }
+        }
+    } else {
+        //println!("deeper to {:?}", node.children[len - 1].kind());
+        return get_pluses_back(&node.children[len - 1]);
+    }
+}
+
+pub fn get_pluses_front(node: &Snode) -> Vec<Snode> {
+    let len = node.children.len();
+    if len == 0 || !node.wrapper.metavar.isnotmeta() {
+        match &node.wrapper.mcodekind {
+            Mcodekind::Minus(a) => {
+                return a.clone();
+            }
+            Mcodekind::Context(a, _) => {
+                return a.clone();
+            }
+            _ => {
+                return vec![];
+            }
+        }
+    } else {
+        //println!("deeper to {:?}", node.children[len - 1].kind());
+        return get_pluses_front(&node.children[0]);
+    }
+}
+
 pub fn attach_pluses_front(node: &mut Snode, plus: Vec<Snode>) {
     if node.children.len() == 0 || !node.wrapper.metavar.isnotmeta() {
         //attach to a token or a metavar
@@ -366,4 +417,29 @@ pub fn debug_spaces(node: &mut Rnode) {
         println!("{:?} => {:?}", node.getstring(), node.wrapper.wspaces);
         true
     });
+}
+
+pub fn remexspaces(mut s: String) -> String {
+    for punctuation in PUNCTUATIONS {
+        let old = format!(" *\\{} *", punctuation);
+        let new = format!("{}", punctuation);
+        let re = Regex::new(&old).unwrap();
+        s = re.replace_all(&s, new.as_str()).to_string();
+    }
+
+    return s;
+}
+
+pub fn is_punc(s: &str) -> bool {
+    if s.len() > 1 {
+        return false;
+    }
+    match s.chars().into_iter().next().unwrap() {
+        ',' | '.' | '!' | ':' | ';' | '?' | '=' | '(' | ')' | '[' | ']' => {
+            true
+        }
+        _ => {
+            false
+        }
+    }
 }

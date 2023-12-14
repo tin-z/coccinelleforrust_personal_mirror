@@ -26,6 +26,7 @@ clap = { version = "4.3.10", features = ["derive"] }
 log = "0.4.19"
 env_logger = "0.10.0"
 rayon = "1.7"
+tempfile = "3.8.1"
 
 [dependencies.lsp-types] 
 version = "=0.94.0" 

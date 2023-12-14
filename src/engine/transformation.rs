@@ -12,6 +12,7 @@ use crate::{
         info::ParseError,
         util::{getstmtlist, workrnode},
     },
+    debugcocci,
     engine::cocci_vs_rs::{visitrnode, MetavarBinding},
     parsing_cocci::{
         ast0::{MetaVar, MetavarName, Snode},
@@ -20,7 +21,7 @@ use crate::{
     parsing_rs::{
         ast_rs::{Rnode, Wrap},
         parse_rs::processrs,
-    }, debugcocci,
+    },
 };
 
 use super::{
@@ -36,18 +37,24 @@ fn copytornodewithenv(snode: Snode, env: &Environment) -> Rnode {
     if !snode.wrapper.metavar.isnotmeta() {
         if let Some(mvar) = env.bindings.iter().find(|x| x.metavarinfo.varname == snode.getstring())
         {
-            return (*mvar.rnode).clone();
+            let mut rnode = (*mvar.rnode).clone();
+            let wsf = format!(" {}", rnode.wrapper.wspaces.0);
+            rnode.wrapper.wspaces.0 = wsf;
+            return rnode;
         } else {
             panic!("Metavariable should already be present in environment.");
         }
     }
     let kind = snode.kind();
-    let mut rnode = Rnode::new(
-        Wrap::dummy(snode.children.len()),
-        snode.asttoken,
-        kind,
-        vec![],
-    );
+
+    let wdummy = Wrap::dummy(snode.children.len());
+    // if snode.children.len() == 0 {
+    // let dat = snode.getstring().chars().into_iter().collect_vec();
+    // if dat.len() == 1 && dat[0].is_ascii_punctuation() {
+    // wdummy.wspaces.0 = String::new();
+    // }
+    // }
+    let mut rnode = Rnode::new(wdummy, snode.asttoken, kind, vec![]);
     for child in snode.children {
         rnode.children.push(copytornodewithenv(child, env));
     }
@@ -151,8 +158,7 @@ pub fn getfiltered(
     return toret;
 }
 
-pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseError>{
-
+pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseError> {
     let mut transformedcode = rnode;
 
     let mut savedbindings: Vec<Vec<MetavarBinding>> = vec![vec![]];
@@ -204,7 +210,6 @@ pub fn transformrnode(rules: &Vec<Rule>, rnode: Rnode) -> Result<Rnode, ParseErr
 }
 
 pub fn transformfile(rules: &Vec<Rule>, rustcode: String) -> Result<Rnode, ParseError> {
-
     let parsedrnode = processrs(&rustcode);
     let transformedcode: Rnode = match parsedrnode {
         Ok(node) => node,

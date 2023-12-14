@@ -471,7 +471,7 @@ fn build_or<'a>(x: Combine<'a>, y: &Combine<'a>) -> Combine<'a> {
 
 fn do_get_constants<'a>(node: &'a Snode, kwds: bool, env: &HashMap<&str, Combine<'a>>) -> Combine<'a> {
     if kwds && node.kind().is_keyword() {
-        Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+        Elem(node.totokenrec())
     }
     else if node.kind() == Tag::PATH_EXPR {
         if node.wrapper.metavar != MetaVar::NoMeta {
@@ -483,7 +483,7 @@ fn do_get_constants<'a>(node: &'a Snode, kwds: bool, env: &HashMap<&str, Combine
             }
         }
         else if !kwds {
-            Elem(node.asttoken.as_ref().unwrap().as_token().unwrap().text())
+            Elem(node.totokenrec())
         }
         else {
             True
@@ -584,7 +584,7 @@ pub enum Scanner {
    CocciGrep,
 }
 
-fn get_files(dir: String) -> Vec<String> {
+fn get_files(dir: &String) -> Vec<String> {
     let msg = format!("{} unknown or not a directory", dir);
     let output = Command::new("find").arg(dir).args(["-type", "f", "-name", "\"*rs\""])
         .stdout(Stdio::piped())
@@ -634,7 +634,7 @@ fn call_git_grep(dir: &String, query: String) -> HashSet<String> {
     }
 }
 
-pub fn do_get_files<'a>(cfr: &CoccinelleForRust, dir: String, rules: &'a Vec<Rule>) -> Vec<String> {
+pub fn do_get_files<'a>(cfr: &CoccinelleForRust, dir: &String, rules: &'a Vec<Rule>) -> Vec<String> {
     if cfr.worth_trying == Scanner::NoScanner {
         get_files(dir)
     }
